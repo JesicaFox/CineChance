@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -14,6 +15,7 @@ export default function Home() {
   const [authPassword, setAuthPassword] = useState("");
   const [showAuthForm, setShowAuthForm] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const router = useRouter();
 
   const signInWithEmail = async () => {
     setErrorMessage(null);
@@ -22,6 +24,7 @@ export default function Home() {
       setErrorMessage((res as any).error);
     } else {
       setShowAuthForm(false);
+      router.push('/');
     }
   };
 
@@ -90,8 +93,20 @@ export default function Home() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-lg border-b border-gray-800">
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            КиноТрекер
+            CineChance
           </h1>
+          <div className="mx-6 flex-1">
+            <div className="flex w-full max-w-2xl mx-auto">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && search()}
+                placeholder="Поиск фильмов и сериалов..."
+                className="flex-1 px-5 py-3.5 bg-gray-900/80 border border-gray-700 rounded-xl text-base outline-none focus:border-blue-500 transition"
+              />
+            </div>
+          </div>
           <div>
             {session?.user ? (
               <div className="flex items-center gap-4">
@@ -151,26 +166,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Поиск и карточки */}
       <main className="pt-24 pb-20 px-6 max-w-7xl mx-auto">
-          <div className="flex justify-center mb-12">
-          <div className="flex w-full max-w-2xl gap-3" suppressHydrationWarning>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && search()}
-              placeholder="Поиск фильмов и сериалов..."
-              className="flex-1 px-5 py-3.5 bg-gray-900/80 border border-gray-700 rounded-xl text-base outline-none focus:border-blue-500 transition"
-            />
-            <button
-              onClick={search}
-              className="px-8 py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-medium hover:opacity-90 transition"
-            >
-              Найти
-            </button>
-          </div>
-        </div>
 
         {errorMessage && (
           <div className="max-w-2xl mx-auto mt-4 text-center text-sm text-red-400">

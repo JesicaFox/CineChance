@@ -6,7 +6,8 @@ if (!process.env.DATABASE_URL) {
   console.error('signup route: DATABASE_URL is not set')
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+const pool = new Pool({ connectionString });
 
 export async function POST(request: Request) {
   let body: any = null;

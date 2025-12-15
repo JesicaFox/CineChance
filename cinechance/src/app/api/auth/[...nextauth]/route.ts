@@ -3,7 +3,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+const pool = new Pool({ connectionString });
 
 const handler = NextAuth({
   providers: [
