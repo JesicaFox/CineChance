@@ -1,6 +1,8 @@
 // src/app/components/HorizontalMovieGridServer.tsx
 import { fetchTrendingMovies } from '@/lib/tmdb';
 import MovieCard from './MovieCard';
+import './ScrollContainer.css';
+import ScrollContainer from './ScrollContainer';
 
 export default async function HorizontalMovieGridServer() {
   try {
@@ -27,20 +29,14 @@ export default async function HorizontalMovieGridServer() {
       <div className="w-full">
         <h1 className="text-3xl sm:text-4xl font-bold mb-6 mt-4">Популярное на этой неделе</h1>
         
-        <div className="relative">
-          {/* Горизонтальный скролл контейнер */}
-          <div className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar">
-            {displayMovies.map((movie) => (
-              <div key={movie.id} className="flex-shrink-0 w-48">
-                <MovieCard movie={movie} />
-              </div>
-            ))}
-          </div>
-          
-          {/* Градиентные индикаторы для скролла */}
-          <div className="absolute left-0 top-0 bottom-4 w-8 bg-gradient-to-r from-gray-950 to-transparent pointer-events-none"></div>
-          <div className="absolute right-0 top-0 bottom-4 w-8 bg-gradient-to-l from-gray-950 to-transparent pointer-events-none"></div>
-        </div>
+        {/* Используем компонент ScrollContainer */}
+        <ScrollContainer>
+          {displayMovies.map((movie) => (
+            <div key={movie.id} className="flex-shrink-0 w-48">
+              <MovieCard movie={movie} />
+            </div>
+          ))}
+        </ScrollContainer>
       </div>
     );
   } catch (error) {

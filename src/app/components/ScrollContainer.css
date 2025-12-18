@@ -1,0 +1,113 @@
+/* src/app/components/ScrollContainer.css */
+.scroll-container {
+  position: relative;
+  width: 100%;
+}
+
+.scroll-content {
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  
+  /* Скрываем стандартный скроллбар для красоты */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.scroll-content::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Показываем скроллбар только на десктопе */
+@media (min-width: 1024px) {
+  .scroll-content {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #4B5563 #1F2937; /* Firefox */
+  }
+  
+  .scroll-content::-webkit-scrollbar {
+    display: block; /* Chrome/Safari */
+    height: 8px;
+  }
+  
+  .scroll-content::-webkit-scrollbar-track {
+    background: #1F2937;
+    border-radius: 4px;
+  }
+  
+  .scroll-content::-webkit-scrollbar-thumb {
+    background-color: #4B5563;
+    border-radius: 4px;
+  }
+  
+  .scroll-content::-webkit-scrollbar-thumb:hover {
+    background-color: #6B7280;
+  }
+}
+
+.scroll-gradient-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 1rem;
+  width: 4rem;
+  background: linear-gradient(90deg, rgba(17, 24, 39, 0.9) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scroll-gradient-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 1rem;
+  width: 4rem;
+  background: linear-gradient(270deg, rgba(17, 24, 39, 0.9) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Кнопки навигации для десктопа */
+.scroll-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid #4B5563;
+  border-radius: 50%;
+  color: white;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s;
+}
+
+.scroll-button:hover {
+  background: rgba(55, 65, 81, 0.9);
+  border-color: #6B7280;
+}
+
+.scroll-button-left {
+  left: 0.5rem;
+}
+
+.scroll-button-right {
+  right: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+  .scroll-button {
+    display: flex;
+  }
+}
+
+.scroll-button.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
