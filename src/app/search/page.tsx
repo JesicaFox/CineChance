@@ -13,10 +13,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const movies = query ? await searchMovies(query) : [];
 
   return (
-    <div className="min-h-screen bg-gray-950 py-3 sm:py-4">
-      <div className="container mx-auto px-2 sm:px-3">
-        {/* Минималистичный заголовок */}
-        <div className="mb-3 sm:mb-4">
+    <div className="min-h-screen bg-gray-950 py-4">
+      <div className="container mx-auto px-3 sm:px-4">
+        {/* Компактный заголовок */}
+        <div className="mb-4 sm:mb-6">
           <h1 className="text-base sm:text-lg font-medium text-white inline">
             {query ? `Поиск: "${query}"` : 'Поиск фильмов'}
           </h1>
@@ -35,12 +35,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </Link>
           </div>
         ) : movies.length > 0 ? (
-          // Простой и надежный grid
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          // Адаптивная сетка с надежными отступами
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
             {movies.map((movie) => (
               <div 
                 key={movie.id} 
-                className="p-1 sm:p-1.5 md:p-2" // Отступы внутри каждого элемента
+                className="w-full min-w-0 p-1"
               >
                 <MovieCard movie={movie} />
               </div>
