@@ -27,7 +27,11 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }, []);
 
   return (
-    <SessionProvider>
+    <SessionProvider
+      session={undefined} // В NextAuth 4 нужно передать undefined
+      refetchInterval={0}
+      refetchOnWindowFocus={false}
+    >
       <div className="flex min-h-screen bg-gray-950">
         <Sidebar isOpen={isSidebarOpen} toggle={toggleSidebar} />
         

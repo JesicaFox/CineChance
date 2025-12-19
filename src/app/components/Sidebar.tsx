@@ -29,6 +29,22 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
     if (window.innerWidth < 1024) toggle();
   };
 
+  // Базовые пункты меню для всех пользователей
+  const baseMenuItems = [
+    ['/', 'Главная'],
+  ];
+
+  // Дополнительные пункты меню только для авторизованных пользователей
+  const authMenuItems = [
+    ['/my-movies', 'Мои фильмы'],
+    ['/recommendations', 'Что посмотреть'],
+  ];
+
+  // Объединяем меню в зависимости от статуса авторизации
+  const menuItems = session?.user 
+    ? [...baseMenuItems, ...authMenuItems]
+    : baseMenuItems;
+
   return (
     <>
       {isOpen && (
@@ -62,12 +78,12 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
           ) : session?.user ? (
             <div className="flex flex-col items-center">
               <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3">
-                {session.user.email?.charAt(0).toUpperCase() || 'U'}
+                {session.user.name?.charAt(0) || session.user.email?.charAt(0).toUpperCase() || 'U'}
               </div>
               <h3 className="text-white font-medium text-center">
                 {session.user.name || session.user.email}
               </h3>
-              <p className="text-gray-400 text-sm mt-1">Аккаунт</p>
+              <p className="text-gray-400 text-sm mt-1">Сессия: 30 дней</p>
             </div>
           ) : (
             <div className="text-center">
@@ -82,11 +98,7 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
         {/* Навигация */}
         <nav className="flex-1 px-6 py-4 overflow-y-auto">
           <ul className="space-y-2">
-            {[
-              ['/', 'Главная'],
-              ['/lists', 'Мои списки'],
-              ['/history', 'История просмотров'],
-            ].map(([href, label]) => (
+            {menuItems.map(([href, label]) => (
               <li key={href}>
                 <Link
                   href={href}
@@ -129,6 +141,9 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
               >
                 Войти
               </button>
+              <div className="mt-2 text-center">
+                <span className="text-gray-500 text-xs">Запомнить на 30 дней</span>
+              </div>
             </>
           )}
         </div>

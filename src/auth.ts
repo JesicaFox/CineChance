@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
@@ -27,11 +27,17 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Убрали adapter: PrismaAdapter(prisma) — не нужен для Credentials!
+// Секретный ключ для JWT
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET;
+if (!NEXTAUTH_SECRET) {
+  throw new Error("NEXTAUTH_SECRET is not set in environment variables");
+}
 
+// Конфигурация NextAuth 4
+export const authOptions: NextAuthOptions = {
   session: {
-    strategy: "jwt", // JWT идеально для Credentials
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 дней
   },
 
   providers: [
@@ -63,10 +69,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        if (!user.email) {
+          return null;
+        }
+
         return {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name ?? null,
         };
       },
     }),
@@ -76,20 +86,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
+
     async session({ session, token }) {
-      if (token.id) {
+      if (token) {
         session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string | null | undefined;
       }
       return session;
     },
   },
 
   pages: {
-    signIn: "/", // модалка на главной
+    signIn: "/",
+    error: "/auth/error",
   },
 
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 30 * 24 * 60 * 60, // 30 дней
+      },
+    },
+  },
+
+  secret: NEXTAUTH_SECRET,
+  
   debug: process.env.NODE_ENV === "development",
-});
+};

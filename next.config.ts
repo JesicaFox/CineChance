@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
-    unoptimized: true, // <-- добавь эту строку (отключает оптимизацию Next.js, чтобы постеры грузились напрямую от TMDB без задержек)
+    unoptimized: true, // Отключает оптимизацию Next.js для TMDB изображений
   },
 };
 
