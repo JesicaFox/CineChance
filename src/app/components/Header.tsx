@@ -13,11 +13,10 @@ export default function Header({ toggleSidebar, isSidebarOpen }: HeaderProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = () => {
+    
     if (searchQuery.trim()) {
-      console.log('Поиск:', searchQuery);
-      // Здесь будет логика поиска и переход на страницу результатов
-      // Можно добавить: router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
-      
+      // Переходим на страницу поиска с параметром q
+      window.location.href = `/search?q=${encodeURIComponent(searchQuery.trim())}`;
       // Сворачиваем поиск после выполнения (на мобильных)
       if (window.innerWidth < 768) {
         setIsSearchExpanded(false);

@@ -74,3 +74,31 @@ export const fetchPopularMovies = async (page: number = 1): Promise<Movie[]> => 
     return [];
   }
 };
+
+export const searchMovies = async (query: string, page: number = 1): Promise<Movie[]> => {
+  if (!query.trim()) return [];
+
+  try {
+    const url = new URL(`${BASE_URL}/search/movie`);
+    url.searchParams.append('api_key', TMDB_API_KEY || '');
+    url.searchParams.append('query', query.trim());
+    url.searchParams.append('language', 'ru-RU');
+    url.searchParams.append('page', page.toString());
+
+    const response = await fetch(url.toString(), {
+      headers: { 'accept': 'application/json' },
+      next: { revalidate: 3600 }, // кэш на час
+    });
+
+    if (!response.ok) {
+      console.error('Ошибка TMDB search:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error('Ошибка при поиске фильмов:', error);
+    return [];
+  }
+};
