@@ -35,13 +35,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </Link>
           </div>
         ) : movies.length > 0 ? (
-          // Используем CSS Grid с явными отступами
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+          // Простой и надежный grid
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {movies.map((movie) => (
-              <div key={movie.id} className="w-full min-w-0">
-                <div className="p-1 sm:p-2"> {/* Добавляем внутренний отступ */}
-                  <MovieCard movie={movie} />
-                </div>
+              <div 
+                key={movie.id} 
+                className="p-1 sm:p-1.5 md:p-2" // Отступы внутри каждого элемента
+              >
+                <MovieCard movie={movie} />
               </div>
             ))}
           </div>
