@@ -4,10 +4,18 @@ import MovieCard from './MovieCard';
 import './ScrollContainer.css';
 import ScrollContainer from './ScrollContainer';
 
-export default async function HorizontalMovieGridServer() {
+// Интерфейс для входящих пропсов
+interface Props {
+  blacklistedIds?: Set<number>;
+}
+
+export default async function HorizontalMovieGridServer({ blacklistedIds = new Set() }: Props) {
   try {
     const movies = await fetchTrendingMovies('week');
-    const displayMovies = movies.slice(0, 20);
+    
+    // Фильтруем список: убираем фильмы, ID которых есть в черном списке
+    const filteredMovies = movies.filter(movie => !blacklistedIds.has(movie.id));
+    const displayMovies = filteredMovies.slice(0, 20);
 
     if (displayMovies.length === 0) {
       return (

@@ -20,6 +20,7 @@ model User {
   accounts Account[]
   sessions Session[]
   watchList WatchList[]
+  blacklists Blacklist[]
 }
 
 model Account {
@@ -88,4 +89,18 @@ model MovieStatus {
   watchLists WatchList[]
 
   @@map("MovieStatus") // Явно указываем имя таблицы в БД
+}
+
+model Blacklist {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  tmdbId    Int
+  mediaType String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tmdbId, mediaType]) // Фильм можно заблокировать только один раз
+  @@index([userId])
+  @@index([tmdbId])
 }

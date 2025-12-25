@@ -1,0 +1,102 @@
+// src/app/api/blacklist/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from "@/auth";
+import { prisma } from "@/lib/prisma";
+
+// GET: Проверить, заблокирован ли фильм (опционально, можно использовать для карточки)
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ isBlacklisted: false }, { status: 200 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const tmdbId = parseInt(searchParams.get('tmdbId') || '0');
+    const mediaType = searchParams.get('mediaType');
+
+    if (!tmdbId || !mediaType) {
+      return NextResponse.json({ isBlacklisted: false });
+    }
+
+    const record = await prisma.blacklist.findUnique({
+      where: {
+        userId_tmdbId_mediaType: {
+          userId: session.user.id,
+          tmdbId,
+          mediaType,
+        },
+      },
+    });
+
+    return NextResponse.json({ isBlacklisted: !!record });
+  } catch (error) {
+    console.error('Blacklist GET error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// POST: Добавить в черный список
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { tmdbId, mediaType } = body;
+
+    if (!tmdbId || !mediaType) {
+      return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+    }
+
+    await prisma.blacklist.create({
+      data: {
+        userId: session.user.id,
+        tmdbId,
+        mediaType,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    // Игнорируем ошибку дубликата (Prisma P2002), если фильм уже в списке
+    if ((error as any).code === 'P2002') {
+       return NextResponse.json({ success: true });
+    }
+    console.error('Blacklist POST error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// DELETE: Удалить из черного списка
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { tmdbId, mediaType } = body;
+
+    if (!tmdbId || !mediaType) {
+      return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+    }
+
+    await prisma.blacklist.deleteMany({
+      where: {
+        userId: session.user.id,
+        tmdbId,
+        mediaType,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Blacklist DELETE error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

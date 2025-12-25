@@ -138,8 +138,8 @@ export const searchMedia = async (query: string, page: number = 1): Promise<Medi
       first_air_date: item.first_air_date || item.release_date,
       overview: item.overview,
     }));
-    
-    return media.slice(0, 30); // Ограничиваем 30 результатами
+
+    return media.slice(0, 100); // Ограничиваем 100 результатами
   } catch (error) {
     console.error('Ошибка при поиске:', error);
     return [];
