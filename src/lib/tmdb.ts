@@ -6,6 +6,7 @@ export interface Media {
   name?: string;
   poster_path: string | null;
   vote_average: number;
+  vote_count: number;
   release_date?: string;
   first_air_date?: string;
   overview: string;
@@ -48,6 +49,7 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
       name: item.title,
       poster_path: item.poster_path,
       vote_average: item.vote_average,
+      vote_count: item.vote_count,
       release_date: item.release_date,
       first_air_date: item.release_date,
       overview: item.overview,
@@ -87,6 +89,7 @@ export const fetchPopularMovies = async (page: number = 1): Promise<Media[]> => 
       name: item.title,
       poster_path: item.poster_path,
       vote_average: item.vote_average,
+      vote_count: item.vote_count,
       release_date: item.release_date,
       first_air_date: item.release_date,
       overview: item.overview,
@@ -134,6 +137,7 @@ export const searchMedia = async (query: string, page: number = 1): Promise<Medi
       name: item.name || item.title || 'Без названия',
       poster_path: item.poster_path,
       vote_average: item.vote_average,
+      vote_count: item.vote_count,
       release_date: item.release_date || item.first_air_date,
       first_air_date: item.first_air_date || item.release_date,
       overview: item.overview,

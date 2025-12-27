@@ -1,11 +1,12 @@
 // src/app/components/MovieCard.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { Media } from '@/lib/tmdb';
 import RatingModal from './RatingModal';
 import RatingInfoModal from './RatingInfoModal';
+import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 
 type MediaStatus = 'want' | 'watched' | 'dropped' | null;
 
@@ -27,6 +28,8 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isRatingInfoOpen, setIsRatingInfoOpen] = useState(false);
   const [ratingInfoPosition, setRatingInfoPosition] = useState<{ top: number; left: number } | null>(null);
+  const [cineChanceRating, setCineChanceRating] = useState<number | null>(null);
+  const [cineChanceVoteCount, setCineChanceVoteCount] = useState(0);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -42,8 +45,16 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   const title = movie.title || movie.name || 'Без названия';
   const date = movie.release_date || movie.first_air_date;
   const year = date ? date.split('-')[0] : '—';
-  
-  const cineChanceRating = movie.vote_average ? movie.vote_average + 0.5 : null;
+
+  // Вычисляем взвешенный рейтинг Cine-chance
+  const combinedRating = useMemo(() => {
+    return calculateCineChanceScore({
+      tmdbRating: movie.vote_average || 0,
+      tmdbVotes: movie.vote_count || 0,
+      cineChanceRating,
+      cineChanceVotes: cineChanceVoteCount,
+    });
+  }, [movie.vote_average, movie.vote_count, cineChanceRating, cineChanceVoteCount]);
 
   useEffect(() => {
     if (restoreView) {
@@ -80,6 +91,24 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, [movie.id, movie.media_type, restoreView, initialIsBlacklisted, initialStatus]);
+
+  // Получаем средний рейтинг Cine-chance
+  useEffect(() => {
+    const fetchAverageRating = async () => {
+      try {
+        const res = await fetch(`/api/cine-chance-rating?tmdbId=${movie.id}&mediaType=${movie.media_type}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCineChanceRating(data.averageRating);
+          setCineChanceVoteCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching average rating:', error);
+      }
+    };
+    
+    fetchAverageRating();
+  }, [movie.id, movie.media_type]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -371,8 +400,9 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   
   const handlePosterMouseLeave = (e: React.MouseEvent) => { 
     if (!isMobile) {
-      const relatedTarget = e.relatedTarget as HTMLElement;
-      if (overlayRef.current && overlayRef.current.contains(relatedTarget)) {
+      const relatedTarget = e.relatedTarget;
+      // Проверяем, что relatedTarget существует и является Node
+      if (relatedTarget && overlayRef.current && overlayRef.current.contains(relatedTarget as Node)) {
         return;
       }
       setIsHovered(false);
@@ -382,8 +412,9 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
 
   const handleOverlayMouseLeave = (e: React.MouseEvent) => {
     if (!isMobile) {
-      const relatedTarget = e.relatedTarget as HTMLElement;
-      if (posterRef.current && posterRef.current.contains(relatedTarget)) {
+      const relatedTarget = e.relatedTarget;
+      // Проверяем, что relatedTarget существует и является Node
+      if (relatedTarget && posterRef.current && posterRef.current.contains(relatedTarget as Node)) {
         return;
       }
       setIsHovered(false);
@@ -424,7 +455,9 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
         onMouseEnter={handleRatingPopupMouseEnter}
         onMouseLeave={handleRatingPopupMouseLeave}
         tmdbRating={movie.vote_average || 0}
+        tmdbVoteCount={movie.vote_count || 0}
         cineChanceRating={cineChanceRating}
+        cineChanceVoteCount={cineChanceVoteCount}
         position={ratingInfoPosition}
         isMobile={isMobile}
       />
@@ -557,7 +590,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
                   />
               </div>
               <span className="text-gray-200 font-medium">
-                {movie.vote_average?.toFixed(1) || '0.0'}
+                {combinedRating.toFixed(1)}
               </span>
             </div>
             <div className="text-xs text-gray-400">
