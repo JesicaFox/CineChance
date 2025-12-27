@@ -9,7 +9,9 @@ interface RatingInfoModalProps {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   tmdbRating: number;
+  tmdbVoteCount: number;
   cineChanceRating: number | null;
+  cineChanceVoteCount: number;
   position: { top: number; left: number } | null;
   isMobile: boolean;
 }
@@ -19,8 +21,10 @@ export default function RatingInfoModal({
   onClose, 
   onMouseEnter,
   onMouseLeave,
-  tmdbRating, 
+  tmdbRating,
+  tmdbVoteCount, 
   cineChanceRating,
+  cineChanceVoteCount,
   position,
   isMobile 
 }: RatingInfoModalProps) {
@@ -88,27 +92,34 @@ export default function RatingInfoModal({
       >
         {/* TMDB рейтинг */}
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 relative">
-              <img 
-                src="/images/logo_mini_lgt_pls_tmdb.png" 
-                alt="TMDB" 
-                className="object-contain w-full h-full"
-              />
-            </div>
-            <span className="text-xs text-gray-400">TMDB</span>
+          <div className="w-5 h-5 relative">
+            <img 
+              src="/images/TMDB.png" 
+              alt="TMDB" 
+              className="object-contain w-full h-full"
+            />
           </div>
-          <span className="text-sm font-bold text-white">{tmdbRating.toFixed(1)}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-bold text-white">{tmdbRating.toFixed(1)}</span>
+            <span className="text-xs text-gray-500">({tmdbVoteCount})</span>
+          </div>
         </div>
         
         {/* Cine-chance рейтинг */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400">Cine-chance</span>
+          <div className="w-5 h-5 relative">
+            <img 
+              src="/images/logo_mini_lgt.png" 
+              alt="Cine-chance" 
+              className="object-contain w-full h-full"
+            />
           </div>
-          <span className="text-sm font-bold text-white">
-            {cineChanceRating !== null ? cineChanceRating.toFixed(1) : '—'}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-bold text-white">
+              {cineChanceRating !== null ? cineChanceRating.toFixed(1) : '—'}
+            </span>
+            <span className="text-xs text-gray-500">({cineChanceVoteCount})</span>
+          </div>
         </div>
         
         {/* Стрелочка сбоку */}

@@ -24,17 +24,24 @@ export async function GET(req: Request) {
     });
 
     // Вычисляем среднее
+    // Извлекаем значения оценок
     const ratingValues = ratings
-      .map(r => r.userRating)
-      .filter((r): r is number => r !== null);
+      .map((r: { userRating: number | null }) => r.userRating)
+      .filter((r: number | null): r is number => r !== null);
 
-    const averageRating = ratingValues.length > 0 
-      ? ratingValues.reduce((sum, r) => sum + r, 0) / ratingValues.length 
+    // Фильтруем NaN и значения <= 0
+    const validRatings = ratingValues.filter((r: number) => 
+      !isNaN(r) && r > 0
+    );
+
+    // Вычисляем среднее и округляем до 1 знака после запятой
+    const averageRating = validRatings.length > 0 
+      ? Math.round((validRatings.reduce((sum: number, r: number) => sum + r, 0) / validRatings.length) * 10) / 10
       : null;
 
     return NextResponse.json({ 
       averageRating,
-      count: ratingValues.length
+      count: validRatings.length
     });
   } catch (error) {
     console.error('Cine-chance rating error:', error);
