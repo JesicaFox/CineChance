@@ -8,6 +8,19 @@ import RatingModal from './RatingModal';
 import RatingInfoModal from './RatingInfoModal';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 
+const RATING_TEXTS: Record<number, string> = {
+  1: 'Хуже некуда',
+  2: 'Ужасно',
+  3: 'Очень плохо',
+  4: 'Плохо',
+  5: 'Более-менее',
+  6: 'Нормально',
+  7: 'Хорошо',
+  8: 'Отлично',
+  9: 'Великолепно',
+  10: 'Эпик вин!',
+};
+
 type MediaStatus = 'want' | 'watched' | 'dropped' | null;
 
 interface MovieCardProps {
@@ -15,9 +28,10 @@ interface MovieCardProps {
   restoreView?: boolean;
   initialIsBlacklisted?: boolean;
   initialStatus?: MediaStatus;
+  showRatingBadge?: boolean; // Показывать плашку с оценкой
 }
 
-export default function MovieCard({ movie, restoreView = false, initialIsBlacklisted, initialStatus }: MovieCardProps) {
+export default function MovieCard({ movie, restoreView = false, initialIsBlacklisted, initialStatus, showRatingBadge = false }: MovieCardProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const [status, setStatus] = useState<MediaStatus>(initialStatus ?? null);
   const [isBlacklisted, setIsBlacklisted] = useState<boolean>(initialIsBlacklisted ?? false);
@@ -30,6 +44,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   const [ratingInfoPosition, setRatingInfoPosition] = useState<{ top: number; left: number } | null>(null);
   const [cineChanceRating, setCineChanceRating] = useState<number | null>(null);
   const [cineChanceVoteCount, setCineChanceVoteCount] = useState(0);
+  const [userRating, setUserRating] = useState<number | null>(null);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -69,6 +84,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
           if (statusRes.ok) {
             const data = await statusRes.json();
             setStatus(data.status);
+            setUserRating(data.userRating);
           }
         }
 
@@ -275,6 +291,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
         
         if (res.ok) {
           setStatus('watched');
+          setUserRating(rating);
           setIsRatingModalOpen(false);
         } else {
           alert('Ошибка сохранения');
@@ -401,8 +418,8 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   const handlePosterMouseLeave = (e: React.MouseEvent) => { 
     if (!isMobile) {
       const relatedTarget = e.relatedTarget;
-      // Проверяем, что relatedTarget существует и является Node
-      if (relatedTarget && overlayRef.current && overlayRef.current.contains(relatedTarget as Node)) {
+      // Проверяем, что relatedTarget существует, является Node и содержится в overlayRef
+      if (relatedTarget instanceof Node && overlayRef.current && overlayRef.current.contains(relatedTarget)) {
         return;
       }
       setIsHovered(false);
@@ -413,8 +430,8 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   const handleOverlayMouseLeave = (e: React.MouseEvent) => {
     if (!isMobile) {
       const relatedTarget = e.relatedTarget;
-      // Проверяем, что relatedTarget существует и является Node
-      if (relatedTarget && posterRef.current && posterRef.current.contains(relatedTarget as Node)) {
+      // Проверяем, что relatedTarget существует, является Node и содержится в posterRef
+      if (relatedTarget instanceof Node && posterRef.current && posterRef.current.contains(relatedTarget)) {
         return;
       }
       setIsHovered(false);
@@ -447,6 +464,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
         onSave={handleSaveRating}
         title={title}
         releaseDate={movie.release_date || movie.first_air_date || null}
+        userRating={userRating}
       />
 
       <RatingInfoModal
@@ -569,7 +587,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
           )}
         </div>
         
-        <div className="mt-2 px-0.5">
+        <div className="mt-2 px-0.5 pb-0.5">
           <h3 className={`text-xs sm:text-sm line-clamp-1 leading-tight ${isBlacklisted ? 'text-gray-500' : 'text-white font-medium'}`}>
             {title}
           </h3>
@@ -597,6 +615,49 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
               {year}
             </div>
           </div>
+          
+          {/* Плашка с оценкой пользователя */}
+          {showRatingBadge && status === 'watched' && (
+            <div className={`mt-0 px-2 py-1.5 rounded-b-lg text-xs font-semibold w-full text-center ${userRating ? 'bg-blue-900/80' : 'bg-gray-800/80'} flex items-center`}>
+              {userRating ? (
+                <>
+                  {/* Текст оценки - занимает все пространство кроме звезды */}
+                  <div className="flex-1 text-center">
+                    <span className="text-white font-medium">
+                      {RATING_TEXTS[userRating]}
+                    </span>
+                  </div>
+                  
+                  {/* Звезда с цифрой - фиксированная позиция справа */}
+                  <div className="relative w-8 h-8 ml-2 flex-shrink-0">
+                    <svg 
+                      width="32" 
+                      height="32" 
+                      viewBox="0 0 32 32" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="absolute inset-0 w-full h-full"
+                    >
+                      {/* 5-лучевая звезда с увеличенным внутренним радиусом и желтым контуром */}
+                      <path 
+                        d="M16 2L21 10L29 12L24 18L24 27L16 24L8 27L8 18L3 12L11 10L16 2Z" 
+                        stroke="#FFD700" 
+                        strokeWidth="1.5" 
+                        fill="none"
+                      />
+                    </svg>
+                    
+                    {/* Цифра оценки в центре звезды - опущена на 0.5px */}
+                    <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold z-10" style={{ transform: 'translateY(0.5px)' }}>
+                      {userRating}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <span className="text-gray-400 w-full">поставить оценку</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

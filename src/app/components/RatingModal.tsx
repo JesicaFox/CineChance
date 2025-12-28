@@ -9,6 +9,7 @@ interface RatingModalProps {
   onSave: (rating: number, date: string) => void;
   title: string; // Название фильма
   releaseDate: string | null; // Дата релиза фильма (для быстрой кнопки)
+  userRating?: number | null; // Текущая оценка пользователя
 }
 
 const RATING_TEXTS: Record<number, string> = {
@@ -24,15 +25,21 @@ const RATING_TEXTS: Record<number, string> = {
   10: 'Эпик вин!',
 };
 
-export default function RatingModal({ isOpen, onClose, onSave, title, releaseDate }: RatingModalProps) {
+export default function RatingModal({ isOpen, onClose, onSave, title, releaseDate, userRating }: RatingModalProps) {
   const [rating, setRating] = useState(0);
   const [watchedDate, setWatchedDate] = useState(new Date().toISOString().split('T')[0]);
   const starRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const userRatingRef = useRef<number | null>(null);
 
-  // Сбрасываем оценку на "Нормально" (6) и дату на текущую при каждом открытии
+  // Сохраняем userRating в ref, чтобы не изменять массив зависимостей useEffect
+  useEffect(() => {
+    userRatingRef.current = userRating ?? null;
+  }, [userRating]);
+
+  // Сбрасываем оценку на текущую пользователя или "Нормально" (6) и дату на текущую при каждом открытии
   useEffect(() => {
     if (isOpen) {
-      setRating(6);
+      setRating(userRatingRef.current ?? 6);
       setWatchedDate(new Date().toISOString().split('T')[0]);
     }
   }, [isOpen]);
@@ -135,11 +142,22 @@ export default function RatingModal({ isOpen, onClose, onSave, title, releaseDat
     return stars;
   };
 
+  // Извлекаем год из releaseDate
+  const year = releaseDate ? releaseDate.split('-')[0] : '';
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl px-4 py-6 w-full max-w-[400px] shadow-2xl">
+        
+        {/* Название фильма и год */}
+        <div className="mb-4">
+          <h2 className="text-white text-lg font-semibold leading-tight break-words">
+            {title}
+            {year && <span className="text-gray-400 font-normal"> ({year})</span>}
+          </h2>
+        </div>
         
         <label className="block text-gray-400 text-sm mb-4">Ваша оценка</label>
         

@@ -84,7 +84,7 @@ export default function MyMoviesClient({
             {currentMovies.map((movie) => (
               <div key={movie.id} className="p-1">
                 {/* Передаем флаг restoreView */}
-                <MovieCard movie={movie} restoreView={isRestoreView} />
+                <MovieCard movie={movie} restoreView={isRestoreView} showRatingBadge />
               </div>
             ))}
           </div>
