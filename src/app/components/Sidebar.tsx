@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import AuthModal from './AuthModal';
+import Loader from './Loader';
 
 type SidebarProps = {
   isOpen: boolean;
@@ -14,6 +16,8 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
   const { data: session, status } = useSession();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  const router = useRouter();
+
   const isLoading = status === "loading";
 
   const handleLogin = () => {
@@ -21,12 +25,16 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
   };
 
   const handleLogout = async () => {
-    await signOut({
-      redirect: true,
-      callbackUrl: "/",
-    });
-
-    if (window.innerWidth < 1024) toggle();
+    try {
+      // Use client-side redirect for stability
+      await signOut({ redirect: false });
+      router.push('/');
+    } catch (err) {
+      console.error('Logout error:', err);
+      try { router.push('/'); } catch {}
+    } finally {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) toggle();
+    }
   };
 
   // Базовые пункты меню для всех пользователей
@@ -72,18 +80,30 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
         <div className="p-6 border-b border-gray-800">
           {isLoading ? (
             <div className="text-center">
-              <div className="w-16 h-16 bg-gray-800 rounded-full animate-pulse mx-auto mb-3" />
-              <p className="text-gray-400">Загрузка...</p>
+              <Loader size="small" />
             </div>
           ) : session?.user ? (
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3">
-                {session.user.name?.charAt(0) || session.user.email?.charAt(0).toUpperCase() || 'U'}
-              </div>
-              <h3 className="text-white font-medium text-center">
-                {session.user.name || session.user.email}
-              </h3>
-              
+              <Link
+                href="/profile"
+                onClick={() => window.innerWidth < 1024 && toggle()}
+                className="flex flex-col items-center no-underline"
+              >
+                <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold mb-2">
+                  {session.user.name?.charAt(0) || session.user.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <h3 className="text-white font-medium text-center text-sm sm:text-base">
+                  {session.user.name || session.user.email}
+                </h3>
+              </Link>
+
+              <Link
+                href="/profile"
+                onClick={() => window.innerWidth < 1024 && toggle()}
+                className="text-gray-400 text-sm hover:text-white mt-2"
+              >
+                Профиль
+              </Link>
             </div>
           ) : (
             <div className="text-center">
@@ -115,7 +135,9 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
         {/* Аутентификация */}
         <div className="p-6 border-t border-gray-800">
           {isLoading ? (
-            <div className="h-10 bg-gray-800 rounded-lg animate-pulse" />
+            <div className="h-10 flex items-center justify-center">
+              <Loader size="small" />
+            </div>
           ) : session?.user ? (
             <>
               <button
@@ -124,14 +146,6 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
               >
                 Выйти
               </button>
-
-              <Link
-                href="/profile"
-                onClick={() => window.innerWidth < 1024 && toggle()}
-                className="block text-center py-2 text-gray-400 hover:text-white transition text-sm"
-              >
-                Настройки профиля
-              </Link>
             </>
           ) : (
             <>

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import MovieCard from './MovieCard';
+import Loader from './Loader';
 import { fetchTrendingMovies, Media } from '@/lib/tmdb';
 
 export default function HorizontalMovieGrid() {
@@ -26,7 +27,9 @@ export default function HorizontalMovieGrid() {
           <h2 className="text-2xl font-bold text-white mb-6">Загружается...</h2>
           <div className="flex space-x-4 overflow-x-auto pb-4">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="w-48 h-72 bg-gray-800 rounded-lg animate-pulse" />
+              <div key={i} className="w-48 p-2">
+                <Loader size="small" />
+              </div>
             ))}
           </div>
         </div>

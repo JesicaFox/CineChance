@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import MovieCard from './MovieCard';
+import Loader from './Loader';
 import { fetchTrendingMovies, Media } from '@/lib/tmdb';
 
 export default function MovieGrid() {
@@ -26,7 +27,9 @@ export default function MovieGrid() {
           <h2 className="text-2xl font-bold text-white mb-6">Загружается...</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {[...Array(12)].map((_, i) => (
-              <div key={i} className="w-full aspect-[2/3] bg-gray-800 rounded-lg animate-pulse" />
+              <div key={i} className="w-full p-2">
+                <Loader size="small" />
+              </div>
             ))}
           </div>
         </div>

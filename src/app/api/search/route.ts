@@ -47,8 +47,23 @@ export async function GET(request: Request) {
       }
 
       // Filter results based on type
-      if (type && type !== 'all') {
-        allResults = allResults.filter((item: any) => item.media_type === type);
+      const typeParam = type || 'all';
+      const selectedTypes = typeParam.split(',');
+      
+      if (selectedTypes.length > 0 && !selectedTypes.includes('all')) {
+        // Filter by multiple types
+        allResults = allResults.filter((item: any) => {
+          const itemType = item.media_type;
+          const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
+          
+          // Check if this item matches any selected type
+          for (const t of selectedTypes) {
+            if (t === 'anime' && isAnime) return true;
+            if (t === 'movie' && itemType === 'movie' && !isAnime) return true;
+            if (t === 'tv' && itemType === 'tv' && !isAnime) return true;
+          }
+          return false;
+        });
       }
 
       // Filter by year
@@ -148,57 +163,136 @@ export async function GET(request: Request) {
 
     } else {
       // No query, use discover endpoint with filters
-      // Для discover API TMDB также ограничивает 20 результатами на страницу
       const pagesToFetch = Math.ceil((page * limit) / 20) + 1;
       let discoverResults: any[] = [];
 
-      for (let apiPage = 1; apiPage <= pagesToFetch; apiPage++) {
-        const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/${type === 'tv' ? 'tv' : 'movie'}?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=false`);
+      // Determine API endpoints and filters based on type
+      const typeParam = type || 'all';
+      const selectedTypes = typeParam.split(',');
+      
+      // Track if we need anime filtering
+      const includeAnime = selectedTypes.includes('anime');
+      const includeMovies = selectedTypes.includes('movie');
+      const includeTv = selectedTypes.includes('tv');
 
-        // Add year filters
-        let yearFilter = '';
-        if (quickYear === '2020s') yearFilter = '2020-2029';
-        else if (quickYear === '2010s') yearFilter = '2010-2019';
-        else if (quickYear === '2000s') yearFilter = '2000-2009';
-        else if (quickYear === '1990s') yearFilter = '1990-1999';
-        else if (quickYear) yearFilter = quickYear;
+      // Determine which endpoints to query
+      const queryMovie = includeMovies || (!includeTv && !includeAnime);
+      const queryTv = includeTv || (!includeMovies && !includeAnime);
 
-        if (yearFrom) discoverUrl.searchParams.set('primary_release_date.gte', `${yearFrom}-01-01`);
-        if (yearTo) discoverUrl.searchParams.set('primary_release_date.lte', `${yearTo}-12-31`);
-        if (yearFilter && !yearFrom && !yearTo) {
-          const yearMatch = yearFilter.match(/(\d{4})(?:-(\d{4}))?/);
-          if (yearMatch) {
-            discoverUrl.searchParams.set('primary_release_date.gte', `${yearMatch[1]}-01-01`);
-            discoverUrl.searchParams.set('primary_release_date.lte', `${yearMatch[2] || yearMatch[1]}-12-31`);
+      // Fetch from movie endpoint if needed
+      if (queryMovie) {
+        for (let apiPage = 1; apiPage <= pagesToFetch; apiPage++) {
+          const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=false`);
+
+          // Add year filters
+          let yearFilter = '';
+          if (quickYear === '2020s') yearFilter = '2020-2029';
+          else if (quickYear === '2010s') yearFilter = '2010-2019';
+          else if (quickYear === '2000s') yearFilter = '2000-2009';
+          else if (quickYear === '1990s') yearFilter = '1990-1999';
+          else if (quickYear) yearFilter = quickYear;
+
+          if (yearFrom) discoverUrl.searchParams.set('primary_release_date.gte', `${yearFrom}-01-01`);
+          if (yearTo) discoverUrl.searchParams.set('primary_release_date.lte', `${yearTo}-12-31`);
+          if (yearFilter && !yearFrom && !yearTo) {
+            const yearMatch = yearFilter.match(/(\d{4})(?:-(\d{4}))?/);
+            if (yearMatch) {
+              discoverUrl.searchParams.set('primary_release_date.gte', `${yearMatch[1]}-01-01`);
+              discoverUrl.searchParams.set('primary_release_date.lte', `${yearMatch[2] || yearMatch[1]}-12-31`);
+            }
+          }
+
+          // Add genre filters
+          if (genresParam) {
+            const genreIds = genresParam.split(',').map(Number).filter(n => !isNaN(n));
+            if (genreIds.length > 0) {
+              discoverUrl.searchParams.set('with_genres', genreIds.join('|'));
+            }
+          }
+
+          // Add rating filter
+          if (ratingFrom > 0) {
+            discoverUrl.searchParams.set('vote_average.gte', String(ratingFrom));
+          }
+
+          // Add sort
+          let sortParam = 'popularity.desc';
+          if (sortBy === 'rating') sortParam = `vote_average.${sortOrder}`;
+          else if (sortBy === 'date') sortParam = `primary_release_date.${sortOrder}`;
+          discoverUrl.searchParams.set('sort_by', sortParam);
+
+          const res = await fetch(discoverUrl.toString());
+          const data = await res.json();
+
+          if (data.results && data.results.length > 0) {
+            // Filter out anime from movie results
+            const filteredResults = data.results.filter((item: any) => {
+              const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
+              return !isAnime || includeAnime;
+            });
+            discoverResults = discoverResults.concat(filteredResults);
+          } else {
+            break;
           }
         }
+      }
 
-        // Add genre filters
-        if (genresParam) {
-          const genreIds = genresParam.split(',').map(Number).filter(n => !isNaN(n));
-          if (genreIds.length > 0) {
-            discoverUrl.searchParams.set('with_genres', genreIds.join('|'));
+      // Fetch from tv endpoint if needed
+      if (queryTv) {
+        for (let apiPage = 1; apiPage <= pagesToFetch; apiPage++) {
+          const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/tv?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=false`);
+
+          // Add year filters
+          let yearFilter = '';
+          if (quickYear === '2020s') yearFilter = '2020-2029';
+          else if (quickYear === '2010s') yearFilter = '2010-2019';
+          else if (quickYear === '2000s') yearFilter = '2000-2009';
+          else if (quickYear === '1990s') yearFilter = '1990-1999';
+          else if (quickYear) yearFilter = quickYear;
+
+          if (yearFrom) discoverUrl.searchParams.set('first_air_date.gte', `${yearFrom}-01-01`);
+          if (yearTo) discoverUrl.searchParams.set('first_air_date.lte', `${yearTo}-12-31`);
+          if (yearFilter && !yearFrom && !yearTo) {
+            const yearMatch = yearFilter.match(/(\d{4})(?:-(\d{4}))?/);
+            if (yearMatch) {
+              discoverUrl.searchParams.set('first_air_date.gte', `${yearMatch[1]}-01-01`);
+              discoverUrl.searchParams.set('first_air_date.lte', `${yearMatch[2] || yearMatch[1]}-12-31`);
+            }
           }
-        }
 
-        // Add rating filter
-        if (ratingFrom > 0) {
-          discoverUrl.searchParams.set('vote_average.gte', String(ratingFrom));
-        }
+          // Add genre filters
+          if (genresParam) {
+            const genreIds = genresParam.split(',').map(Number).filter(n => !isNaN(n));
+            if (genreIds.length > 0) {
+              discoverUrl.searchParams.set('with_genres', genreIds.join('|'));
+            }
+          }
 
-        // Add sort
-        let sortParam = 'popularity.desc';
-        if (sortBy === 'rating') sortParam = `vote_average.${sortOrder}`;
-        else if (sortBy === 'date') sortParam = `primary_release_date.${sortOrder}`;
-        discoverUrl.searchParams.set('sort_by', sortParam);
+          // Add anime filter if selected
+          if (includeAnime) {
+            discoverUrl.searchParams.set('with_genres', '16'); // Animation
+            discoverUrl.searchParams.set('with_original_language', 'ja'); // Japanese
+          }
 
-        const res = await fetch(discoverUrl.toString());
-        const data = await res.json();
+          // Add rating filter
+          if (ratingFrom > 0) {
+            discoverUrl.searchParams.set('vote_average.gte', String(ratingFrom));
+          }
 
-        if (data.results && data.results.length > 0) {
-          discoverResults = discoverResults.concat(data.results);
-        } else {
-          break;
+          // Add sort
+          let sortParam = 'popularity.desc';
+          if (sortBy === 'rating') sortParam = `vote_average.${sortOrder}`;
+          else if (sortBy === 'date') sortParam = `first_air_date.${sortOrder}`;
+          discoverUrl.searchParams.set('sort_by', sortParam);
+
+          const res = await fetch(discoverUrl.toString());
+          const data = await res.json();
+
+          if (data.results && data.results.length > 0) {
+            discoverResults = discoverResults.concat(data.results);
+          } else {
+            break;
+          }
         }
       }
 

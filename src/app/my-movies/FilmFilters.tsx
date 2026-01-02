@@ -199,7 +199,7 @@ export default function FilmFilters({ onFiltersChange, onSortChange, onAdditiona
             <select
               value={sort.sortBy}
               onChange={(e) => handleSortChange('sortBy', e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none cursor-pointer hover:bg-gray-750 transition-colors flex-1 w-full"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none cursor-pointer hover:bg-gray-750 transition-colors w-full sm:w-[200px]"
             >
               <option value="rating">По рейтингу</option>
               <option value="popularity">По популярности</option>
@@ -210,7 +210,7 @@ export default function FilmFilters({ onFiltersChange, onSortChange, onAdditiona
             <select
               value={sort.sortOrder}
               onChange={(e) => handleSortChange('sortOrder', e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none cursor-pointer hover:bg-gray-750 transition-colors w-20 sm:w-16"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none cursor-pointer hover:bg-gray-750 transition-colors w-16"
             >
               <option value="desc">▼</option>
               <option value="asc">▲</option>

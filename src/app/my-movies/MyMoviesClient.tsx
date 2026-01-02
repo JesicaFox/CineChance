@@ -190,10 +190,10 @@ export default function MyMoviesClient({
         />
 
         {/* Вкладки */}
-        <div className="flex flex-wrap gap-4 mb-8 border-b border-gray-800 pb-2">
+        <div className="flex flex-wrap gap-4 mt-3 mb-8 border-b border-gray-800 pb-2">
           {tabs.map((tab) => {
             // Базовые стили
-            let baseClasses = "pb-3 px-2 border-b-2 transition-colors relative cursor-pointer ";
+            let baseClasses = "pb-2 px-2 border-b-2 transition-colors relative cursor-pointer ";
             // Если активная вкладка
             if (activeTab === tab.id) {
               baseClasses += "border-blue-500 text-white";

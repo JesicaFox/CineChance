@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieCard from '@/app/components/MovieCard';
+import Loader from '@/app/components/Loader';
 
 interface CollectionMovie {
   id: number;
@@ -57,7 +58,7 @@ export default function CollectionClient({ collectionId }: { collectionId: strin
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">Загрузка...</div>
+        <Loader size="large" text="Загрузка..." />
       </div>
     );
   }

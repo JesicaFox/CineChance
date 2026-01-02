@@ -10,6 +10,9 @@ interface SearchFiltersProps {
 
 export interface FilterState {
   type: 'all' | 'movie' | 'tv' | 'anime';
+  showMovies: boolean;
+  showTv: boolean;
+  showAnime: boolean;
   yearFrom: string;
   yearTo: string;
   quickYear: string;
@@ -22,7 +25,7 @@ export interface FilterState {
 const GENRES = [
   { id: 28, name: 'Боевик' },
   { id: 12, name: 'Приключения' },
-  { id: 16, name: 'Анимация' },
+  { id: 16, name: 'Аниме' },
   { id: 35, name: 'Комедия' },
   { id: 80, name: 'Криминал' },
   { id: 99, name: 'Документальный' },
@@ -57,6 +60,9 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
   const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     type: 'all',
+    showMovies: true,
+    showTv: true,
+    showAnime: true,
     yearFrom: '',
     yearTo: '',
     quickYear: '',
@@ -81,6 +87,12 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
     onFiltersChange(newFilters);
   };
 
+  const toggleTypeFilter = (key: 'showMovies' | 'showTv' | 'showAnime') => {
+    const newFilters = { ...filters, [key]: !filters[key] };
+    setFilters(newFilters);
+    onFiltersChange(newFilters);
+  };
+
   const toggleGenre = (genreId: number) => {
     const newGenres = filters.genres.includes(genreId)
       ? filters.genres.filter(id => id !== genreId)
@@ -91,6 +103,9 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
   const resetFilters = () => {
     const defaultFilters: FilterState = {
       type: 'all',
+      showMovies: true,
+      showTv: true,
+      showAnime: true,
       yearFrom: '',
       yearTo: '',
       quickYear: '',
@@ -103,27 +118,102 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
     onFiltersChange(defaultFilters);
   };
 
-  const hasActiveFilters = filters.type !== 'all' || 
+  const hasActiveFilters = !filters.showMovies || !filters.showTv || !filters.showAnime ||
     filters.yearFrom || filters.yearTo || filters.quickYear ||
     filters.genres.length > 0 ||
     filters.ratingFrom > 0 ||
     filters.sortBy !== 'popularity' ||
     filters.sortOrder !== 'desc';
 
+  const getTypeButtonClass = (isActive: boolean, gradient: string) => {
+    const baseClass = 'px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none';
+    
+    if (isActive) {
+      return `${baseClass} text-white shadow-lg border-transparent ${gradient}`;
+    }
+    return `${baseClass} text-gray-400 hover:text-gray-300 bg-gray-900/50 border-gray-700 hover:border-gray-600`;
+  };
+
   return (
     <div className="mb-4">
+      {/* Заголовок с количеством */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-gray-400 text-sm">
           Найдено: {totalResults} {totalResults === 1 ? 'результат' : totalResults < 5 ? 'результата' : 'результатов'}
         </span>
+      </div>
+
+      {/* Кнопки типов контента */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => toggleTypeFilter('showMovies')}
+          className={getTypeButtonClass(filters.showMovies, 'bg-gradient-to-r from-green-500 to-green-700 shadow-green-900/30')}
+          style={filters.showMovies ? { background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(21, 128, 61, 0.95) 100%)' } : {}}
+        >
+          <span className="relative z-10">Фильмы</span>
+          {filters.showMovies && (
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+          )}
+        </button>
         
         <button
+          onClick={() => toggleTypeFilter('showTv')}
+          className={getTypeButtonClass(filters.showTv, 'bg-gradient-to-r from-blue-500 to-blue-700 shadow-blue-900/30')}
+          style={filters.showTv ? { background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.95) 0%, rgba(30, 64, 175, 0.95) 100%)' } : {}}
+        >
+          <span className="relative z-10">Сериалы</span>
+          {filters.showTv && (
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+          )}
+        </button>
+        
+        <button
+          onClick={() => toggleTypeFilter('showAnime')}
+          className={getTypeButtonClass(filters.showAnime, 'bg-gradient-to-r from-purple-500 to-purple-700 shadow-purple-900/30')}
+          style={filters.showAnime ? { background: 'linear-gradient(135deg, rgba(156, 64, 254, 0.95) 0%, rgba(107, 33, 168, 0.95) 100%)' } : {}}
+        >
+          <span className="relative z-10">Аниме</span>
+          {filters.showAnime && (
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+          )}
+        </button>
+      </div>
+
+      {/* Блок сортировки и дополнительных фильтров */}
+      <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+          <span className="text-gray-400 text-xs sm:text-sm font-medium mb-1 sm:mb-0 sm:mr-2">Сортировка:</span>
+          
+          <div className="flex items-center gap-2 w-full">
+            <select
+              value={filters.sortBy}
+              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none cursor-pointer hover:bg-gray-750 transition-colors w-full sm:w-[200px]"
+            >
+              <option value="popularity">По популярности</option>
+              <option value="rating">По рейтингу</option>
+              <option value="date">По дате выхода</option>
+            </select>
+            
+            <select
+              value={filters.sortOrder}
+              onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none cursor-pointer hover:bg-gray-750 transition-colors w-16"
+            >
+              <option value="desc">▼</option>
+              <option value="asc">▲</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Кнопка Доп. фильтры */}
+        <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 transition-colors ${
-            hasActiveFilters 
-              ? 'bg-blue-600 text-white' 
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-          }`}
+          className={`
+            px-3 py-1.5 rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 
+            sm:w-auto w-full
+            ${hasActiveFilters ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300'}
+          `}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -136,39 +226,16 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
             />
           </svg>
-          Фильтры {hasActiveFilters && '•'}
+          <span className="truncate">Доп. фильтры {hasActiveFilters && '•'}</span>
         </button>
       </div>
 
+      {/* Раскрывающаяся панель */}
       {isExpanded && (
-        <div className="bg-gray-900/80 rounded-lg p-4 space-y-4 border border-gray-800">
-          <div>
-            <label className="text-xs text-gray-400 block mb-2">Тип контента</label>
-            <div className="flex gap-2">
-              {[
-                { value: 'all', label: 'Все' },
-                { value: 'movie', label: 'Фильмы' },
-                { value: 'tv', label: 'Сериалы' },
-                { value: 'anime', label: 'Аниме' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleFilterChange('type', option.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                    filters.type === option.value
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+        <div className="mt-4 bg-gray-900/80 rounded-lg p-4 space-y-4 border border-gray-800">
           <div>
             <label className="text-xs text-gray-400 block mb-2">Год выпуска</label>
             <div className="flex flex-wrap gap-2 mb-2">
@@ -192,7 +259,7 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
                 placeholder="От"
                 value={filters.yearFrom}
                 onChange={(e) => handleFilterChange('yearFrom', e.target.value)}
-                className="w-20 px-2 py-1 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
+                className="w-full sm:w-20 px-2 py-1 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
               />
               <span className="text-gray-500">—</span>
               <input
@@ -200,19 +267,19 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
                 placeholder="До"
                 value={filters.yearTo}
                 onChange={(e) => handleFilterChange('yearTo', e.target.value)}
-                className="w-20 px-2 py-1 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
+                className="w-full sm:w-20 px-2 py-1 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
               />
             </div>
           </div>
 
           <div>
             <label className="text-xs text-gray-400 block mb-2">Жанры</label>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
               {GENRES.map((genre) => (
                 <button
                   key={genre.id}
                   onClick={() => toggleGenre(genre.id)}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                  className={`px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
                     filters.genres.includes(genre.id)
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -244,33 +311,10 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
             </div>
           </div>
 
-          <div>
-            <label className="text-xs text-gray-400 block mb-2">Сортировка</label>
-            <div className="flex gap-2">
-              <select
-                value={filters.sortBy}
-                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                className="px-3 py-1.5 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
-              >
-                <option value="popularity">По популярности</option>
-                <option value="rating">По рейтингу</option>
-                <option value="date">По дате выхода</option>
-              </select>
-              <select
-                value={filters.sortOrder}
-                onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
-                className="px-3 py-1.5 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
-              >
-                <option value="desc">▼</option>
-                <option value="asc">▲</option>
-              </select>
-            </div>
-          </div>
-
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="w-full py-2 rounded bg-gray-800 text-gray-400 text-sm hover:bg-gray-700 transition-colors"
+              className="w-full py-2 rounded bg-gray-800 text-gray-400 text-sm hover:bg-gray-700 hover:text-gray-300 transition-colors"
             >
               Сбросить фильтры
             </button>

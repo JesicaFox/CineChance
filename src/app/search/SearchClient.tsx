@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MovieCard from '../components/MovieCard';
+import Loader from '../components/Loader';
 import { Media } from '@/lib/tmdb';
 import SearchFilters, { FilterState } from './SearchFilters';
 
@@ -39,11 +40,27 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
 
     setLoading(true);
     try {
+      // Determine type based on enabled filters
+      let type = 'all';
+      if (filters.showMovies && !filters.showTv && !filters.showAnime) {
+        type = 'movie';
+      } else if (!filters.showMovies && filters.showTv && !filters.showAnime) {
+        type = 'tv';
+      } else if (!filters.showMovies && !filters.showTv && filters.showAnime) {
+        type = 'anime';
+      } else if (!filters.showMovies && filters.showTv && filters.showAnime) {
+        type = 'tv,anime';
+      } else if (filters.showMovies && !filters.showTv && filters.showAnime) {
+        type = 'movie,anime';
+      } else if (filters.showMovies && filters.showTv && !filters.showAnime) {
+        type = 'movie,tv';
+      }
+
       const params = new URLSearchParams({
         q: initialQuery,
         page: '1',
         limit: String(INITIAL_ITEMS),
-        type: filters.type,
+        type,
         yearFrom: filters.yearFrom,
         yearTo: filters.yearTo,
         quickYear: filters.quickYear,
@@ -150,7 +167,23 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
 
       // Добавляем фильтры, если они есть
       if (currentFilters) {
-        params.set('type', currentFilters.type);
+        // Determine type based on enabled filters
+        let type = 'all';
+        if (currentFilters.showMovies && !currentFilters.showTv && !currentFilters.showAnime) {
+          type = 'movie';
+        } else if (!currentFilters.showMovies && currentFilters.showTv && !currentFilters.showAnime) {
+          type = 'tv';
+        } else if (!currentFilters.showMovies && !currentFilters.showTv && currentFilters.showAnime) {
+          type = 'anime';
+        } else if (!currentFilters.showMovies && currentFilters.showTv && currentFilters.showAnime) {
+          type = 'tv,anime';
+        } else if (currentFilters.showMovies && !currentFilters.showTv && currentFilters.showAnime) {
+          type = 'movie,anime';
+        } else if (currentFilters.showMovies && currentFilters.showTv && !currentFilters.showAnime) {
+          type = 'movie,tv';
+        }
+        
+        params.set('type', type);
         if (currentFilters.yearFrom) params.set('yearFrom', currentFilters.yearFrom);
         if (currentFilters.yearTo) params.set('yearTo', currentFilters.yearTo);
         if (currentFilters.quickYear) params.set('quickYear', currentFilters.quickYear);
@@ -203,9 +236,7 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
           <SearchFilters onFiltersChange={handleFiltersChange} totalResults={totalResults} />
 
       {loading ? (
-        <div className="text-center py-12">
-          <p className="text-gray-400 text-sm">Загрузка...</p>
-        </div>
+        <Loader text="Загрузка..." />
       ) : results.length > 0 ? (
         <>
           <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
@@ -225,9 +256,16 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="px-6 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700 transition-colors disabled:opacity-50"
+                className="px-6 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                {loadingMore ? 'Загрузка...' : 'Ещё...'}
+                {loadingMore ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-white rounded-full animate-spin"></div>
+                    Загрузка...
+                  </>
+                ) : (
+                  'Ещё...'
+                )}
               </button>
             </div>
           )}
