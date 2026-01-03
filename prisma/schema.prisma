@@ -80,6 +80,10 @@ model WatchList {
   @@index([userId])
   @@index([tmdbId])
   @@index([statusId])
+  @@index([addedAt])
+  @@index([userRating])
+  @@index([userId, statusId])
+  @@index([userId, addedAt])
 }
 
 
@@ -104,4 +108,5 @@ model Blacklist {
   @@unique([userId, tmdbId, mediaType]) // Фильм можно заблокировать только один раз
   @@index([userId])
   @@index([tmdbId])
+  @@index([createdAt])
 }

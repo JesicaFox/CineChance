@@ -1,0 +1,285 @@
+// src/app/my-movies/actions.ts
+'use server';
+
+import { prisma } from '@/lib/prisma';
+import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
+
+// Вспомогательная функция для получения деталей с TMDB
+async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return null;
+  const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
+  try {
+    const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+// Функция для получения CineChance рейтингов
+async function fetchCineChanceRatings(tmdbIds: number[]) {
+  const watchlistRecords = await prisma.watchList.groupBy({
+    by: ['tmdbId'],
+    _avg: { userRating: true },
+    _count: { userRating: true },
+    where: { tmdbId: { in: tmdbIds }, userRating: { not: null } },
+  });
+
+  const ratingsMap = new Map<number, { averageRating: number; count: number }>();
+  watchlistRecords.forEach(record => {
+    if (record._avg.userRating && record._count.userRating > 0) {
+      ratingsMap.set(record.tmdbId, {
+        averageRating: record._avg.userRating,
+        count: record._count.userRating,
+      });
+    }
+  });
+  return ratingsMap;
+}
+
+export interface MovieWithStatus {
+  id: number;
+  media_type: 'movie' | 'tv';
+  title: string;
+  name: string;
+  poster_path: string | null;
+  vote_average: number;
+  vote_count: number;
+  release_date: string;
+  first_air_date: string;
+  overview: string;
+  genre_ids: number[];
+  original_language: string;
+  statusName?: string;
+  combinedRating?: number;
+  addedAt?: string;
+  userRating?: number | null;
+  isBlacklisted?: boolean;
+}
+
+export interface PaginatedMovies {
+  movies: MovieWithStatus[];
+  hasMore: boolean;
+  totalCount: number;
+}
+
+export interface SortState {
+  sortBy: 'popularity' | 'rating' | 'date' | 'savedDate';
+  sortOrder: 'desc' | 'asc';
+}
+
+const ITEMS_PER_PAGE = 20;
+
+export async function fetchMoviesByStatus(
+  userId: string,
+  statusName: string | null,
+  includeHidden: boolean,
+  page: number = 1,
+  sortBy: SortState['sortBy'] = 'rating',
+  sortOrder: SortState['sortOrder'] = 'desc',
+  limit: number = 20
+): Promise<PaginatedMovies> {
+  const skip = (page - 1) * limit;
+  const take = limit + 1; // Запрашиваем на 1 больше для проверки hasMore
+
+  // 1. Загружаем ВСЕ записи WatchList для корректной сортировки
+  const whereClause: any = { userId };
+  if (statusName) {
+    whereClause.status = { name: statusName };
+  }
+
+  const watchListRecords = await prisma.watchList.findMany({
+    where: whereClause,
+    include: { status: true },
+    orderBy: { addedAt: 'desc' },
+  });
+
+  const totalCount = watchListRecords.length;
+  const hasMore = skip + ITEMS_PER_PAGE < totalCount;
+
+  // 2. Загружаем рейтинги для всех записей
+  const allTmdbIds = watchListRecords.map(r => r.tmdbId);
+  const cineChanceRatings = await fetchCineChanceRatings(allTmdbIds);
+
+  // 3. Получаем детали TMDB для всех записей
+  const moviesWithStatus = await Promise.all(
+    watchListRecords.map(async (record: any) => {
+      const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType);
+      const cineChanceData = cineChanceRatings.get(record.tmdbId);
+      const cineChanceRating = cineChanceData?.averageRating || null;
+      const cineChanceVotes = cineChanceData?.count || 0;
+
+      const combinedRating = calculateCineChanceScore({
+        tmdbRating: tmdbData?.vote_average || 0,
+        tmdbVotes: tmdbData?.vote_count || 0,
+        cineChanceRating,
+        cineChanceVotes,
+      });
+
+      return {
+        id: record.tmdbId,
+        media_type: record.mediaType as 'movie' | 'tv',
+        title: record.title,
+        name: record.title,
+        poster_path: tmdbData?.poster_path || null,
+        vote_average: tmdbData?.vote_average || 0,
+        vote_count: tmdbData?.vote_count || 0,
+        release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+        first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+        overview: tmdbData?.overview || '',
+        genre_ids: tmdbData?.genres?.map((g: any) => g.id) || [],
+        original_language: tmdbData?.original_language || '',
+        statusName: record.status.name,
+        combinedRating,
+        addedAt: record.addedAt?.toISOString() || '',
+        userRating: record.userRating,
+      };
+    })
+  );
+
+  // 4. Сортируем ВСЕ записи на сервере
+  const sortedMovies = sortMoviesOnServer(moviesWithStatus, sortBy, sortOrder);
+
+  // 5. Применяем пагинацию ПОСЛЕ сортировки
+  const paginatedMovies = sortedMovies.slice(skip, skip + ITEMS_PER_PAGE);
+
+  // 5. Загружаем hidden фильмы если нужно
+  let hiddenMovies: MovieWithStatus[] = [];
+  let hiddenTotalCount = 0;
+
+  if (includeHidden && page === 1) {
+    const blacklistRecords = await prisma.blacklist.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    hiddenTotalCount = blacklistRecords.length;
+    const blacklistTmdbIds = blacklistRecords.map(r => r.tmdbId);
+    const blacklistRatings = await fetchCineChanceRatings(blacklistTmdbIds);
+
+    hiddenMovies = await Promise.all(
+      blacklistRecords.map(async (record: any) => {
+        const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType);
+        const cineChanceData = blacklistRatings.get(record.tmdbId);
+        const cineChanceRating = cineChanceData?.averageRating || null;
+        const cineChanceVotes = cineChanceData?.count || 0;
+
+        const combinedRating = calculateCineChanceScore({
+          tmdbRating: tmdbData?.vote_average || 0,
+          tmdbVotes: tmdbData?.vote_count || 0,
+          cineChanceRating,
+          cineChanceVotes,
+        });
+
+        return {
+          id: record.tmdbId,
+          media_type: record.mediaType as 'movie' | 'tv',
+          title: tmdbData?.title || tmdbData?.name || 'Без названия',
+          name: tmdbData?.title || tmdbData?.name || 'Без названия',
+          poster_path: tmdbData?.poster_path || null,
+          vote_average: tmdbData?.vote_average || 0,
+          vote_count: tmdbData?.vote_count || 0,
+          release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+          first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+          overview: tmdbData?.overview || '',
+          genre_ids: tmdbData?.genres?.map((g: any) => g.id) || [],
+          original_language: tmdbData?.original_language || '',
+          combinedRating,
+          addedAt: record.createdAt?.toISOString() || '',
+          userRating: null,
+          isBlacklisted: true,
+        };
+      })
+    );
+
+    // Сортируем hidden фильмы
+    hiddenMovies = sortMoviesOnServer(hiddenMovies, sortBy, sortOrder);
+  }
+
+  return {
+    movies: statusName ? paginatedMovies : hiddenMovies,
+    hasMore: statusName ? hasMore : (page === 1 && hiddenMovies.length < hiddenTotalCount),
+    totalCount: statusName ? totalCount : hiddenTotalCount,
+  };
+}
+
+// Функция сортировки MovieWithStatus на сервере
+function sortMoviesOnServer(
+  movies: MovieWithStatus[],
+  sortBy: SortState['sortBy'],
+  sortOrder: SortState['sortOrder']
+): MovieWithStatus[] {
+  return [...movies].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortBy) {
+      case 'popularity':
+        comparison = b.vote_count - a.vote_count;
+        break;
+      case 'rating':
+        const ratingA = a.combinedRating ?? a.vote_average;
+        const ratingB = b.combinedRating ?? b.vote_average;
+        comparison = ratingB - ratingA;
+        break;
+      case 'date':
+        const dateA = a.release_date || a.first_air_date || '';
+        const dateB = b.release_date || b.first_air_date || '';
+        comparison = dateB.localeCompare(dateA);
+        break;
+      case 'savedDate':
+        const savedA = a.addedAt || '';
+        const savedB = b.addedAt || '';
+        comparison = savedB.localeCompare(savedA);
+        break;
+    }
+    
+    return sortOrder === 'desc' ? comparison : -comparison;
+  });
+}
+
+// Функция для получения общего количества фильмов по статусам
+export async function getMoviesCounts(userId: string) {
+  const [watched, wantToWatch, dropped, hidden] = await Promise.all([
+    prisma.watchList.count({ where: { userId, status: { name: 'Просмотрено' } } }),
+    prisma.watchList.count({ where: { userId, status: { name: 'Хочу посмотреть' } } }),
+    prisma.watchList.count({ where: { userId, status: { name: 'Брошено' } } }),
+    prisma.blacklist.count({ where: { userId } }),
+  ]);
+
+  return { watched, wantToWatch, dropped, hidden };
+}
+
+// Функция для получения уникальных жанров из коллекции пользователя
+export async function getUserGenres(userId: string): Promise<{ id: number; name: string }[]> {
+  // Получаем все записи пользователя
+  const watchListRecords = await prisma.watchList.findMany({
+    where: { userId },
+    select: { tmdbId: true, mediaType: true },
+  });
+
+  if (watchListRecords.length === 0) {
+    return [];
+  }
+
+  // Загружаем детали TMDB для всех записей и собираем уникальные жанры
+  const genreSet = new Set<number>();
+  const genreNames = new Map<number, string>();
+
+  for (const record of watchListRecords) {
+    const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+    if (tmdbData?.genres) {
+      for (const genre of tmdbData.genres) {
+        genreSet.add(genre.id);
+        genreNames.set(genre.id, genre.name);
+      }
+    }
+  }
+
+  // Преобразуем в массив с названиями
+  return Array.from(genreSet).map(id => ({
+    id,
+    name: genreNames.get(id) || 'Неизвестно',
+  })).sort((a, b) => a.name.localeCompare(b.name));
+}

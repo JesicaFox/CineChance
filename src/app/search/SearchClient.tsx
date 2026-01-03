@@ -66,8 +66,10 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
         quickYear: filters.quickYear,
         genres: filters.genres.join(','),
         ratingFrom: String(filters.ratingFrom),
+        ratingTo: String(filters.ratingTo),
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
+        listStatus: filters.listStatus,
       });
 
       const res = await fetch(`/api/search?${params.toString()}`);
@@ -189,6 +191,7 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
         if (currentFilters.quickYear) params.set('quickYear', currentFilters.quickYear);
         if (currentFilters.genres.length > 0) params.set('genres', currentFilters.genres.join(','));
         if (currentFilters.ratingFrom > 0) params.set('ratingFrom', String(currentFilters.ratingFrom));
+        if (currentFilters.ratingTo < 10) params.set('ratingTo', String(currentFilters.ratingTo));
         params.set('sortBy', currentFilters.sortBy);
         params.set('sortOrder', currentFilters.sortOrder);
       }

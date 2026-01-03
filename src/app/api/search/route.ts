@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,11 +16,14 @@ export async function GET(request: Request) {
   const quickYear = searchParams.get('quickYear') || '';
   const genresParam = searchParams.get('genres') || '';
   const ratingFrom = parseFloat(searchParams.get('ratingFrom') || '0');
+  const ratingTo = parseFloat(searchParams.get('ratingTo') || '10');
   const sortBy = searchParams.get('sortBy') || 'popularity';
   const sortOrder = searchParams.get('sortOrder') || 'desc';
+  const listStatus = searchParams.get('listStatus') || 'all';
 
   // If no query and no filters, return empty
-  if (!query && !type && !yearFrom && !yearTo && !quickYear && !genresParam && !ratingFrom) {
+  const hasFilters = query || type !== 'all' || yearFrom || yearTo || quickYear || genresParam || ratingFrom > 0 || ratingTo < 10 || listStatus !== 'all';
+  if (!hasFilters) {
     return NextResponse.json({ results: [], totalPages: 1, totalResults: 0 });
   }
 
@@ -66,12 +72,82 @@ export async function GET(request: Request) {
         });
       }
 
+      // Filter by list status
+      if (listStatus !== 'all') {
+        const session = await getServerSession(authOptions);
+        
+        if (session?.user?.id) {
+          // Get user's watchlist
+          const watchlist = await prisma.watchList.findMany({
+            where: { userId: session.user.id as string },
+            include: { status: true },
+          });
+          
+          // Get user's blacklist
+          const blacklist = await prisma.blacklist.findMany({
+            where: { userId: session.user.id as string },
+          });
+
+          // Create maps for quick lookup
+          const watchlistMap = new Map<number, { status: string; mediaType: string }>();
+          watchlist.forEach(item => {
+            watchlistMap.set(item.tmdbId, { 
+              status: item.status.name, 
+              mediaType: item.mediaType 
+            });
+          });
+          
+          const blacklistSet = new Set<number>();
+          blacklist.forEach(item => blacklistSet.add(item.tmdbId));
+
+          // Map API media_type to database mediaType
+          const getDbMediaType = (apiType: string) => {
+            if (apiType === 'movie') return 'movie';
+            if (apiType === 'tv') return 'tv';
+            return apiType; // 'person' etc.
+          };
+
+          allResults = allResults.filter((item: any) => {
+            const watchlistItem = watchlistMap.get(item.id);
+            const isBlacklisted = blacklistSet.has(item.id);
+            const dbMediaType = getDbMediaType(item.media_type);
+
+            // Check if item is in watchlist with matching media type
+            const isInWatchlist = watchlistItem && watchlistItem.mediaType === dbMediaType;
+
+            switch (listStatus) {
+              case 'notInList':
+                // Не в списках = не в watchlist И не в blacklist
+                return !isInWatchlist && !isBlacklisted;
+              
+              case 'wantToWatch':
+                // В списке "Хочу посмотреть"
+                return isInWatchlist && watchlistItem.status === 'Хочу посмотреть';
+              
+              case 'watched':
+                // В списке "Просмотрено"
+                return isInWatchlist && watchlistItem.status === 'Просмотрено';
+              
+              case 'dropped':
+                // В списке "Брошено"
+                return isInWatchlist && watchlistItem.status === 'Брошено';
+              
+              default:
+                return true;
+            }
+          });
+        }
+      }
+
       // Filter by year
       let yearFilter = '';
       if (quickYear === '2020s') yearFilter = '2020-2029';
       else if (quickYear === '2010s') yearFilter = '2010-2019';
       else if (quickYear === '2000s') yearFilter = '2000-2009';
       else if (quickYear === '1990s') yearFilter = '1990-1999';
+      else if (quickYear === '1980s') yearFilter = '1980-1989';
+      else if (quickYear === '1970s') yearFilter = '1970-1979';
+      else if (quickYear === '1960s') yearFilter = '1960-1969';
       else if (quickYear) yearFilter = quickYear;
 
       if (yearFilter) {
@@ -117,8 +193,11 @@ export async function GET(request: Request) {
       }
 
       // Filter by rating
-      if (ratingFrom > 0) {
-        allResults = allResults.filter((item: any) => (item.vote_average || 0) >= ratingFrom);
+      if (ratingFrom > 0 || ratingTo < 10) {
+        allResults = allResults.filter((item: any) => {
+          const rating = item.vote_average || 0;
+          return rating >= ratingFrom && rating <= ratingTo;
+        });
       }
 
       // Sort results
@@ -190,6 +269,9 @@ export async function GET(request: Request) {
           else if (quickYear === '2010s') yearFilter = '2010-2019';
           else if (quickYear === '2000s') yearFilter = '2000-2009';
           else if (quickYear === '1990s') yearFilter = '1990-1999';
+          else if (quickYear === '1980s') yearFilter = '1980-1989';
+          else if (quickYear === '1970s') yearFilter = '1970-1979';
+          else if (quickYear === '1960s') yearFilter = '1960-1969';
           else if (quickYear) yearFilter = quickYear;
 
           if (yearFrom) discoverUrl.searchParams.set('primary_release_date.gte', `${yearFrom}-01-01`);
@@ -213,6 +295,11 @@ export async function GET(request: Request) {
           // Add rating filter
           if (ratingFrom > 0) {
             discoverUrl.searchParams.set('vote_average.gte', String(ratingFrom));
+          }
+
+          // Add rating upper bound filter (client-side, TMDB doesn't support it)
+          if (ratingTo < 10) {
+            // Will be filtered after fetching
           }
 
           // Add sort
@@ -248,6 +335,9 @@ export async function GET(request: Request) {
           else if (quickYear === '2010s') yearFilter = '2010-2019';
           else if (quickYear === '2000s') yearFilter = '2000-2009';
           else if (quickYear === '1990s') yearFilter = '1990-1999';
+          else if (quickYear === '1980s') yearFilter = '1980-1989';
+          else if (quickYear === '1970s') yearFilter = '1970-1979';
+          else if (quickYear === '1960s') yearFilter = '1960-1969';
           else if (quickYear) yearFilter = quickYear;
 
           if (yearFrom) discoverUrl.searchParams.set('first_air_date.gte', `${yearFrom}-01-01`);
@@ -279,6 +369,11 @@ export async function GET(request: Request) {
             discoverUrl.searchParams.set('vote_average.gte', String(ratingFrom));
           }
 
+          // Add rating upper bound filter (client-side, TMDB doesn't support it)
+          if (ratingTo < 10) {
+            // Will be filtered after fetching
+          }
+
           // Add sort
           let sortParam = 'popularity.desc';
           if (sortBy === 'rating') sortParam = `vote_average.${sortOrder}`;
@@ -306,6 +401,14 @@ export async function GET(request: Request) {
         seen.add(key);
         return true;
       });
+
+      // Filter by rating upper bound (TMDB doesn't support it in discover API)
+      if (ratingTo < 10) {
+        discoverResults = discoverResults.filter((item: any) => {
+          const rating = item.vote_average || 0;
+          return rating <= ratingTo;
+        });
+      }
 
       totalResults = discoverResults.length;
       totalPages = Math.ceil(totalResults / limit);
