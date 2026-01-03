@@ -18,8 +18,10 @@ export interface FilterState {
   quickYear: string;
   genres: number[];
   ratingFrom: number;
+  ratingTo: number;
   sortBy: 'popularity' | 'rating' | 'date';
   sortOrder: 'desc' | 'asc';
+  listStatus: 'all' | 'notInList' | 'wantToWatch' | 'watched' | 'dropped';
 }
 
 const GENRES = [
@@ -44,9 +46,11 @@ const GENRES = [
   { id: 37, name: 'Вестерн' },
 ];
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 const YEAR_QUICK_FILTERS = [
   { value: '', label: 'Любой' },
-  { value: '2025', label: '2025' },
+  { value: String(CURRENT_YEAR), label: String(CURRENT_YEAR) },
   { value: '2020s', label: '20-е' },
   { value: '2010s', label: '10-е' },
   { value: '2000s', label: '00-е' },
@@ -68,8 +72,10 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
     quickYear: '',
     genres: [],
     ratingFrom: 0,
+    ratingTo: 10,
     sortBy: 'popularity',
     sortOrder: 'desc',
+    listStatus: 'all',
   });
 
   const handleFilterChange = (key: keyof FilterState, value: any) => {
@@ -111,8 +117,10 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
       quickYear: '',
       genres: [],
       ratingFrom: 0,
+      ratingTo: 10,
       sortBy: 'popularity',
       sortOrder: 'desc',
+      listStatus: 'all',
     };
     setFilters(defaultFilters);
     onFiltersChange(defaultFilters);
@@ -121,12 +129,13 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
   const hasActiveFilters = !filters.showMovies || !filters.showTv || !filters.showAnime ||
     filters.yearFrom || filters.yearTo || filters.quickYear ||
     filters.genres.length > 0 ||
-    filters.ratingFrom > 0 ||
+    filters.ratingFrom > 0 || filters.ratingTo < 10 ||
+    filters.listStatus !== 'all' ||
     filters.sortBy !== 'popularity' ||
     filters.sortOrder !== 'desc';
 
   const getTypeButtonClass = (isActive: boolean, gradient: string) => {
-    const baseClass = 'px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none';
+    const baseClass = 'px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none cursor-pointer';
     
     if (isActive) {
       return `${baseClass} text-white shadow-lg border-transparent ${gradient}`;
@@ -176,6 +185,64 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
           {filters.showAnime && (
             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
           )}
+        </button>
+      </div>
+
+      {/* Блок фильтров по статусу в списке */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => handleFilterChange('listStatus', 'all')}
+          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none cursor-pointer ${
+            filters.listStatus === 'all'
+              ? 'bg-gray-600 text-white border-gray-500'
+              : 'bg-gray-900/50 text-gray-400 border-gray-700 hover:border-gray-600'
+          }`}
+        >
+          Все
+        </button>
+        
+        <button
+          onClick={() => handleFilterChange('listStatus', 'notInList')}
+          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none cursor-pointer ${
+            filters.listStatus === 'notInList'
+              ? 'bg-gray-600 text-white border-gray-500'
+              : 'bg-gray-900/50 text-gray-400 border-gray-700 hover:border-gray-600'
+          }`}
+        >
+          Не в списках
+        </button>
+        
+        <button
+          onClick={() => handleFilterChange('listStatus', 'wantToWatch')}
+          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none cursor-pointer ${
+            filters.listStatus === 'wantToWatch'
+              ? 'bg-gray-600 text-white border-gray-500'
+              : 'bg-gray-900/50 text-gray-400 border-gray-700 hover:border-gray-600'
+          }`}
+        >
+          Хочу посмотреть
+        </button>
+        
+        <button
+          onClick={() => handleFilterChange('listStatus', 'watched')}
+          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none cursor-pointer ${
+            filters.listStatus === 'watched'
+              ? 'bg-gray-600 text-white border-gray-500'
+              : 'bg-gray-900/50 text-gray-400 border-gray-700 hover:border-gray-600'
+          }`}
+        >
+          Просмотрено
+        </button>
+        
+        <button
+          onClick={() => handleFilterChange('listStatus', 'dropped')}
+          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200 border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none cursor-pointer ${
+            filters.listStatus === 'dropped'
+              ? 'bg-gray-600 text-white border-gray-500'
+              : 'bg-gray-900/50 text-gray-400 border-gray-700 hover:border-gray-600'
+          }`}
+        >
+          Брошено
         </button>
       </div>
 
@@ -273,6 +340,49 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
           </div>
 
           <div>
+            <label className="text-xs text-gray-400 block mb-2">
+              Рейтинг TMDB: {filters.ratingFrom > 0 || filters.ratingTo < 10 ? `${filters.ratingFrom} - ${filters.ratingTo}` : 'Любой'}
+            </label>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <span className="text-xs text-gray-500 block mb-1">От</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={filters.ratingFrom}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    handleFilterChange('ratingFrom', val > filters.ratingTo ? filters.ratingTo : val);
+                  }}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+              </div>
+              <div className="flex-1">
+                <span className="text-xs text-gray-500 block mb-1">До</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={filters.ratingTo}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    handleFilterChange('ratingTo', val < filters.ratingFrom ? filters.ratingFrom : val);
+                  }}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0</span>
+              <span>5</span>
+              <span>10</span>
+            </div>
+          </div>
+
+          <div>
             <label className="text-xs text-gray-400 block mb-2">Жанры</label>
             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
               {GENRES.map((genre) => (
@@ -288,26 +398,6 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
                   {genre.name}
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-400 block mb-2">
-              Мин. рейтинг TMDB: {filters.ratingFrom > 0 ? filters.ratingFrom : 'Любой'}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              step="0.5"
-              value={filters.ratingFrom}
-              onChange={(e) => handleFilterChange('ratingFrom', parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0</span>
-              <span>5</span>
-              <span>10</span>
             </div>
           </div>
 

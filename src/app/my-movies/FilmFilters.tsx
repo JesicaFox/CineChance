@@ -7,6 +7,7 @@ interface FilmFiltersProps {
   onFiltersChange: (filters: FilmFilterState) => void;
   onSortChange?: (sort: SortState) => void;
   onAdditionalFiltersChange?: (filters: AdditionalFilters, genres: number[]) => void;
+  availableGenres?: { id: number; name: string }[];
 }
 
 export interface FilmFilterState {
@@ -67,7 +68,12 @@ const GENRES = [
   { id: 37, name: 'Вестерн' },
 ];
 
-export default function FilmFilters({ onFiltersChange, onSortChange, onAdditionalFiltersChange }: FilmFiltersProps) {
+export default function FilmFilters({ 
+  onFiltersChange, 
+  onSortChange, 
+  onAdditionalFiltersChange,
+  availableGenres = []
+}: FilmFiltersProps) {
   const [filters, setFilters] = useState<FilmFilterState>(defaultFilters);
   const [sort, setSort] = useState<SortState>(defaultSort);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -329,22 +335,28 @@ export default function FilmFilters({ onFiltersChange, onSortChange, onAdditiona
 
           {/* Фильтр по жанрам */}
           <div>
-            <label className="text-xs text-gray-400 block mb-2">Жанры</label>
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-              {GENRES.map((genre) => (
-                <button
-                  key={genre.id}
-                  onClick={() => toggleGenre(genre.id)}
-                  className={`px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
-                    selectedGenres.includes(genre.id)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  {genre.name}
-                </button>
-              ))}
-            </div>
+            <label className="text-xs text-gray-400 block mb-2">
+              Жанры {availableGenres.length > 0 && `(${availableGenres.length})`}
+            </label>
+            {availableGenres.length > 0 ? (
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                {availableGenres.map((genre) => (
+                  <button
+                    key={genre.id}
+                    onClick={() => toggleGenre(genre.id)}
+                    className={`px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
+                      selectedGenres.includes(genre.id)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {genre.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm italic">Добавьте фильмы для отображения жанров</p>
+            )}
           </div>
 
           {/* Кнопка сброса */}

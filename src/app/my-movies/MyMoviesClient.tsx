@@ -1,31 +1,35 @@
 // src/app/my-movies/MyMoviesClient.tsx
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
 import MovieCard from '../components/MovieCard';
 import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from './FilmFilters';
+import { MovieWithStatus, fetchMoviesByStatus, getMoviesCounts, getUserGenres } from './actions';
 import { Media } from '@/lib/tmdb';
 
-interface MovieWithStatus extends Media {
-  statusName?: string;
-  isBlacklisted?: boolean;
-  combinedRating?: number;
-  addedAt?: string;
-  userRating?: number | null;
+interface MyMoviesClientProps {
+  initialWatched: MovieWithStatus[];
+  initialWantToWatch: MovieWithStatus[];
+  initialDropped: MovieWithStatus[];
+  initialHidden: MovieWithStatus[];
+  counts: {
+    watched: number;
+    wantToWatch: number;
+    dropped: number;
+    hidden: number;
+  };
+  userId: string;
 }
 
-interface MyMoviesClientProps {
-  watched: MovieWithStatus[];
-  wantToWatch: MovieWithStatus[];
-  dropped: MovieWithStatus[];
-  hidden: MovieWithStatus[];
-}
+const ITEMS_PER_PAGE = 20;
 
 export default function MyMoviesClient({
-  watched,
-  wantToWatch,
-  dropped,
-  hidden,
+  initialWatched,
+  initialWantToWatch,
+  initialDropped,
+  initialHidden,
+  counts,
+  userId,
 }: MyMoviesClientProps) {
   const [activeTab, setActiveTab] = useState<'watched' | 'wantToWatch' | 'dropped' | 'hidden'>('watched');
   const [filmFilters, setFilmFilters] = useState<FilmFilterState>({
@@ -45,20 +49,83 @@ export default function MyMoviesClient({
   });
   const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
 
-  // Функция определения аниме по жанру и языку (быстрая проверка)
+  // Пагинация
+  const [displayedMovies, setDisplayedMovies] = useState<Record<string, MovieWithStatus[]>>({
+    watched: initialWatched,
+    wantToWatch: initialWantToWatch,
+    dropped: initialDropped,
+    hidden: initialHidden,
+  });
+  const [page, setPage] = useState<Record<string, number>>({
+    watched: 1,
+    wantToWatch: 1,
+    dropped: 1,
+    hidden: 1,
+  });
+  const [hasMore, setHasMore] = useState<Record<string, boolean>>({
+    watched: initialWatched.length >= ITEMS_PER_PAGE,
+    wantToWatch: initialWantToWatch.length >= ITEMS_PER_PAGE,
+    dropped: initialDropped.length >= ITEMS_PER_PAGE,
+    hidden: initialHidden.length >= ITEMS_PER_PAGE,
+  });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentCounts, setCurrentCounts] = useState(counts);
+  const [availableGenres, setAvailableGenres] = useState<{ id: number; name: string }[]>([]);
+  const isInitialMount = useRef(true);
+  
+  // Sentinel для infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  
+  // Количество карточек в ряду (адаптивно)
+  const [itemsPerRow, setItemsPerRow] = useState(2);
+  
+  // Отслеживание ширины окна для адаптивной подгрузки
+  useLayoutEffect(() => {
+    const updateItemsPerRow = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setItemsPerRow(2); // mobile
+      } else if (width < 768) {
+        setItemsPerRow(3); // sm
+      } else if (width < 1024) {
+        setItemsPerRow(4); // md
+      } else if (width < 1280) {
+        setItemsPerRow(5); // lg
+      } else {
+        setItemsPerRow(6); // xl
+      }
+    };
+    
+    updateItemsPerRow();
+    window.addEventListener('resize', updateItemsPerRow);
+    return () => window.removeEventListener('resize', updateItemsPerRow);
+  }, []);
+  
+  // Загружаем доступные жанры из коллекции пользователя
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const genres = await getUserGenres(userId);
+        setAvailableGenres(genres);
+      } catch (error) {
+        console.error('Error fetching user genres:', error);
+      }
+    };
+    
+    fetchGenres();
+  }, [userId]);
+  
+  // Функция определения аниме по жанру и языку
   const isAnimeQuick = (movie: MovieWithStatus): boolean => {
-    // Жанр 16 - Animation, оригинальный язык - японский
     const hasAnimeGenre = movie.genre_ids?.includes(16) ?? false;
     return hasAnimeGenre && movie.original_language === 'ja';
   };
 
   // Функция фильтрации списка фильмов
-  const filterMovies = (movies: MovieWithStatus[]): MovieWithStatus[] => {
+  const filterMovies = useCallback((movies: MovieWithStatus[]): MovieWithStatus[] => {
     return movies.filter(movie => {
-      // Определяем тип контента
       const isAnime = isAnimeQuick(movie);
       
-      // Фильтр по типу контента
       if (isAnime) {
         if (!filmFilters.showAnime) return false;
       } else if (movie.media_type === 'movie') {
@@ -67,7 +134,6 @@ export default function MyMoviesClient({
         if (!filmFilters.showTv) return false;
       }
       
-      // Фильтр по году выпуска
       const releaseYear = (movie.release_date || movie.first_air_date || '').split('-')[0];
       if (additionalFilters.yearFrom && parseInt(releaseYear) < parseInt(additionalFilters.yearFrom)) {
         return false;
@@ -76,13 +142,11 @@ export default function MyMoviesClient({
         return false;
       }
       
-      // Фильтр по моей оценке
       const userRating = movie.userRating ?? 0;
       if (userRating < additionalFilters.minRating || userRating > additionalFilters.maxRating) {
         return false;
       }
       
-      // Фильтр по жанрам
       if (selectedGenres.length > 0) {
         if (!movie.genre_ids) {
           return false;
@@ -93,84 +157,231 @@ export default function MyMoviesClient({
       
       return true;
     });
-  };
+  }, [filmFilters, additionalFilters, selectedGenres]);
 
-  // Функция сортировки
-  const sortMovies = (movies: MovieWithStatus[], sortState: SortState): MovieWithStatus[] => {
-    return [...movies].sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortState.sortBy) {
-        case 'popularity':
-          comparison = b.vote_count - a.vote_count;
-          break;
-        case 'rating':
-          // Используем Combined Rating для сортировки по рейтингу
-          const ratingA = a.combinedRating ?? a.vote_average;
-          const ratingB = b.combinedRating ?? b.vote_average;
-          comparison = ratingB - ratingA;
-          break;
-        case 'date':
-          const dateA = a.release_date || a.first_air_date || '';
-          const dateB = b.release_date || b.first_air_date || '';
-          comparison = dateB.localeCompare(dateA);
-          break;
-        case 'savedDate':
-          // Сортировка по дате добавления в список
-          const savedA = a.addedAt || '';
-          const savedB = b.addedAt || '';
-          comparison = savedB.localeCompare(savedA);
-          break;
+  // Функция фильтрации отображаемых фильмов
+  // Сортировка выполняется на сервере в fetchMoviesByStatus, поэтому здесь только фильтрация
+  const getFilteredMovies = useCallback((movies: MovieWithStatus[]) => {
+    return filterMovies(movies);
+  }, [filterMovies]);
+
+  // Infinite scroll через Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const sentinel = entries[0];
+        if (sentinel.isIntersecting && hasMore[activeTab] && !loadingMore) {
+          loadMoreMovies();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px', // Загружать за 200px до конца
+        threshold: 0.1,
       }
+    );
+    
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+    
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [activeTab, hasMore, loadingMore, page, sort, userId, filterMovies, itemsPerRow]);
+
+  // Эффект: перезагрузка данных при изменении сортировки
+  // Сбрасываем пагинацию и загружаем данные заново с новыми параметрами сортировки
+  useEffect(() => {
+    // При первом рендере пропсы уже содержат отсортированные данные, пропускаем
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const reloadWithNewSort = async () => {
+      setLoadingMore(true);
+      try {
+        let statusName: string | null = null;
+        if (activeTab === 'watched') statusName = 'Просмотрено';
+        else if (activeTab === 'wantToWatch') statusName = 'Хочу посмотреть';
+        else if (activeTab === 'dropped') statusName = 'Брошено';
+
+        const includeHidden = activeTab === 'hidden';
+
+        const result = await fetchMoviesByStatus(
+          userId,
+          statusName,
+          includeHidden,
+          1,
+          sort.sortBy,
+          sort.sortOrder,
+          itemsPerRow
+        );
+
+        // Фильтруем полученные фильмы
+        const filteredMovies = filterMovies(result.movies);
+
+        setDisplayedMovies(prev => ({
+          ...prev,
+          [activeTab]: filteredMovies,
+        }));
+
+        setPage(prev => ({
+          ...prev,
+          [activeTab]: 1,
+        }));
+
+        setHasMore(prev => ({
+          ...prev,
+          [activeTab]: result.hasMore,
+        }));
+      } catch (error) {
+        console.error('Error reloading movies after sort change:', error);
+      } finally {
+        setLoadingMore(false);
+      }
+    };
+
+    reloadWithNewSort();
+  }, [sort.sortBy, sort.sortOrder, activeTab, userId, filterMovies]);
+
+  // Загрузка дополнительных фильмов
+  const loadMoreMovies = async () => {
+    if (loadingMore) return;
+
+    const currentPage = page[activeTab];
+    const nextPage = currentPage + 1;
+    
+    setLoadingMore(true);
+
+    try {
+      let statusName: string | null = null;
+      if (activeTab === 'watched') statusName = 'Просмотрено';
+      else if (activeTab === 'wantToWatch') statusName = 'Хочу посмотреть';
+      else if (activeTab === 'dropped') statusName = 'Брошено';
+
+      const includeHidden = activeTab === 'hidden';
+
+      // Загружаем адаптивное количество (1 ряд карточек)
+      const result = await fetchMoviesByStatus(
+        userId,
+        statusName,
+        includeHidden,
+        nextPage,
+        sort.sortBy,
+        sort.sortOrder,
+        itemsPerRow
+      );
+
+      // Фильтруем новые фильмы
+      const filteredNewMovies = filterMovies(result.movies);
       
-      return sortState.sortOrder === 'desc' ? comparison : -comparison;
-    });
+      // Исключаем дубликаты по ID
+      const existingIds = new Set(displayedMovies[activeTab].map(m => m.id));
+      const uniqueNewMovies = filteredNewMovies.filter(m => !existingIds.has(m.id));
+      
+      setDisplayedMovies(prev => ({
+        ...prev,
+        [activeTab]: [...prev[activeTab], ...uniqueNewMovies],
+      }));
+      
+      setPage(prev => ({
+        ...prev,
+        [activeTab]: nextPage,
+      }));
+      
+      setHasMore(prev => ({
+        ...prev,
+        [activeTab]: result.hasMore,
+      }));
+    } catch (error) {
+      console.error('Error loading more movies:', error);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
-  // Фильтруем и сортируем все списки
-  const filteredWatched = useMemo(() => {
-    const filtered = filterMovies(watched);
-    return sortMovies(filtered, sort);
-  }, [watched, filmFilters, sort, additionalFilters, selectedGenres]);
-  
-  const filteredWantToWatch = useMemo(() => {
-    const filtered = filterMovies(wantToWatch);
-    return sortMovies(filtered, sort);
-  }, [wantToWatch, filmFilters, sort, additionalFilters, selectedGenres]);
-  
-  const filteredDropped = useMemo(() => {
-    const filtered = filterMovies(dropped);
-    return sortMovies(filtered, sort);
-  }, [dropped, filmFilters, sort, additionalFilters, selectedGenres]);
-  
-  const filteredHidden = useMemo(() => {
-    const filtered = filterMovies(hidden);
-    return sortMovies(filtered, sort);
-  }, [hidden, filmFilters, sort, additionalFilters, selectedGenres]);
+  // Переключение вкладки - сброс пагинации и перезагрузка данных
+  const handleTabChange = async (newTab: typeof activeTab) => {
+    if (newTab === activeTab) return;
 
-  // Данные для вкладок с учётом фильтров
+    setActiveTab(newTab);
+    setLoadingMore(true);
+
+    try {
+      // Получаем актуальные данные для новой вкладки
+      let statusName: string | null = null;
+      if (newTab === 'watched') statusName = 'Просмотрено';
+      else if (newTab === 'wantToWatch') statusName = 'Хочу посмотреть';
+      else if (newTab === 'dropped') statusName = 'Брошено';
+
+      const includeHidden = newTab === 'hidden';
+
+      const result = await fetchMoviesByStatus(
+        userId,
+        statusName,
+        includeHidden,
+        1,
+        sort.sortBy,
+        sort.sortOrder,
+        itemsPerRow
+      );
+
+      // Фильтруем полученные фильмы
+      const filteredMovies = filterMovies(result.movies);
+
+      setDisplayedMovies(prev => ({
+        ...prev,
+        [newTab]: filteredMovies,
+      }));
+      
+      setPage(prev => ({
+        ...prev,
+        [newTab]: 1,
+      }));
+      
+      setHasMore(prev => ({
+        ...prev,
+        [newTab]: result.hasMore,
+      }));
+
+      // Обновляем счетчики
+      const newCounts = await getMoviesCounts(userId);
+      setCurrentCounts(newCounts);
+    } catch (error) {
+      console.error('Error switching tab:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Отображаемые фильмы для текущей вкладки
+  // Фильтруем данные (сортировка уже применена на сервере)
+  const currentMovies = getFilteredMovies(displayedMovies[activeTab]);
+  const isRestoreView = activeTab === 'hidden';
+  const showLoadingSpinner = hasMore[activeTab] && loadingMore;
+  const tabCounts = {
+    watched: currentCounts.watched,
+    wantToWatch: currentCounts.wantToWatch,
+    dropped: currentCounts.dropped,
+    hidden: currentCounts.hidden,
+  };
+
   const tabs = [
-    { id: 'watched' as const, label: 'Просмотрено', count: filteredWatched.length },
-    { id: 'wantToWatch' as const, label: 'Хочу посмотреть', count: filteredWantToWatch.length },
-    { id: 'dropped' as const, label: 'Брошено', count: filteredDropped.length },
+    { id: 'watched' as const, label: 'Просмотрено', count: tabCounts.watched },
+    { id: 'wantToWatch' as const, label: 'Хочу посмотреть', count: tabCounts.wantToWatch },
+    { id: 'dropped' as const, label: 'Брошено', count: tabCounts.dropped },
     { 
       id: 'hidden' as const, 
       label: 'Скрытые', 
-      count: filteredHidden.length,
-      // Серый, едва заметный цвет
+      count: tabCounts.hidden,
       className: 'text-gray-500 hover:text-gray-400' 
     },
   ];
-
-  const tabData: Record<string, MovieWithStatus[]> = {
-    watched: filteredWatched,
-    wantToWatch: filteredWantToWatch,
-    dropped: filteredDropped,
-    hidden: filteredHidden,
-  };
-
-  const currentMovies = tabData[activeTab];
-  const isRestoreView = activeTab === 'hidden'; // Флаг режима восстановления
 
   return (
     <div className="min-h-screen bg-gray-950 py-3 sm:py-4">
@@ -179,35 +390,30 @@ export default function MyMoviesClient({
           Мои фильмы
         </h1>
 
-        {/* Фильтры типов контента и сортировка */}
         <FilmFilters 
           onFiltersChange={setFilmFilters} 
           onSortChange={setSort}
+          availableGenres={availableGenres}
           onAdditionalFiltersChange={(filters, genres) => {
             setAdditionalFilters(filters);
             setSelectedGenres(genres);
           }}
         />
 
-        {/* Вкладки */}
         <div className="flex flex-wrap gap-4 mt-3 mb-8 border-b border-gray-800 pb-2">
           {tabs.map((tab) => {
-            // Базовые стили
             let baseClasses = "pb-2 px-2 border-b-2 transition-colors relative cursor-pointer ";
-            // Если активная вкладка
             if (activeTab === tab.id) {
               baseClasses += "border-blue-500 text-white";
             } else {
-              // Если неактивная
               baseClasses += "border-transparent hover:border-gray-600 ";
-              // Применяем кастомный класс цвета (если есть для Скрытых) или стандартный серый
               baseClasses += tab.className || "text-gray-400 hover:text-white";
             }
 
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={baseClasses}
               >
                 <span className="font-medium text-sm sm:text-base">{tab.label}</span>
@@ -217,21 +423,36 @@ export default function MyMoviesClient({
           })}
         </div>
 
-        {/* Сетка фильмов */}
-        {currentMovies.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-            {currentMovies.map((movie, index) => (
-              <div key={movie.id} className="p-1">
-                {/* MovieCard сам загрузит статус и isBlacklisted из API */}
-                <MovieCard 
-                  movie={movie} 
-                  restoreView={isRestoreView}
-                  showRatingBadge 
-                  priority={index < 6} 
-                />
-              </div>
-            ))}
+        {loadingMore && currentMovies.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-400 mt-4">Загрузка...</p>
           </div>
+        ) : currentMovies.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+              {currentMovies.map((movie, index) => (
+                <div key={`${movie.id}-${index}`} className="p-1">
+                  <MovieCard 
+                    movie={movie as Media} 
+                    restoreView={isRestoreView}
+                    showRatingBadge 
+                    priority={index < 6} 
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Sentinel для infinite scroll */}
+            <div ref={sentinelRef} className="h-4" />
+
+            {/* Индикатор загрузки */}
+            {showLoadingSpinner && (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg">
