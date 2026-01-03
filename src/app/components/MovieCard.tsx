@@ -32,6 +32,11 @@ interface MovieCardProps {
   priority?: boolean;
 }
 
+interface TagData {
+  id: string;
+  name: string;
+}
+
 export default function MovieCard({ movie, restoreView = false, initialIsBlacklisted, initialStatus, showRatingBadge = false, priority = false }: MovieCardProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const [status, setStatus] = useState<MediaStatus>(initialStatus ?? null);
@@ -42,6 +47,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
   const [imageError, setImageError] = useState(false);
   const [fanartPoster, setFanartPoster] = useState<string | null>(null);
   const [isTryingFanart, setIsTryingFanart] = useState(false);
+  const [movieTags, setMovieTags] = useState<TagData[]>([]);
   
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isRatingInfoOpen, setIsRatingInfoOpen] = useState(false);
@@ -89,6 +95,9 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
     });
   }, [movie.vote_average, movie.vote_count, cineChanceRating, cineChanceVoteCount]);
 
+  // Проверка: находится ли фильм в списке пользователя
+  const isInWatchList = status !== null || initialStatus !== undefined;
+
   const handlePosterError = async () => {
     if (!isTryingFanart && !fanartPoster && movie.poster_path) {
       setIsTryingFanart(true);
@@ -107,6 +116,30 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
     }
     setImageError(true);
   };
+
+  // Загрузка тегов для фильма (только если в списке)
+  useEffect(() => {
+    if (!isInWatchList) {
+      setMovieTags([]);
+      return;
+    }
+
+    const fetchTags = async () => {
+      try {
+        const res = await fetch(`/api/movie-tags?tmdbId=${movie.id}&mediaType=${movie.media_type}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            setMovieTags(data.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching tags:', error);
+      }
+    };
+
+    fetchTags();
+  }, [movie.id, movie.media_type, isInWatchList]);
 
   useEffect(() => {
     if (restoreView) {
@@ -442,7 +475,10 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
           handleStatusChange(newStatus);
           setIsRatingInfoOpen(false);
         }}
+        onBlacklistToggle={handleBlacklistToggle}
+        isBlacklisted={isBlacklisted}
         isMobile={isMobile}
+        tmdbId={movie.id}
       />
 
       <div 
@@ -593,6 +629,25 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
               </span>
             </div>
           </div>
+          
+          {/* Теги - показываем только для фильмов в списке */}
+          {isInWatchList && movieTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {movieTags.slice(0, 3).map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] border border-blue-500/30"
+                >
+                  {tag.name}
+                </span>
+              ))}
+              {movieTags.length > 3 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 text-[10px]">
+                  +{movieTags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
           
           {/* Плашка с оценкой пользователя - НЕ входит в кликабельную область */}
           {showRatingBadge && (status === 'watched' || status === 'dropped') && (

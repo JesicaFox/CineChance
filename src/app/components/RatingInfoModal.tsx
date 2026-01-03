@@ -1,8 +1,15 @@
 // src/app/components/RatingInfoModal.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { 
+  getMovieTags, 
+  addTagsToMovie, 
+  removeTagsFromMovie, 
+  searchUserTags,
+  TagData 
+} from '@/app/actions/tagsActions';
 
 type MediaStatus = 'want' | 'watched' | 'dropped' | null;
 
@@ -31,6 +38,7 @@ interface RatingInfoModalProps {
   onStatusChange?: (status: MediaStatus) => void;
   onBlacklistToggle?: () => void;
   isMobile: boolean;
+  tmdbId?: number;
 }
 
 const STATUS_OPTIONS: { value: MediaStatus; label: string; icon: string; colorClass: string; hoverClass: string }[] = [
@@ -38,6 +46,8 @@ const STATUS_OPTIONS: { value: MediaStatus; label: string; icon: string; colorCl
   { value: 'watched', label: 'Просмотрено', icon: '✓', colorClass: 'bg-green-500', hoverClass: 'hover:bg-green-500' },
   { value: 'dropped', label: 'Брошено', icon: '×', colorClass: 'bg-red-500', hoverClass: 'hover:bg-red-500' },
 ];
+
+const MAX_TAGS = 5;
 
 export default function RatingInfoModal({ 
   isOpen, 
@@ -63,24 +73,142 @@ export default function RatingInfoModal({
   isBlacklisted,
   onStatusChange,
   onBlacklistToggle,
-  isMobile 
+  isMobile,
+  tmdbId
 }: RatingInfoModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  
+  // Состояние тегов
+  const [currentTags, setCurrentTags] = useState<TagData[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [suggestions, setSuggestions] = useState<TagData[]>([]);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const [isSavingTags, setIsSavingTags] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Загрузка тегов при открытии модального окна
+  useEffect(() => {
+    if (isOpen && tmdbId && mediaType) {
+      loadMovieTags();
+    }
+  }, [isOpen, tmdbId, mediaType]);
+
+  // Загрузка тегов фильма
+  const loadMovieTags = async () => {
+    if (!tmdbId || !mediaType) return;
+    
+    setIsLoadingTags(true);
+    try {
+      const result = await getMovieTags(tmdbId, mediaType);
+      if (result.success && result.data) {
+        setCurrentTags(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading tags:', error);
+    } finally {
+      setIsLoadingTags(false);
+    }
+  };
+
+  // Поиск тегов для автодополнения
+  const handleTagInputChange = async (value: string) => {
+    setTagInput(value);
+    
+    if (value.trim().length > 0) {
+      const result = await searchUserTags(value);
+      if (result.success && result.data) {
+        // Фильтруем теги, которые уже добавлены к фильму
+        const existingTagIds = currentTags.map(t => t.id);
+        const filteredSuggestions = result.data.filter(t => !existingTagIds.includes(t.id));
+        setSuggestions(filteredSuggestions);
+        setShowSuggestions(true);
+      }
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // Добавление тега
+  const handleAddTag = async (tagName?: string) => {
+    const nameToAdd = tagName || tagInput.trim();
+    if (!nameToAdd || !tmdbId || !mediaType) return;
+    
+    if (currentTags.length >= MAX_TAGS) {
+      alert(`Максимум ${MAX_TAGS} тегов`);
+      return;
+    }
+
+    setIsSavingTags(true);
+    try {
+      const result = await addTagsToMovie(tmdbId, mediaType, [nameToAdd]);
+      if (result.success && result.data) {
+        setCurrentTags(prev => [...prev, ...result.data!]);
+        setTagInput('');
+        setSuggestions([]);
+        setShowSuggestions(false);
+      } else if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Error adding tag:', error);
+    } finally {
+      setIsSavingTags(false);
+    }
+  };
+
+  // Удаление тега
+  const handleRemoveTag = async (tagId: string) => {
+    if (!tmdbId || !mediaType) return;
+    
+    setIsSavingTags(true);
+    try {
+      const result = await removeTagsFromMovie(tmdbId, mediaType, [tagId]);
+      if (result.success) {
+        setCurrentTags(prev => prev.filter(t => t.id !== tagId));
+      }
+    } catch (error) {
+      console.error('Error removing tag:', error);
+    } finally {
+      setIsSavingTags(false);
+    }
+  };
+
+  // Обработка нажатия Enter
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (suggestions.length > 0 && tagInput.trim()) {
+        // Если есть предложения, добавляем первый вариант
+        handleAddTag(suggestions[0].name);
+      } else {
+        // Создаём новый тег из введённого текста
+        handleAddTag();
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
 
   // Закрытие при клике вне попапа или на крестик
-  const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     onClose();
     setIsStatusDropdownOpen(false);
+    // Сбрасываем состояние тегов
+    setTagInput('');
+    setSuggestions([]);
+    setShowSuggestions(false);
   };
 
   // Обработчик клика на затемненный фон
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) {
-      onClose();
+      handleClose();
     }
   };
 
@@ -88,7 +216,7 @@ export default function RatingInfoModal({
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen) {
-        onClose();
+        handleClose();
       }
     };
 
@@ -101,9 +229,9 @@ export default function RatingInfoModal({
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
-  // Закрываем дропдаун при клике вне его
+  // Закрываем дропдаун статуса при клике вне его
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -190,7 +318,7 @@ export default function RatingInfoModal({
           className="relative bg-[#0a0e17] border border-blue-500/50 rounded-[20px] shadow-2xl overflow-hidden"
           style={{ 
             width: isMobile ? '95vw' : '700px',
-            height: isMobile ? '85vh' : '450px',
+            height: isMobile ? '85vh' : 'auto',
             maxWidth: '95vw',
             maxHeight: '90vh'
           }}
@@ -371,73 +499,145 @@ export default function RatingInfoModal({
                 </div>
               )}
 
-              {/* Двухколоночная сетка с адаптивным поведением */}
-              <div className="space-y-3 sm:space-y-4">
-                {/* Описание - занимает всю ширину */}
-                {overview && (
-                  <div className="space-y-1">
-                    <span className="text-xs sm:text-sm text-gray-400">Описание</span>
-                    <p className="text-xs sm:text-sm text-white leading-relaxed">
-                      {overview}
-                    </p>
-                  </div>
-                )}
+              {/* Описание - занимает всю ширину */}
+              {overview && (
+                <div className="space-y-1 mb-4">
+                  <span className="text-xs sm:text-sm text-gray-400">Описание</span>
+                  <p className="text-xs sm:text-sm text-white leading-relaxed">
+                    {overview}
+                  </p>
+                </div>
+              )}
 
-                {/* Франшиза / Серия фильмов */}
-                {collectionName && collectionId && (
-                  <div className="space-y-1">
-                    <span className="text-xs sm:text-sm text-gray-400">Серия</span>
-                    <div className="flex items-center gap-2">
-                      <Link 
-                        href={`/collection/${collectionId}`}
-                        className="text-xs sm:text-sm text-indigo-400 font-medium hover:text-indigo-300 transition-colors flex items-center gap-1"
-                      >
-                        📚 {collectionName}
-                        <span className="text-gray-500">→</span>
-                      </Link>
-                    </div>
+              {/* Франшиза / Серия фильмов */}
+              {collectionName && collectionId && (
+                <div className="space-y-1 mb-4">
+                  <span className="text-xs sm:text-sm text-gray-400">Серия</span>
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      href={`/collection/${collectionId}`}
+                      className="text-xs sm:text-sm text-indigo-400 font-medium hover:text-indigo-300 transition-colors flex items-center gap-1"
+                    >
+                      📚 {collectionName}
+                      <span className="text-gray-500">→</span>
+                    </Link>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Остальная информация в две колонки на десктопе */}
-                <div className="grid grid-cols-1 sm:grid-cols-[270px_266px_80px] gap-3 sm:gap-4">
-                  {/* Жанр */}
-                  {genres && genres.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-xs sm:text-sm text-gray-400">Жанр</span>
-                      <div className="flex flex-wrap gap-1">
-                        {genres.map((genre, index) => (
-                          <span 
-                            key={index}
-                            className="text-xs sm:text-sm text-white bg-blue-500/10 px-2 py-1 rounded-md"
+              {/* Блок тегов - только если фильм в списке */}
+              {currentStatus && (
+                <div className="space-y-1">
+                  <span className="text-xs sm:text-sm text-gray-400">
+                    Теги <span className="text-gray-600">({currentTags.length}/{MAX_TAGS})</span>
+                  </span>
+                  
+                  {/* Поле ввода тегов */}
+                  <div className="relative">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => handleTagInputChange(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      onFocus={() => {
+                        if (tagInput.trim() && suggestions.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      placeholder={currentTags.length >= MAX_TAGS ? 'Лимит reached' : 'Введите тег...'}
+                      disabled={isSavingTags || currentTags.length >= MAX_TAGS}
+                      className="w-full py-1.5 px-2 rounded-lg bg-[#1a1f2e] border border-gray-700 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                    />
+                    
+                    {/* Индикатор загрузки */}
+                    {isSavingTags && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                    
+                    {/* Выпадающий список подсказок */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-[#1a1f2e] border border-gray-700 rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+                        {suggestions.map((tag) => (
+                          <button
+                            key={tag.id}
+                            onClick={() => handleAddTag(tag.name)}
+                            className="w-full py-1.5 px-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-start text-left cursor-pointer bg-white/5 text-white hover:bg-blue-500/20"
                           >
-                            {genre}
-                          </span>
+                            <span className="truncate flex-1">{tag.name}</span>
+                            <span className="text-gray-500 text-[10px] ml-2">{tag.usageCount} раз</span>
+                          </button>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Дата выхода */}
-                  {releaseDate && (
-                    <div className="space-y-1 ">
-                      <span className="text-xs sm:text-sm text-gray-400">Дата выхода</span>
-                      <span className="text-xs sm:text-sm text-white block">
-                        {formatDate(releaseDate)}
-                      </span>
-                    </div>
-                  )}  
-
-                  {/* Время */}
-                  {runtime && (
-                    <div className="space-y-1">
-                      <span className="text-xs sm:text-sm text-gray-400">Время</span>
-                      <span className="text-xs sm:text-sm text-white block">
-                        {formatDuration(runtime)}
-                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Отображение выбранных тегов */}
+                  {currentTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {currentTags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 text-xs border border-blue-500/30"
+                        >
+                          {tag.name}
+                          <button
+                            onClick={() => handleRemoveTag(tag.id)}
+                            disabled={isSavingTags}
+                            className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-blue-500/40 transition-colors disabled:opacity-50"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18"></line>
+                              <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Остальная информация в две колонки на десктопе */}
+              <div className="grid grid-cols-1 sm:grid-cols-[270px_266px_80px] gap-3 sm:gap-4">
+                {/* Жанр */}
+                {genres && genres.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-xs sm:text-sm text-gray-400">Жанр</span>
+                    <div className="flex flex-wrap gap-1">
+                      {genres.map((genre, index) => (
+                        <span 
+                          key={index}
+                          className="text-xs sm:text-sm text-white bg-blue-500/10 px-2 py-1 rounded-md"
+                        >
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Дата выхода */}
+                {releaseDate && (
+                  <div className="space-y-1 ">
+                    <span className="text-xs sm:text-sm text-gray-400">Дата выхода</span>
+                    <span className="text-xs sm:text-sm text-white block">
+                      {formatDate(releaseDate)}
+                    </span>
+                  </div>
+                )}  
+
+                {/* Время */}
+                {runtime && (
+                  <div className="space-y-1">
+                    <span className="text-xs sm:text-sm text-gray-400">Время</span>
+                    <span className="text-xs sm:text-sm text-white block">
+                      {formatDuration(runtime)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

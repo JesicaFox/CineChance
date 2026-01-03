@@ -21,6 +21,7 @@ model User {
   sessions Session[]
   watchList WatchList[]
   blacklists Blacklist[]
+  tags       Tag[]      // Теги, созданные пользователем
 }
 
 model Account {
@@ -75,6 +76,7 @@ model WatchList {
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   status       MovieStatus  @relation(fields: [statusId], references: [id])
+  tags         Tag[]        // Связь many-to-many с тегами
 
   @@unique([userId, tmdbId, mediaType])  // Один фильм/сериал в списке только один раз (независимо от статуса)
   @@index([userId])
@@ -94,6 +96,24 @@ model MovieStatus {
   watchLists WatchList[]
 
   @@map("MovieStatus") // Явно указываем имя таблицы в БД
+}
+
+// Модель тега — полностью пользовательские теги
+model Tag {
+  id          String     @id @default(cuid())
+  name        String     // Название тега (например, "Шедевр", "Сложный фильм")
+  userId      String     // Пользователь, который создал тег
+  usageCount  Int        @default(0) // Счётчик использования для рекомендаций
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  watchLists  WatchList[] // Связь many-to-many с фильмами
+
+  @@unique([userId, name]) // У пользователя не может быть двух тегов с одинаковым названием
+  @@index([userId])
+  @@index([usageCount]) // Для сортировки по популярности
+  @@index([name]) // Для поиска и автодополнения
 }
 
 model Blacklist {

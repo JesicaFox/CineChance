@@ -26,6 +26,19 @@ const RATING_TEXTS: Record<number, string> = {
   10: 'Эпик вин!',
 };
 
+const RATING_RECOMMENDATIONS: Record<number, string> = {
+  1: 'Даже из любопытства включать не стоит.',
+  2: 'Разочарует почти с первых минут.',
+  3: 'Смотреть тяжело, удовольствия мало.',
+  4: 'Ожиданий лучше не строить.',
+  5: 'Сойдёт, если хочется просто убить время.',
+  6: 'Обычный фильм на один вечер.',
+  7: 'Приятный просмотр без сожалений.',
+  8: 'Точно стоит потраченного времени.',
+  9: 'Фильм, который смело советуешь другим.',
+  10: 'Пересмотр в голове уже начался!',
+};
+
 export default function RatingModal({ isOpen, onClose, onSave, title, releaseDate, userRating, defaultRating = 6 }: RatingModalProps) {
   const [rating, setRating] = useState(0);
   const [watchedDate, setWatchedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -185,6 +198,15 @@ export default function RatingModal({ isOpen, onClose, onSave, title, releaseDat
             {rating ? RATING_TEXTS[rating] : 'Оцените фильм'}
           </span>
         </div>
+
+        {/* Блок с рекомендациями */}
+        {rating > 0 && (
+          <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+            <p className="text-gray-400 text-sm text-center italic">
+              {RATING_RECOMMENDATIONS[rating]}
+            </p>
+          </div>
+        )}
 
         <div className="mb-4">
           <label className="block text-gray-400 text-sm mb-2">Дата просмотра</label>
