@@ -3,8 +3,10 @@
 
 import { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
 import MovieCard from '../components/MovieCard';
+import Loader from '../components/Loader';
 import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from './FilmFilters';
 import { MovieWithStatus, fetchMoviesByStatus, getMoviesCounts, getUserGenres } from './actions';
+import { getUserTags } from '../actions/tagsActions';
 import { Media } from '@/lib/tmdb';
 
 interface MyMoviesClientProps {
@@ -71,6 +73,7 @@ export default function MyMoviesClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentCounts, setCurrentCounts] = useState(counts);
   const [availableGenres, setAvailableGenres] = useState<{ id: number; name: string }[]>([]);
+  const [userTags, setUserTags] = useState<Array<{ id: string; name: string; count: number }>>([]);
   const isInitialMount = useRef(true);
   
   // Sentinel для infinite scroll
@@ -113,7 +116,24 @@ export default function MyMoviesClient({
     };
     
     fetchGenres();
+    fetchUserTags();
   }, [userId]);
+  
+  // Загружаем теги пользователя
+  const fetchUserTags = async () => {
+    try {
+      const result = await getUserTags(userId);
+      if (result.success && result.data) {
+        setUserTags(result.data.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          count: tag.usageCount
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching user tags:', error);
+    }
+  };
   
   // Функция определения аниме по жанру и языку
   const isAnimeQuick = (movie: MovieWithStatus): boolean => {
@@ -153,6 +173,13 @@ export default function MyMoviesClient({
         }
         const hasMatchingGenre = selectedGenres.some(genreId => movie.genre_ids!.includes(genreId));
         if (!hasMatchingGenre) return false;
+      }
+      
+      // Фильтрация по тегам (логика "хотя бы один из выбранных")
+      if (additionalFilters.selectedTags && additionalFilters.selectedTags.length > 0) {
+        const movieTagIds = movie.tags?.map(t => t.id) || [];
+        const hasMatchingTag = additionalFilters.selectedTags.some(tagId => movieTagIds.includes(tagId));
+        if (!hasMatchingTag) return false;
       }
       
       return true;
@@ -394,6 +421,7 @@ export default function MyMoviesClient({
           onFiltersChange={setFilmFilters} 
           onSortChange={setSort}
           availableGenres={availableGenres}
+          userTags={userTags}
           onAdditionalFiltersChange={(filters, genres) => {
             setAdditionalFilters(filters);
             setSelectedGenres(genres);
@@ -424,10 +452,7 @@ export default function MyMoviesClient({
         </div>
 
         {loadingMore && currentMovies.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-400 mt-4">Загрузка...</p>
-          </div>
+          <Loader text="Загрузка..." />
         ) : currentMovies.length > 0 ? (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -448,9 +473,7 @@ export default function MyMoviesClient({
 
             {/* Индикатор загрузки */}
             {showLoadingSpinner && (
-              <div className="flex justify-center py-8">
-                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
+              <Loader size="small" />
             )}
           </>
         ) : (

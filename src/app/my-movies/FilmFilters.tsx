@@ -2,12 +2,14 @@
 'use client';
 
 import { useState } from 'react';
+import TagCloudFilter from './TagCloudFilter';
 
 interface FilmFiltersProps {
   onFiltersChange: (filters: FilmFilterState) => void;
   onSortChange?: (sort: SortState) => void;
   onAdditionalFiltersChange?: (filters: AdditionalFilters, genres: number[]) => void;
   availableGenres?: { id: number; name: string }[];
+  userTags?: Array<{ id: string; name: string; count: number }>;
 }
 
 export interface FilmFilterState {
@@ -26,6 +28,7 @@ export interface AdditionalFilters {
   maxRating: number;
   yearFrom: string;
   yearTo: string;
+  selectedTags?: string[];
 }
 
 const defaultFilters: FilmFilterState = {
@@ -72,13 +75,15 @@ export default function FilmFilters({
   onFiltersChange, 
   onSortChange, 
   onAdditionalFiltersChange,
-  availableGenres = []
+  availableGenres = [],
+  userTags = []
 }: FilmFiltersProps) {
   const [filters, setFilters] = useState<FilmFilterState>(defaultFilters);
   const [sort, setSort] = useState<SortState>(defaultSort);
   const [isExpanded, setIsExpanded] = useState(false);
   const [additionalFilters, setAdditionalFilters] = useState<AdditionalFilters>(defaultAdditionalFilters);
   const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const toggleFilter = (key: keyof FilmFilterState) => {
     const newFilters = { ...filters, [key]: !filters[key] };
@@ -107,6 +112,7 @@ export default function FilmFilters({
   const resetAdditionalFilters = () => {
     setAdditionalFilters(defaultAdditionalFilters);
     setSelectedGenres([]);
+    setSelectedTags([]);
     if (onAdditionalFiltersChange) {
       onAdditionalFiltersChange(defaultAdditionalFilters, []);
     }
@@ -116,7 +122,8 @@ export default function FilmFilters({
     additionalFilters.maxRating < 10 ||
     additionalFilters.yearFrom ||
     additionalFilters.yearTo ||
-    selectedGenres.length > 0;
+    selectedGenres.length > 0 ||
+    selectedTags.length > 0;
 
   return (
     <div className="w-full">
@@ -332,6 +339,22 @@ export default function FilmFilters({
               </div>
             </div>
           </div>
+
+          {/* Облако тегов */}
+          {userTags.length > 0 && (
+            <TagCloudFilter
+              tags={userTags}
+              selectedTags={selectedTags}
+              onTagsChange={(tags) => {
+                setSelectedTags(tags);
+                const newFilters = { ...additionalFilters, selectedTags: tags };
+                setAdditionalFilters(newFilters);
+                if (onAdditionalFiltersChange) {
+                  onAdditionalFiltersChange(newFilters, selectedGenres);
+                }
+              }}
+            />
+          )}
 
           {/* Фильтр по жанрам */}
           <div>

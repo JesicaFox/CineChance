@@ -57,6 +57,7 @@ export interface MovieWithStatus {
   addedAt?: string;
   userRating?: number | null;
   isBlacklisted?: boolean;
+  tags?: Array<{ id: string; name: string }>;
 }
 
 export interface PaginatedMovies {
@@ -92,7 +93,12 @@ export async function fetchMoviesByStatus(
 
   const watchListRecords = await prisma.watchList.findMany({
     where: whereClause,
-    include: { status: true },
+    include: { 
+      status: true,
+      tags: {
+        select: { id: true, name: true }
+      }
+    },
     orderBy: { addedAt: 'desc' },
   });
 
@@ -135,6 +141,7 @@ export async function fetchMoviesByStatus(
         combinedRating,
         addedAt: record.addedAt?.toISOString() || '',
         userRating: record.userRating,
+        tags: record.tags || [],
       };
     })
   );
