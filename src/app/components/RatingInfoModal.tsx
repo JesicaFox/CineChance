@@ -16,6 +16,13 @@ import RatingModal from './RatingModal';
 
 type MediaStatus = 'want' | 'watched' | 'dropped' | 'rewatched' | null;
 
+interface CastMember {
+  id: number;
+  name: string;
+  character: string;
+  profilePath: string | null;
+}
+
 interface RatingInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -45,6 +52,7 @@ interface RatingInfoModalProps {
   tmdbId?: number;
   userRating?: number | null;
   watchCount?: number;
+  cast?: CastMember[];
 }
 
 const STATUS_OPTIONS: { value: MediaStatus; label: string; icon: string; colorClass: string; hoverClass: string }[] = [
@@ -84,7 +92,8 @@ export default function RatingInfoModal({
   isMobile,
   tmdbId,
   userRating,
-  watchCount
+  watchCount,
+  cast
 }: RatingInfoModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -110,6 +119,7 @@ export default function RatingInfoModal({
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
+  const [isCastExpanded, setIsCastExpanded] = useState(false);
 
   // Загрузка тегов и заметки при открытии модального окна
   useEffect(() => {
@@ -413,6 +423,13 @@ export default function RatingInfoModal({
     return `${mins}м`;
   };
 
+  // Склоняем слово "повтор" в зависимости от числа
+  const formatRepeatWord = (count: number) => {
+    const cases = [2, 0, 1, 1, 1, 2];
+    const titles = ['повтор', 'повтора', 'повторов'];
+    return titles[count % 100 > 4 && count % 100 < 20 ? 2 : cases[count % 10 < 5 ? count % 10 : 5]];
+  };
+
   return (
     <>
       {/* Затемненный фон */}
@@ -556,17 +573,20 @@ export default function RatingInfoModal({
                     </svg>
                   </button>
                   
-                  {/* Количество пересмотров - только для статуса Пересмотрено */}
-                  {currentStatus === 'rewatched' && watchCount !== undefined && watchCount > 1 && (
-                    <div className="mt-1 text-xs text-purple-400 flex items-center gap-1">
+                  {/* Счётчик повторов - только для статуса Пересмотрено */}
+                  {currentStatus === 'rewatched' && watchCount !== undefined && watchCount >= 1 && (
+                    <Link
+                      href={`/movie-history?tmdbId=${tmdbId}&mediaType=${mediaType}`}
+                      className="mt-1 text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+                    >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M17 1l4 4-4 4"></path>
                         <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
                         <path d="M7 23l-4-4 4-4"></path>
                         <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
                       </svg>
-                      <span>Всего просмотров: {watchCount}</span>
-                    </div>
+                      <span>{watchCount} {formatRepeatWord(watchCount)}</span>
+                    </Link>
                   )}
                   
                   {/* Выпадающий список */}
@@ -855,6 +875,75 @@ export default function RatingInfoModal({
                   </div>
                 )}
               </div>
+
+              {/* Блок с актерами */}
+              {cast && cast.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-800">
+                  <button
+                    onClick={() => setIsCastExpanded(!isCastExpanded)}
+                    className="flex items-center justify-between w-full text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={`transition-transform duration-200 ${isCastExpanded ? 'rotate-90' : ''}`}
+                      >
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                      <span>В ролях</span>
+                    </div>
+                    <span className="text-[10px] text-gray-600">{cast.length}</span>
+                  </button>
+
+                  {isCastExpanded && (
+                    <div className="mt-2 ml-4 space-y-1">
+                      {cast.map((actor) => (
+                        <Link
+                          key={actor.id}
+                          href={`/person/${actor.id}`}
+                          className="flex items-center gap-2 py-1 px-2 rounded-lg bg-white/5 text-white hover:bg-blue-500/20 transition-colors group"
+                        >
+                          {/* Фото актера */}
+                          {actor.profilePath ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w92${actor.profilePath}`}
+                              alt={actor.name}
+                              className="w-6 h-8 object-cover rounded flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-6 h-8 bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                              </svg>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-white group-hover:text-blue-300 transition-colors truncate block">
+                              {actor.name}
+                            </span>
+                            <span className="text-[10px] text-gray-500 truncate block">
+                              {actor.character}
+                            </span>
+                          </div>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0 ml-1">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

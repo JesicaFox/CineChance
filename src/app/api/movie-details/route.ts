@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     }
 
     const res = await fetch(
-      `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`
+      `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU&append_to_response=credits`
     );
 
     if (!res.ok) {
@@ -56,6 +56,16 @@ export async function GET(req: Request) {
       console.error('Failed to fetch keywords:', kwError);
     }
 
+    // Получаем первых 5 актеров из cast
+    const cast = data.credits?.cast
+      ?.slice(0, 5)
+      ?.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        character: c.character,
+        profilePath: c.profile_path,
+      })) || [];
+
     return NextResponse.json({
       genres: data.genres?.map((g: any) => g.name) || [],
       runtime: data.runtime || data.episode_run_time?.[0] || 0,
@@ -65,6 +75,7 @@ export async function GET(req: Request) {
       isAnime,
       collectionName: data.belongs_to_collection?.name || null,
       collectionId: data.belongs_to_collection?.id || null,
+      cast,
     });
   } catch (error) {
     console.error('Movie details error:', error);

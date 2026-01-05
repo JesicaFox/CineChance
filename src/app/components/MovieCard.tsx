@@ -61,6 +61,12 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
     isAnime: boolean;
     collectionName: string | null;
     collectionId: number | null;
+    cast: {
+      id: number;
+      name: string;
+      character: string;
+      profilePath: string | null;
+    }[];
   } | null>(null);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -174,6 +180,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
             isAnime: data.isAnime || false,
             collectionName: data.collectionName || null,
             collectionId: data.collectionId || null,
+            cast: data.cast || [],
           });
         }
       } catch (error) {
@@ -277,10 +284,17 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
           setPendingStatus(null);
           setPendingRewatch(false);
           setIsReratingOnly(false);
-          // Если был пересмотр - обновляем статус и счётчик локально
+          // Обновляем статус локально
           if (pendingRewatch) {
+            // При пересмотре - статус "Пересмотрено"
             setStatus('rewatched');
             setWatchCount(prev => prev + 1);
+          } else if (pendingStatus === 'watched') {
+            // При обычном просмотре - статус "Просмотрено"
+            setStatus('watched');
+          } else if (pendingStatus === 'dropped') {
+            // При брошенном - статус "Брошено"
+            setStatus('dropped');
           }
         } else {
           alert('Ошибка сохранения');
@@ -512,6 +526,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
         tmdbId={movie.id}
         watchCount={watchCount}
         userRating={userRating}
+        cast={movieDetails?.cast}
       />
 
       <div 
@@ -689,7 +704,7 @@ export default function MovieCard({ movie, restoreView = false, initialIsBlackli
                 setPendingStatus(status);
                 setIsRatingModalOpen(true);
               }}
-              className={`mt-0 px-2 py-1.5 rounded-b-lg text-xs font-semibold w-full text-center ${userRating ? 'bg-blue-900/80' : 'bg-gray-800/80'} flex items-center hover:bg-blue-800/80 transition-colors`}
+              className={`mt-0 px-2 py-1.5 rounded-b-lg text-xs font-semibold w-full text-center cursor-pointer ${userRating ? 'bg-blue-900/80' : 'bg-gray-800/80'} flex items-center hover:bg-blue-800/80 transition-colors`}
             >
               {userRating ? (
                 <>
