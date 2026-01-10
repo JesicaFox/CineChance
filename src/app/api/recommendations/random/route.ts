@@ -3,6 +3,13 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { fetchMediaDetails } from '@/lib/tmdb';
+import {
+  FiltersSnapshot,
+  CandidatePoolMetrics,
+  TemporalContext,
+  MLFeatures,
+  RecommendationContext
+} from '@/lib/recommendation-types';
 
 // Константы алгоритма
 const RECOMMENDATION_COOLDOWN_DAYS = 7;
@@ -71,6 +78,117 @@ function isAnime(tmdbData: any): boolean {
     tmdbData.genres?.some((g: any) => g.id === 16));
   const isJapanese = tmdbData.original_language === 'ja';
   return isAnimation && isJapanese;
+}
+
+/**
+ * Получение временного контекста
+ */
+function getTemporalContext(): TemporalContext {
+  const now = new Date();
+  const hourOfDay = now.getHours();
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+  return {
+    hourOfDay,
+    dayOfWeek,
+    isFirstSessionOfDay: false, // TODO: Заполнять из данных сессии
+    sessionsLastWeek: 0, // TODO: Рассчитывать из истории
+    isWeekend,
+  };
+}
+
+/**
+ * Расчёт метрик пула кандидатов на каждом этапе
+ */
+function calculateCandidatePoolMetrics(
+  initialCount: number,
+  afterTypeFilter: number,
+  afterCooldown: number,
+  afterAdditionalFilters: number,
+  watchListItems: any[],
+  filteredItems: any[]
+): CandidatePoolMetrics {
+  // Расчёт распределения рейтингов
+  const ratingDistribution: Record<number, number> = {};
+  const genreDistribution: Record<string, number> = {};
+  
+  // Статистика по рейтингам
+  for (const item of watchListItems) {
+    const roundedRating = Math.floor(item.voteAverage);
+    ratingDistribution[roundedRating] = (ratingDistribution[roundedRating] || 0) + 1;
+  }
+  
+  return {
+    initialCount,
+    afterTypeFilter,
+    afterCooldown,
+    afterAdditionalFilters,
+    ratingDistribution,
+    genreDistribution,
+  };
+}
+
+/**
+ * Расчёт ML-признаков (заглушки для v1, будут развиваться в v2)
+ */
+function calculateMLFeatures(
+  userId: string,
+  selectedMovie: any,
+  watchListItems: any[]
+): MLFeatures {
+  // Базовая схожесть с ранее принятыми рекомендациями
+  const similarityScore = 0.5; // TODO: Рассчитывать на основе истории
+  
+  // Новизна контента для пользователя
+  const noveltyScore = 1.0 - (selectedMovie.addedAt ? 
+    (Date.now() - new Date(selectedMovie.addedAt).getTime()) / (30 * 24 * 60 * 60 * 1000) : 0);
+  
+  // Разнообразие относительно предыдущих показов
+  const diversityScore = 0.7; // TODO: Рассчитывать из истории
+  
+  // Предсказанная вероятность принятия (заглушка)
+  const predictedAcceptanceProbability = 0.5;
+  
+  return {
+    similarityScore: Math.max(0, Math.min(1, similarityScore)),
+    noveltyScore: Math.max(0, Math.min(1, noveltyScore)),
+    diversityScore: Math.max(0, Math.min(1, diversityScore)),
+    predictedAcceptanceProbability,
+    predictedRating: selectedMovie.userRating || null,
+  };
+}
+
+/**
+ * Создание слепка фильтров
+ */
+function createFiltersSnapshot(
+  types: ContentType[],
+  lists: ListType[],
+  minRating?: number,
+  maxRating?: number,
+  yearFrom?: string,
+  yearTo?: string,
+  genres?: number[]
+): FiltersSnapshot {
+  return {
+    contentTypes: {
+      movie: types.includes('movie'),
+      tv: types.includes('tv'),
+      anime: types.includes('anime'),
+    },
+    lists: {
+      want: lists.includes('want'),
+      watched: lists.includes('watched'),
+    },
+    additionalFilters: {
+      minRating,
+      maxRating,
+      yearFrom,
+      yearTo,
+      selectedGenres: genres && genres.length > 0 ? genres : undefined,
+    },
+  };
 }
 
 /**
@@ -145,6 +263,8 @@ export async function GET(req: Request) {
       },
     });
 
+    const initialCount = watchListItems.length;
+
     if (watchListItems.length === 0) {
       return NextResponse.json({
         success: false,
@@ -217,6 +337,8 @@ export async function GET(req: Request) {
       return false;
     });
 
+    const afterTypeFilter = filteredItems.length;
+
     // 6. Получаем историю показов за последние N дней (cooldown)
     const cooldownDate = new Date();
     cooldownDate.setDate(cooldownDate.getDate() - RECOMMENDATION_COOLDOWN_DAYS);
@@ -241,6 +363,8 @@ export async function GET(req: Request) {
       const key = `${item.tmdbId}_${item.mediaType}`;
       return !excludedIds.has(key);
     });
+
+    const afterCooldown = candidates.length;
 
     // Применяем фильтр по рейтингу пользователя (дополнительный фильтр)
     // Проверяем по списку 'watched', так как рейтинг пользователя есть только у просмотренных фильмов
@@ -280,6 +404,8 @@ export async function GET(req: Request) {
         return true;
       });
     }
+
+    const afterAdditionalFilters = candidates.length;
 
     // Если все кандидаты отфильтрованы, возвращаем сообщение
     if (candidates.length === 0) {
@@ -337,7 +463,28 @@ export async function GET(req: Request) {
     };
     const userStatus = userStatusMap[selected.status.name] || null;
 
-    // 9. Логируем показ
+    // 9. Формируем контекстные данные для записи
+    const filtersSnapshot = createFiltersSnapshot(types, lists, minRating, maxRating, yearFrom, yearTo, genres);
+    const candidatePoolMetrics = calculateCandidatePoolMetrics(
+      initialCount,
+      afterTypeFilter,
+      afterCooldown,
+      afterAdditionalFilters,
+      watchListItems,
+      filteredItems
+    );
+    const temporalContext = getTemporalContext();
+    const mlFeatures = calculateMLFeatures(userId, selected, watchListItems);
+
+    const extendedContext: RecommendationContext = {
+      source: 'recommendations_page',
+      position: randomIndex,
+      candidatesCount: candidates.length,
+      userStatus,
+      filtersChanged: false,
+    };
+
+    // 9. Логируем показ с расширенными данными
     const logEntry = await prisma.recommendationLog.create({
       data: {
         userId,
@@ -345,20 +492,30 @@ export async function GET(req: Request) {
         mediaType: selected.mediaType,
         algorithm: 'random_v1',
         action: 'shown',
-        context: {
-          source: 'recommendations_page',
-          filters: {
-            types,
-            lists,
-          },
-          position: randomIndex,
-          candidatesCount: candidates.length,
-          userStatus,
-        },
+        context: extendedContext as any,
+        filtersSnapshot: filtersSnapshot as any,
+        candidatePoolMetrics: candidatePoolMetrics as any,
+        temporalContext: temporalContext as any,
+        mlFeatures: mlFeatures as any,
       },
     });
 
-    // 10. Формируем ответ
+    // 10. Обновляем счётчики в WatchList
+    await prisma.watchList.update({
+      where: {
+        userId_tmdbId_mediaType: {
+          userId,
+          tmdbId: selected.tmdbId,
+          mediaType: selected.mediaType,
+        },
+      },
+      data: {
+        recommendationCount: { increment: 1 },
+        lastRecommendedAt: new Date(),
+      },
+    });
+
+    // 11. Формируем ответ
     const movie = {
       id: selected.tmdbId,
       media_type: displayMediaType,
