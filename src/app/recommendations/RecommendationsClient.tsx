@@ -45,6 +45,27 @@ interface ActionResponse {
   logId: string;
 }
 
+interface UserSessionResponse {
+  success: boolean;
+  sessionId: string;
+  isNew: boolean;
+}
+
+interface EventResponse {
+  success: boolean;
+  eventId: string;
+}
+
+interface SignalResponse {
+  success: boolean;
+  signalId: string;
+}
+
+interface FilterSessionResponse {
+  success: boolean;
+  filterSessionId: string;
+}
+
 interface RecommendationsClientProps {
   userId: string;
 }
@@ -61,6 +82,26 @@ interface AdditionalFilters {
 }
 
 type ViewState = 'filters' | 'loading' | 'result' | 'error';
+
+// Типы для отслеживания
+interface FilterChange {
+  timestamp: string;
+  parameterName: string;
+  previousValue: unknown;
+  newValue: unknown;
+  changeSource: 'user_input' | 'preset' | 'api' | 'reset';
+  [key: string]: unknown;
+}
+
+interface SessionFlow {
+  recommendationsShown: number;
+  filtersChangedCount: number;
+  modalOpenedCount: number;
+  actionsCount: number;
+  recommendationsAccepted: number;
+  recommendationsSkipped: number;
+  [key: string]: unknown;
+}
 
 export default function RecommendationsClient({ userId }: RecommendationsClientProps) {
   const router = useRouter();
@@ -79,7 +120,222 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
   const [actionLoading, setActionLoading] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   
+  // Состояние для трекинга
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [filterSessionId, setFilterSessionId] = useState<string | null>(null);
+  const [currentFilters, setCurrentFilters] = useState<{
+    types: ContentType[];
+    lists: ListType[];
+    additionalFilters?: AdditionalFilters;
+  } | null>(null);
+  
+  // Метрики сессии
+  const sessionMetrics = useRef<SessionFlow>({
+    recommendationsShown: 0,
+    filtersChangedCount: 0,
+    modalOpenedCount: 0,
+    actionsCount: 0,
+    recommendationsAccepted: 0,
+    recommendationsSkipped: 0,
+  });
+  
+  const filterChanges = useRef<FilterChange[]>([]);
   const fetchStartTime = useRef<number>(0);
+  const sessionStartTime = useRef<number>(0);
+  const isModalOpen = useRef(false);
+
+  // Получение или создание сессии пользователя
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const res = await fetch('/api/recommendations/user-sessions/active', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+        const data: UserSessionResponse = await res.json();
+        if (data.success) {
+          setSessionId(data.sessionId);
+          sessionStartTime.current = Date.now();
+        }
+      } catch (err) {
+        console.error('Error initializing session:', err);
+      }
+    };
+
+    if (userId) {
+      initSession();
+    }
+
+    // Завершение сессии при уходе со страницы
+    return () => {
+      if (sessionId) {
+        endSession();
+      }
+    };
+  }, [userId, sessionId]);
+
+  // Завершение сессии
+  const endSession = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const durationMs = Date.now() - sessionStartTime.current;
+      await fetch('/api/recommendations/user-sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          sessionFlow: sessionMetrics.current,
+          durationMs,
+          endedAt: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error('Error ending session:', err);
+    }
+  }, [sessionId]);
+
+  // Запись события
+  const trackEvent = useCallback(async (
+    eventType: string,
+    eventData?: Record<string, unknown>
+  ) => {
+    if (!sessionId) return;
+
+    try {
+      await fetch('/api/recommendations/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          sessionId,
+          recommendationLogId: logId || undefined,
+          eventType,
+          eventData,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error('Error tracking event:', err);
+    }
+  }, [userId, sessionId, logId]);
+
+  // Запись сигнала намерения
+  const trackSignal = useCallback(async (
+    signalType: string,
+    elementContext?: { elementType: string; elementPosition: { x: number; y: number; viewportPercentage: number }; elementVisibility: number },
+    rawSignals?: Record<string, unknown>
+  ) => {
+    if (!sessionId) return;
+
+    try {
+      const now = Date.now();
+      const temporalContext = logId ? {
+        timeSinceShownMs: now - fetchStartTime.current,
+        timeSinceSessionStartMs: now - sessionStartTime.current,
+        timeOfDay: new Date().getHours(),
+        dayOfWeek: new Date().getDay(),
+      } : undefined;
+
+      await fetch('/api/recommendations/signals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          sessionId,
+          recommendationLogId: logId || undefined,
+          signalType,
+          elementContext,
+          temporalContext,
+          rawSignals,
+        }),
+      });
+    } catch (err) {
+      console.error('Error tracking signal:', err);
+    }
+  }, [userId, sessionId, logId]);
+
+  // Начало сессии фильтров
+  const startFilterSession = useCallback(async () => {
+    if (!sessionId) return;
+
+    try {
+      const res = await fetch('/api/recommendations/filter-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          sessionId,
+          initialFilters: {
+            types: ['movie', 'tv', 'anime'],
+            lists: ['want', 'watched'],
+          },
+        }),
+      });
+      const data: FilterSessionResponse = await res.json();
+      if (data.success) {
+        setFilterSessionId(data.filterSessionId);
+        filterChanges.current = [];
+      }
+    } catch (err) {
+      console.error('Error starting filter session:', err);
+    }
+  }, [userId, sessionId]);
+
+  // Запись изменения фильтра
+  const trackFilterChange = useCallback(async (
+    parameterName: string,
+    previousValue: unknown,
+    newValue: unknown
+  ) => {
+    if (!sessionId) return;
+
+    const change: FilterChange = {
+      timestamp: new Date().toISOString(),
+      parameterName,
+      previousValue,
+      newValue,
+      changeSource: 'user_input',
+    };
+    
+    filterChanges.current.push(change);
+    sessionMetrics.current.filtersChangedCount++;
+
+    // Записываем событие
+    await trackEvent('filter_change', change);
+
+    // Обновляем сессию фильтров
+    if (filterSessionId) {
+      try {
+        await fetch('/api/recommendations/filter-sessions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filterSessionId,
+            filterChanges: filterChanges.current,
+          }),
+        });
+      } catch (err) {
+        console.error('Error updating filter session:', err);
+      }
+    }
+  }, [sessionId, filterSessionId, trackEvent]);
+
+  // Отслеживание открытия модального окна
+  const handleModalOpen = useCallback(() => {
+    isModalOpen.current = true;
+    sessionMetrics.current.modalOpenedCount++;
+    trackEvent('action_click', {
+      action: 'open_details',
+      timeSinceShownMs: fetchStartTime.current ? Date.now() - fetchStartTime.current : 0,
+    });
+    trackSignal('element_visible', {
+      elementType: 'overview',
+      elementPosition: { x: 0, y: 0, viewportPercentage: 100 },
+      elementVisibility: 1,
+    });
+  }, [trackEvent, trackSignal]);
 
   // Получение года из даты
   const getYear = (movieData: MovieData) => {
@@ -89,11 +345,27 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
 
   // Получение рекомендации с фильтрами
   const fetchRecommendation = useCallback(async (types: ContentType[], lists: ListType[], additionalFilters?: AdditionalFilters) => {
+    // Записываем изменения фильтров если это не первый вызов
+    if (currentFilters) {
+      // Сравниваем типы
+      if (JSON.stringify(currentFilters.types) !== JSON.stringify(types)) {
+        trackFilterChange('contentTypes', currentFilters.types, types);
+      }
+      // Сравниваем списки
+      if (JSON.stringify(currentFilters.lists) !== JSON.stringify(lists)) {
+        trackFilterChange('lists', currentFilters.lists, lists);
+      }
+    }
+
     const isFirstCall = !fetchStartTime.current;
     if (isFirstCall) {
       fetchStartTime.current = Date.now();
       setProgress(0);
+      startFilterSession();
     }
+
+    // Обновляем текущие фильтры
+    setCurrentFilters({ types, lists, additionalFilters });
 
     setViewState('loading');
     setErrorMessage(null);
@@ -150,6 +422,15 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                             data.movie.original_language === 'ja';
         setIsAnime(isAnimeCheck);
 
+        // Обновляем метрики сессии
+        sessionMetrics.current.recommendationsShown++;
+
+        // Записываем событие показа рекомендации
+        await trackEvent('page_view', {
+          page: 'recommendation_result',
+          fetchDuration,
+        });
+
         // Анимация progress bar
         if (fetchDuration < 3000) {
           const remainingTime = 3000 - fetchDuration;
@@ -191,7 +472,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
       setProgress(100);
       setViewState('error');
     }
-  }, []);
+  }, [currentFilters, trackFilterChange, trackEvent]);
 
   // Сброс логов рекомендаций
   const handleResetLogs = async () => {
@@ -210,6 +491,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
       if (res.ok) {
         fetchStartTime.current = 0;
         setViewState('filters');
+        startFilterSession();
       } else {
         alert('Ошибка при очистке истории');
       }
@@ -221,6 +503,14 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
 
   // Возврат к фильтрам
   const handleBackToFilters = () => {
+    // Записываем событие возврата к фильтрам
+    if (logId) {
+      trackEvent('action_click', {
+        action: 'back_to_filters',
+        timeSinceShownMs: fetchStartTime.current ? Date.now() - fetchStartTime.current : 0,
+      });
+    }
+
     fetchStartTime.current = 0;
     setViewState('filters');
     setMovie(null);
@@ -231,6 +521,8 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
     setCineChanceVoteCount(0);
     setUserRating(null);
     setWatchCount(0);
+    isModalOpen.current = false;
+    startFilterSession();
   };
 
   // Записать действие пользователя
@@ -256,6 +548,32 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
     if (actionLoading || !logId) return;
 
     setActionLoading(true);
+    
+    // Записываем событие пропуска
+    await trackEvent('action_click', {
+      action: 'skip',
+      timeSinceShownMs: fetchStartTime.current ? Date.now() - fetchStartTime.current : 0,
+    });
+    
+    // Записываем негативную обратную связь (автоматически как "not_interested")
+    await fetch('/api/recommendations/negative-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        recommendationLogId: logId,
+        feedbackType: 'not_interested',
+        contextualFactors: {
+          timeOfDay: new Date().getHours(),
+          sessionDuration: sessionStartTime.current ? Date.now() - sessionStartTime.current : 0,
+          recommendationsInSession: sessionMetrics.current.recommendationsShown,
+        },
+      }),
+    }).catch(() => {});
+
+    sessionMetrics.current.actionsCount++;
+    sessionMetrics.current.recommendationsSkipped++;
+
     await recordAction('skipped');
     fetchStartTime.current = 0;
     await fetchRecommendation(['movie', 'tv', 'anime'], ['want', 'watched']);
@@ -267,6 +585,16 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
     if (actionLoading || !logId || !movie) return;
 
     setActionLoading(true);
+
+    // Записываем событие принятия
+    await trackEvent('action_click', {
+      action: 'accept',
+      timeSinceShownMs: fetchStartTime.current ? Date.now() - fetchStartTime.current : 0,
+    });
+
+    sessionMetrics.current.actionsCount++;
+    sessionMetrics.current.recommendationsAccepted++;
+
     await recordAction('accepted');
 
     // Сохраняем данные фильма в sessionStorage для передачи на страницу Мои фильмы
@@ -289,6 +617,13 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
     }
   }, []);
 
+  // Передаем обработчик открытия модального окна в дочерние компоненты
+  const handleInfoClick = useCallback(() => {
+    if (!isModalOpen.current) {
+      handleModalOpen();
+    }
+  }, [handleModalOpen]);
+
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="container mx-auto px-3 sm:px-4 py-4">
@@ -302,6 +637,36 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
           <FilterForm
             onSubmit={(types, lists, additionalFilters) => fetchRecommendation(types as ContentType[], lists as ListType[], additionalFilters)}
             isLoading={false}
+            onTypeChange={(types) => {
+              if (currentFilters) {
+                trackFilterChange('contentTypes', currentFilters.types, types);
+              }
+            }}
+            onListChange={(lists) => {
+              if (currentFilters) {
+                trackFilterChange('lists', currentFilters.lists, lists);
+              }
+            }}
+            onAdditionalFilterChange={(filters) => {
+              if (currentFilters && currentFilters.additionalFilters) {
+                // Отслеживаем изменения отдельных параметров
+                if (currentFilters.additionalFilters.minRating !== filters.minRating) {
+                  trackFilterChange('minRating', currentFilters.additionalFilters.minRating, filters.minRating);
+                }
+                if (currentFilters.additionalFilters.maxRating !== filters.maxRating) {
+                  trackFilterChange('maxRating', currentFilters.additionalFilters.maxRating, filters.maxRating);
+                }
+                if (currentFilters.additionalFilters.yearFrom !== filters.yearFrom) {
+                  trackFilterChange('yearFrom', currentFilters.additionalFilters.yearFrom, filters.yearFrom);
+                }
+                if (currentFilters.additionalFilters.yearTo !== filters.yearTo) {
+                  trackFilterChange('yearTo', currentFilters.additionalFilters.yearTo, filters.yearTo);
+                }
+                if (JSON.stringify(currentFilters.additionalFilters.selectedGenres) !== JSON.stringify(filters.selectedGenres)) {
+                  trackFilterChange('selectedGenres', currentFilters.additionalFilters.selectedGenres, filters.selectedGenres);
+                }
+              }
+            }}
           />
         )}
 
@@ -334,6 +699,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
               onAccept={handleAccept}
               onBack={handleBackToFilters}
               onResetFilters={handleBackToFilters}
+              onInfoClick={handleInfoClick}
               actionLoading={actionLoading}
             />
           </div>
