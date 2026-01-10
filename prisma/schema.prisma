@@ -38,6 +38,10 @@ model User {
   negativeFeedbacks   NegativeFeedback[]
   predictions         PredictionLog[]
   userEmbedding       UserEmbedding?
+
+  @@index([updatedAt])
+  @@index([createdAt])
+  @@index([email])
 }
 
 // Модель для логирования показов рекомендаций
