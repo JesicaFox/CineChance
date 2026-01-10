@@ -1,11 +1,37 @@
 // src/app/components/MovieGridServer.tsx
 import MovieCard from './MovieCard';
 import { fetchTrendingMovies } from '@/lib/tmdb';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { isUnder18 } from '@/lib/age-utils';
 
 export default async function MovieGridServer() {
   try {
+    // Получаем сессию пользователя для проверки возраста
+    const session = await getServerSession(authOptions);
+    let shouldFilterAdult = false;
+
+    // Проверяем возраст пользователя, если он авторизован
+    if (session?.user?.id) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id as string },
+        select: { birthDate: true },
+      });
+
+      if (user?.birthDate) {
+        shouldFilterAdult = isUnder18(user.birthDate);
+      }
+    }
+
     const movies = await fetchTrendingMovies('week');
-    const displayMovies = movies.slice(0, 28);
+    
+    // Фильтруем взрослый контент для несовершеннолетних
+    const filteredMovies = shouldFilterAdult 
+      ? movies.filter(movie => !movie.adult)
+      : movies;
+    
+    const displayMovies = filteredMovies.slice(0, 28);
 
     if (displayMovies.length === 0) {
       return (

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { fetchMediaDetails } from '@/lib/tmdb';
+import { shouldFilterAdult } from '@/lib/age-utils';
 import {
   FiltersSnapshot,
   CandidatePoolMetrics,
@@ -220,7 +221,16 @@ export async function GET(req: Request) {
 
     const preferHighRating = settings?.preferHighRating ?? true;
 
-    // 2. Формируем условия для статусов
+    // 2. Получаем дату рождения пользователя для фильтрации контента
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { birthDate: true } as any,
+    });
+
+    // Проверяем, нужно ли фильтровать взрослый контент
+    const filterAdult = shouldFilterAdult((user as any)?.birthDate ?? null, true);
+
+    // 3. Формируем условия для статусов
     const statusConditions: string[] = [];
     if (lists.includes('want')) {
       statusConditions.push('Хочу посмотреть');
@@ -281,6 +291,21 @@ export async function GET(req: Request) {
     const tmdbDetailsPromises = watchListItems.map(async (item) => {
       try {
         const details = await fetchMediaDetails(item.tmdbId, item.mediaType as 'movie' | 'tv');
+        
+        // Фильтруем взрослый контент
+        if (filterAdult && details?.adult) {
+          return {
+            tmdbId: item.tmdbId,
+            mediaType: item.mediaType,
+            isAnime: false,
+            originalLanguage: null,
+            genreIds: [] as number[],
+            release_date: null,
+            first_air_date: null,
+            adult: true,
+          };
+        }
+        
         return {
           tmdbId: item.tmdbId,
           mediaType: item.mediaType,
@@ -289,6 +314,7 @@ export async function GET(req: Request) {
           genreIds: details?.genres?.map((g: any) => g.id) || [],
           release_date: details?.release_date || null,
           first_air_date: details?.first_air_date || null,
+          adult: details?.adult || false,
         };
       } catch {
         return {
@@ -299,6 +325,7 @@ export async function GET(req: Request) {
           genreIds: [] as number[],
           release_date: null,
           first_air_date: null,
+          adult: false,
         };
       }
     });
@@ -312,6 +339,9 @@ export async function GET(req: Request) {
     let filteredItems = watchListItems.filter(item => {
       const details = detailsMap.get(item.tmdbId);
       if (!details) return false;
+
+      // Фильтруем взрослый контент
+      if (filterAdult && details.adult) return false;
 
       const isAnimeItem = details.isAnime;
       const isMovie = item.mediaType === 'movie';
@@ -417,11 +447,11 @@ export async function GET(req: Request) {
     }
 
     // 7. Случайный выбор
-    const randomIndex = Math.floor(Math.random() * candidates.length);
-    const selected = candidates[randomIndex];
+    let randomIndex = Math.floor(Math.random() * candidates.length);
+    let selected = candidates[randomIndex];
 
     // 7.1. Получаем полные данные о выбранном фильме из watchlist (включая рейтинг пользователя)
-    const watchListData = await prisma.watchList.findFirst({
+    let watchListData = await prisma.watchList.findFirst({
       where: {
         userId,
         tmdbId: selected.tmdbId,
@@ -436,7 +466,7 @@ export async function GET(req: Request) {
     });
 
     // 7.2. Получаем количество оценок пользователя для расчёта voteCount
-    const ratingHistoryCount = await prisma.ratingHistory.count({
+    let ratingHistoryCount = await prisma.ratingHistory.count({
       where: {
         userId,
         tmdbId: selected.tmdbId,
@@ -444,11 +474,55 @@ export async function GET(req: Request) {
       },
     });
 
-    const cineChanceRating = watchListData?.userRating || null;
-    const cineChanceVoteCount = ratingHistoryCount;
+    let cineChanceRating = watchListData?.userRating || null;
+    let cineChanceVoteCount = ratingHistoryCount;
 
     // 8. Получаем актуальные данные о фильме из TMDB
-    const tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+    let tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+
+    // Проверяем взрослый контент
+    if (filterAdult && tmdbData?.adult) {
+      // Если выбранный фильм - взрослый контент, а пользователь младше 18
+      // Исключаем его и выбираем другого кандидата
+      const nonAdultCandidates = candidates.filter(c => {
+        const details = detailsMap.get(c.tmdbId);
+        return details && !details.adult;
+      });
+      
+      if (nonAdultCandidates.length > 0) {
+        randomIndex = Math.floor(Math.random() * nonAdultCandidates.length);
+        selected = nonAdultCandidates[randomIndex];
+        
+        // Получаем полные данные о выбранном фильме
+        watchListData = await prisma.watchList.findFirst({
+          where: {
+            userId,
+            tmdbId: selected.tmdbId,
+            mediaType: selected.mediaType,
+          },
+          select: {
+            id: true,
+            userRating: true,
+            watchCount: true,
+            statusId: true,
+          },
+        });
+        
+        ratingHistoryCount = await prisma.ratingHistory.count({
+          where: {
+            userId,
+            tmdbId: selected.tmdbId,
+            mediaType: selected.mediaType,
+          },
+        });
+        
+        tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+        
+        // Обновляем переменные
+        cineChanceRating = watchListData?.userRating || null;
+        cineChanceVoteCount = ratingHistoryCount;
+      }
+    }
 
     // Определяем реальный тип для отображения
     const isAnimeResult = tmdbData ? isAnime(tmdbData) : false;

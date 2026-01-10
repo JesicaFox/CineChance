@@ -12,6 +12,7 @@ export interface Media {
   overview: string;
   genre_ids?: number[];
   original_language?: string;
+  adult?: boolean;
 }
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
@@ -55,6 +56,7 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
       release_date: item.release_date,
       first_air_date: item.release_date,
       overview: item.overview,
+      adult: item.adult || false,
     }));
     
     return movies;
@@ -95,6 +97,7 @@ export const fetchPopularMovies = async (page: number = 1): Promise<Media[]> => 
       release_date: item.release_date,
       first_air_date: item.release_date,
       overview: item.overview,
+      adult: item.adult || false,
     }));
     
     return movies;
@@ -145,6 +148,7 @@ export const searchMedia = async (query: string, page: number = 1): Promise<Medi
       overview: item.overview,
       genre_ids: item.genre_ids,
       original_language: item.original_language,
+      adult: item.adult || false,
     }));
 
     return media.slice(0, 100); // Ограничиваем 100 результатами
@@ -169,6 +173,7 @@ export interface MovieDetails {
   episode_run_time?: number[];
   genres?: { id: number; name: string }[];
   original_language?: string;
+  adult?: boolean;
 }
 
 // Получение деталей конкретного фильма/сериала
@@ -208,6 +213,7 @@ export const fetchMediaDetails = async (
       episode_run_time: data.episode_run_time,
       genres: data.genres || [],
       original_language: data.original_language,
+      adult: data.adult || false,
     };
   } catch (error) {
     console.error('Ошибка при получении деталей:', error);

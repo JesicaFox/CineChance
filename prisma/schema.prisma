@@ -14,6 +14,8 @@ model User {
   hashedPassword String?
   emailVerified  DateTime?
   image          String?
+  birthDate      DateTime? // Дата рождения для фильтрации контента по возрасту
+  agreedToTerms  Boolean   @default(false) // Согласие с пользовательским соглашением
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

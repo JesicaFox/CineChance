@@ -3,6 +3,10 @@ import { fetchTrendingMovies } from '@/lib/tmdb';
 import MovieCard from './MovieCard';
 import './ScrollContainer.css';
 import ScrollContainer from './ScrollContainer';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { isUnder18 } from '@/lib/age-utils';
 
 // Интерфейс для входящих пропсов
 interface Props {
@@ -11,10 +15,32 @@ interface Props {
 
 export default async function HorizontalMovieGridServer({ blacklistedIds = new Set() }: Props) {
   try {
+    // Получаем сессию пользователя для проверки возраста
+    const session = await getServerSession(authOptions);
+    let shouldFilterAdult = false;
+
+    // Проверяем возраст пользователя, если он авторизован
+    if (session?.user?.id) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id as string },
+        select: { birthDate: true },
+      });
+
+      if (user?.birthDate) {
+        shouldFilterAdult = isUnder18(user.birthDate);
+      }
+    }
+
     const movies = await fetchTrendingMovies('week');
     
-    // Фильтруем список: убираем фильмы, ID которых есть в черном списке
-    const filteredMovies = movies.filter(movie => !blacklistedIds.has(movie.id));
+    // Фильтруем: сначала черный список, потом взрослый контент
+    let filteredMovies = movies.filter(movie => !blacklistedIds.has(movie.id));
+    
+    // Фильтруем взрослый контент для несовершеннолетних
+    if (shouldFilterAdult) {
+      filteredMovies = filteredMovies.filter(movie => !movie.adult);
+    }
+    
     const displayMovies = filteredMovies.slice(0, 20);
 
     if (displayMovies.length === 0) {

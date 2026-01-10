@@ -4,11 +4,11 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, name } = await req.json();
+    const { email, password, name, birthDate } = await req.json();
 
-    if (!email || !password) {
+    if (!email || !password || !birthDate) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Email, пароль и дата рождения обязательны" },
         { status: 400 }
       );
     }
@@ -34,6 +34,7 @@ export async function POST(req: Request) {
         email,
         name,
         hashedPassword,
+        birthDate: birthDate ? new Date(birthDate) : null,
       },
     });
 

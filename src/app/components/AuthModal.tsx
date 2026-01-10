@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
+import TermsOfServiceModal from './TermsOfServiceModal';
 
 type AuthModalProps = {
   isOpen: boolean;
@@ -13,8 +14,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,14 +37,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setError('Неверный email или пароль');
       } else {
         onClose();
-        window.location.reload(); // Обновляем сессию и Sidebar
+        window.location.reload();
       }
     } else {
-      // Регистрация
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, name, birthDate }),
       });
 
       const data = await res.json();
@@ -50,7 +52,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       if (data.error) {
         setError(data.error);
       } else {
-        // После успешной регистрации — сразу логиним
         const loginResult = await signIn('credentials', {
           redirect: false,
           email,
@@ -70,84 +71,115 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="relative w-full max-w-md p-6 bg-gray-900 rounded-xl shadow-2xl border border-gray-800">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        <h3 className="text-2xl font-bold text-center mb-6">
-          {mode === 'login' ? 'Войти' : 'Регистрация'}
-        </h3>
-
-        <div className="flex justify-center mb-6 gap-8">
-          <button
-            onClick={() => setMode('login')}
-            className={`pb-2 border-b-2 transition ${mode === 'login' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400'}`}
-          >
-            Вход
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div className="relative w-full max-w-md p-6 bg-gray-900 rounded-xl shadow-2xl border border-gray-800">
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-          <button
-            onClick={() => setMode('register')}
-            className={`pb-2 border-b-2 transition ${mode === 'register' ? 'border-purple-500 text-white' : 'border-transparent text-gray-400'}`}
-          >
-            Регистрация
-          </button>
-        </div>
 
-        {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
+          <h3 className="text-2xl font-bold text-center mb-6">
+            {mode === 'login' ? 'Войти' : 'Регистрация'}
+          </h3>
 
-        <form onSubmit={handleSubmit}>
-          {mode === 'register' && (
+          <div className="flex justify-center mb-6 gap-8">
+            <button
+              onClick={() => setMode('login')}
+              className={`pb-2 border-b-2 transition ${mode === 'login' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400'}`}
+            >
+              Вход
+            </button>
+            <button
+              onClick={() => setMode('register')}
+              className={`pb-2 border-b-2 transition ${mode === 'register' ? 'border-purple-500 text-white' : 'border-transparent text-gray-400'}`}
+            >
+              Регистрация
+            </button>
+          </div>
+
+          {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            {mode === 'register' && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Имя (необязательно)</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2 text-purple-400">Дата рождения *</label>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                  <p className="text-gray-500 text-xs mt-1">Обязательное поле для ограничения контента по возрасту</p>
+                </div>
+              </>
+            )}
+
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Имя (необязательно)</label>
+              <label className="block text-sm font-medium mb-2">Email</label>
               <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                required
               />
             </div>
-          )}
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">Пароль</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Пароль</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 bg-gray-800 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+            {mode === 'register' && (
+              <p className="text-xs text-gray-500 mb-4 text-center">
+                Регистрируясь, вы соглашаетесь с{' '}
+                <button 
+                  type="button"
+                  onClick={() => setShowTerms(true)}
+                  className="text-purple-400 hover:text-purple-300 underline"
+                >
+                  Пользовательским соглашением
+                </button>
+              </p>
+            )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:brightness-110 disabled:opacity-70 flex items-center justify-center"
-          >
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Загрузка...</span>
-              </div>
-            ) : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:brightness-110 disabled:opacity-70 flex items-center justify-center"
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Загрузка...</span>
+                </div>
+              ) : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
+
+      <TermsOfServiceModal isOpen={showTerms} onClose={() => setShowTerms(false)} />
+    </>
   );
 }

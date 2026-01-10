@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { isUnder18 } from '@/lib/age-utils';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -33,13 +34,29 @@ export async function GET(request: Request) {
     let totalResults = 0;
     let totalPages = 1;
 
+    // Проверяем возраст пользователя для фильтрации взрослого контента
+    const session = await getServerSession(authOptions);
+    let shouldFilterAdult = true; // По умолчанию фильтруем для незалогиненных пользователей
+
+    if (session?.user?.id) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id as string },
+        select: { birthDate: true },
+      });
+
+      if (user?.birthDate) {
+        shouldFilterAdult = isUnder18(user.birthDate);
+      }
+    }
+
     if (query) {
       // Запрашиваем больше данных с TMDB для пагинации
       // Получаем несколько страниц, чтобы обеспечить нужное количество для пагинации
       const pagesToFetch = Math.ceil((page * limit) / 20) + 1; // +1 для запаса
       
       for (let apiPage = 1; apiPage <= pagesToFetch; apiPage++) {
-        const url = new URL(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=false`);
+        // Динамически устанавливаем include_adult в зависимости от возраста пользователя
+        const url = new URL(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=${!shouldFilterAdult}`);
         url.searchParams.set('query', query);
 
         const res = await fetch(url.toString());
@@ -50,6 +67,11 @@ export async function GET(request: Request) {
         } else {
           break; // Больше нет результатов
         }
+      }
+
+      // Дополнительная серверная фильтрация на случай, если TMDB не применил настройки
+      if (shouldFilterAdult) {
+        allResults = allResults.filter((item: any) => !item.adult);
       }
 
       // Filter results based on type
@@ -74,18 +96,18 @@ export async function GET(request: Request) {
 
       // Filter by list status
       if (listStatus !== 'all') {
-        const session = await getServerSession(authOptions);
+        const listSession = await getServerSession(authOptions);
         
-        if (session?.user?.id) {
+        if (listSession?.user?.id) {
           // Get user's watchlist
           const watchlist = await prisma.watchList.findMany({
-            where: { userId: session.user.id as string },
+            where: { userId: listSession.user.id as string },
             include: { status: true },
           });
           
           // Get user's blacklist
           const blacklist = await prisma.blacklist.findMany({
-            where: { userId: session.user.id as string },
+            where: { userId: listSession.user.id as string },
           });
 
           // Create maps for quick lookup
@@ -261,7 +283,8 @@ export async function GET(request: Request) {
       // Fetch from movie endpoint if needed
       if (queryMovie) {
         for (let apiPage = 1; apiPage <= pagesToFetch; apiPage++) {
-          const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=false`);
+          // Динамически устанавливаем include_adult в зависимости от возраста пользователя
+          const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=${!shouldFilterAdult}`);
 
           // Add year filters
           let yearFilter = '';
@@ -327,7 +350,8 @@ export async function GET(request: Request) {
       // Fetch from tv endpoint if needed
       if (queryTv) {
         for (let apiPage = 1; apiPage <= pagesToFetch; apiPage++) {
-          const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/tv?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=false`);
+          // Динамически устанавливаем include_adult в зависимости от возраста пользователя
+          const discoverUrl = new URL(`https://api.themoviedb.org/3/discover/tv?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=${!shouldFilterAdult}`);
 
           // Add year filters
           let yearFilter = '';
@@ -389,6 +413,11 @@ export async function GET(request: Request) {
             break;
           }
         }
+      }
+
+      // Дополнительная серверная фильтрация на случай, если TMDB не применил настройки
+      if (shouldFilterAdult) {
+        discoverResults = discoverResults.filter((item: any) => !item.adult);
       }
 
       // Deduplicate results by media_type and id
