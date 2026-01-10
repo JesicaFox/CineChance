@@ -1,7 +1,7 @@
 // src/app/recommendations/FilterForm.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 type ContentType = 'movie' | 'tv' | 'anime';
 type ListType = 'want' | 'watched';
@@ -17,6 +17,9 @@ interface AdditionalFilters {
 interface FilterFormProps {
   onSubmit: (types: ContentType[], lists: ListType[], additionalFilters?: AdditionalFilters) => void;
   isLoading: boolean;
+  onTypeChange?: (types: ContentType[]) => void;
+  onListChange?: (lists: ListType[]) => void;
+  onAdditionalFilterChange?: (filters: AdditionalFilters) => void;
 }
 
 const CONTENT_TYPE_OPTIONS: { value: ContentType; label: string; icon: string; color: string }[] = [
@@ -69,7 +72,7 @@ const defaultAdditionalFilters: AdditionalFilters = {
   selectedGenres: [],
 };
 
-export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
+export default function FilterForm({ onSubmit, isLoading, onTypeChange, onListChange, onAdditionalFilterChange }: FilterFormProps) {
   const [selectedTypes, setSelectedTypes] = useState<ContentType[]>(['movie', 'tv', 'anime']);
   const [selectedLists, setSelectedLists] = useState<ListType[]>(['want', 'watched']);
   const [isAdditionalExpanded, setIsAdditionalExpanded] = useState(false);
@@ -83,6 +86,13 @@ export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
       }
       return [...prev, type];
     });
+    // Вызываем колбэк для отслеживания
+    const newTypes = selectedTypes.includes(type)
+      ? (selectedTypes.length === 1 ? selectedTypes : selectedTypes.filter(t => t !== type))
+      : [...selectedTypes, type];
+    if (onTypeChange) {
+      onTypeChange(newTypes);
+    }
   };
 
   const handleListToggle = (list: ListType) => {
@@ -93,19 +103,65 @@ export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
       }
       return [...prev, list];
     });
+    // Вызываем колбэк для отслеживания
+    const newLists = selectedLists.includes(list)
+      ? (selectedLists.length === 1 ? selectedLists : selectedLists.filter(l => l !== list))
+      : [...selectedLists, list];
+    if (onListChange) {
+      onListChange(newLists);
+    }
   };
 
   const toggleGenre = (genreId: number) => {
-    setAdditionalFilters(prev => ({
-      ...prev,
-      selectedGenres: prev.selectedGenres.includes(genreId)
+    setAdditionalFilters(prev => {
+      const newGenres = prev.selectedGenres.includes(genreId)
         ? prev.selectedGenres.filter(id => id !== genreId)
-        : [...prev.selectedGenres, genreId],
-    }));
+        : [...prev.selectedGenres, genreId];
+      const newFilters = { ...prev, selectedGenres: newGenres };
+      if (onAdditionalFilterChange) {
+        onAdditionalFilterChange(newFilters);
+      }
+      return newFilters;
+    });
+  };
+
+  const updateMinRating = (value: number) => {
+    const newFilters = { ...additionalFilters, minRating: value };
+    setAdditionalFilters(newFilters);
+    if (onAdditionalFilterChange) {
+      onAdditionalFilterChange(newFilters);
+    }
+  };
+
+  const updateMaxRating = (value: number) => {
+    const newFilters = { ...additionalFilters, maxRating: value };
+    setAdditionalFilters(newFilters);
+    if (onAdditionalFilterChange) {
+      onAdditionalFilterChange(newFilters);
+    }
+  };
+
+  const updateYearFrom = (value: string) => {
+    const newFilters = { ...additionalFilters, yearFrom: value };
+    setAdditionalFilters(newFilters);
+    if (onAdditionalFilterChange) {
+      onAdditionalFilterChange(newFilters);
+    }
+  };
+
+  const updateYearTo = (value: string) => {
+    const newFilters = { ...additionalFilters, yearTo: value };
+    setAdditionalFilters(newFilters);
+    if (onAdditionalFilterChange) {
+      onAdditionalFilterChange(newFilters);
+    }
   };
 
   const resetAdditionalFilters = () => {
     setAdditionalFilters(defaultAdditionalFilters);
+    if (onAdditionalFilterChange) {
+      onAdditionalFilterChange(defaultAdditionalFilters);
+    }
   };
 
   const hasActiveAdditionalFilters = additionalFilters.minRating > 0 ||
@@ -251,7 +307,7 @@ export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
                 type="number"
                 placeholder="От"
                 value={additionalFilters.yearFrom}
-                onChange={(e) => setAdditionalFilters(prev => ({ ...prev, yearFrom: e.target.value }))}
+                onChange={(e) => updateYearFrom(e.target.value)}
                 className="w-full px-2 py-1.5 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
               />
               <span className="text-gray-500">—</span>
@@ -259,7 +315,7 @@ export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
                 type="number"
                 placeholder="До"
                 value={additionalFilters.yearTo}
-                onChange={(e) => setAdditionalFilters(prev => ({ ...prev, yearTo: e.target.value }))}
+                onChange={(e) => updateYearTo(e.target.value)}
                 className="w-full px-2 py-1.5 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:border-blue-500 outline-none"
               />
             </div>
@@ -279,7 +335,7 @@ export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
                   max="10"
                   step="1"
                   value={additionalFilters.minRating}
-                  onChange={(e) => setAdditionalFilters(prev => ({ ...prev, minRating: parseInt(e.target.value) }))}
+                  onChange={(e) => updateMinRating(parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
               </div>
@@ -291,7 +347,7 @@ export default function FilterForm({ onSubmit, isLoading }: FilterFormProps) {
                   max="10"
                   step="1"
                   value={additionalFilters.maxRating}
-                  onChange={(e) => setAdditionalFilters(prev => ({ ...prev, maxRating: parseInt(e.target.value) }))}
+                  onChange={(e) => updateMaxRating(parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
               </div>

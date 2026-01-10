@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import RecommendationInfoModal from './RecommendationInfoModal';
 
@@ -39,6 +39,7 @@ interface RecommendationCardProps {
   watchCount: number;
   onResetFilters?: () => void;
   onBack?: () => void;
+  onInfoClick?: () => void;
 }
 
 // Получение года из даты
@@ -99,9 +100,14 @@ export default function RecommendationCard({
   userRating,
   watchCount,
   onResetFilters,
+  onBack,
+  onInfoClick,
 }: RecommendationCardProps) {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const posterRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const hoverStartTime = useRef<number>(0);
 
   // Определяем мобильное устройство
   useEffect(() => {
@@ -111,6 +117,25 @@ export default function RecommendationCard({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Отслеживание hover на элементах
+  const handleHoverStart = useCallback((elementType: string) => {
+    hoverStartTime.current = Date.now();
+    // Здесь можно вызвать API для записи hover_start события
+    // console.log(`Hover start on ${elementType}`);
+  }, []);
+
+  const handleHoverEnd = useCallback((elementType: string) => {
+    if (hoverStartTime.current > 0) {
+      const duration = Date.now() - hoverStartTime.current;
+      // Записываем duration если больше порога (например, 500мс)
+      if (duration > 500) {
+        // console.log(`Hover end on ${elementType}, duration: ${duration}ms`);
+        // Здесь можно вызвать API для записи события
+      }
+    }
+    hoverStartTime.current = 0;
   }, []);
 
   // Определяем отображаемый тип контента
@@ -127,6 +152,9 @@ export default function RecommendationCard({
 
   const handleCardInfoClick = () => {
     setIsInfoModalOpen(true);
+    if (onInfoClick) {
+      onInfoClick();
+    }
   };
 
   return (
@@ -139,7 +167,10 @@ export default function RecommendationCard({
         
         {/* Постер */}
         <div 
-          onClick={() => setIsInfoModalOpen(true)}
+          ref={posterRef}
+          onClick={handleCardInfoClick}
+          onMouseEnter={() => handleHoverStart('poster')}
+          onMouseLeave={() => handleHoverEnd('poster')}
           className={`relative w-full aspect-[2/3] bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden shadow-lg cursor-pointer`}
         >
           {movie.poster_path ? (
@@ -161,9 +192,12 @@ export default function RecommendationCard({
         </div>
 
         {/* Информация под постером - прозрачный фон */}
-<div 
+        <div 
+          ref={titleRef}
           className="cursor-pointer rounded-b-lg"
           onClick={handleCardInfoClick}
+          onMouseEnter={() => handleHoverStart('title')}
+          onMouseLeave={() => handleHoverEnd('title')}
         >
           {/* Заголовок с названием фильма и годом в одной строке */}
           <div className={`flex items-center justify-between gap-2 text-white`}>
