@@ -22,12 +22,11 @@ export default function SettingsPage() {
 
     const result = await deleteAccount();
 
-    if (result.success) {
-      window.location.href = '/';
-    } else {
+    if (!result.success) {
       setDeleteError(result.error || 'Произошла ошибка');
       setIsDeleting(false);
     }
+    // При success редирект происходит автоматически через signOut({ redirect: true })
   };
 
   return (

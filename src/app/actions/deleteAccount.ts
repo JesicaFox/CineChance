@@ -125,8 +125,8 @@ export async function deleteAccount() {
       where: { id: userId },
     });
 
-    // Выходим из системы после удаления
-    await signOut({ redirect: false });
+    // Выходим из системы и редиректим на главную
+    await signOut({ redirect: true, callbackUrl: '/' });
 
     return { success: true };
   } catch (error) {
