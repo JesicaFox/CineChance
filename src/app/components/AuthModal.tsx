@@ -25,10 +25,12 @@ export default function AuthModal({ isOpen, onClose, initialEmail = '', inviteCo
   // Установка начальных значений при открытии модального окна
   useEffect(() => {
     if (isOpen) {
+      console.log('[AUTH_MODAL] Opened with:', { initialEmail, inviteCode });
       if (initialEmail) {
         setEmail(initialEmail);
         // Если есть inviteCode, переключаем в режим регистрации
         if (inviteCode) {
+          console.log('[AUTH_MODAL] Switching to register mode with inviteCode');
           setMode('register');
         }
       }
@@ -74,6 +76,12 @@ export default function AuthModal({ isOpen, onClose, initialEmail = '', inviteCo
         agreedToTerms,
         ...(inviteCode && { inviteToken: inviteCode }),
       };
+      
+      console.log('[AUTH_MODAL] Submitting signup with:', { 
+        email, 
+        hasInviteToken: !!inviteCode,
+        inviteToken: inviteCode ? inviteCode.substring(0, 20) + '...' : null 
+      });
 
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
