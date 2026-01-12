@@ -9,6 +9,10 @@ interface Invitation {
   createdAt: string;
   expiresAt: string;
   usedAt: string | null;
+  createdBy: {
+    name: string | null;
+    email: string;
+  };
   usedBy: {
     name: string | null;
     email: string;
@@ -244,6 +248,7 @@ export default function InvitationsAdminClient({ userId }: InvitationsAdminClien
                   <th className="pb-3 pr-4">Статус</th>
                   <th className="pb-3 pr-4">Создано</th>
                   <th className="pb-3 pr-4">Действует до</th>
+                  <th className="pb-3 pr-4">Создал</th>
                   <th className="pb-3 pr-4">Использовано кем</th>
                   <th className="pb-3">Действия</th>
                 </tr>
@@ -262,6 +267,9 @@ export default function InvitationsAdminClient({ userId }: InvitationsAdminClien
                     </td>
                     <td className="py-4 pr-4 text-gray-400">
                       {formatDate(invitation.expiresAt)}
+                    </td>
+                    <td className="py-4 pr-4 text-gray-400">
+                      {invitation.createdBy.name || invitation.createdBy.email}
                     </td>
                     <td className="py-4 pr-4 text-gray-400">
                       {invitation.usedBy ? (

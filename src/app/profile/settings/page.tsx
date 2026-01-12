@@ -2,10 +2,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Settings, Sliders, Trash2, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { deleteAccount } from '@/app/actions/deleteAccount';
+import { signOut } from 'next-auth/react';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -22,11 +25,15 @@ export default function SettingsPage() {
 
     const result = await deleteAccount();
 
-    if (!result.success) {
+    if (result.success) {
+      // При успехе закрываем модалку и выходим из системы
+      setShowDeleteModal(false);
+      await signOut({ redirect: false });
+      router.push('/');
+    } else {
       setDeleteError(result.error || 'Произошла ошибка');
       setIsDeleting(false);
     }
-    // При success редирект происходит автоматически через signOut({ redirect: true })
   };
 
   return (

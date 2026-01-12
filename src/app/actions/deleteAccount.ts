@@ -4,8 +4,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/auth';
-import { redirect } from 'next/navigation';
-import { signOut } from 'next-auth/react';
 
 export async function deleteAccount() {
   const session = await getServerSession(authOptions);
@@ -124,9 +122,6 @@ export async function deleteAccount() {
     await prisma.user.delete({
       where: { id: userId },
     });
-
-    // Выходим из системы и редиректим на главную
-    await signOut({ redirect: true, callbackUrl: '/' });
 
     return { success: true };
   } catch (error) {
