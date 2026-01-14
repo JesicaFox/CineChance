@@ -1,5 +1,6 @@
 // src/app/api/movies/batch/route.ts
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Movies batch error:', error);
+    logger.error('Movies batch error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

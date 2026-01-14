@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from '@/lib/logger';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -89,10 +90,10 @@ export async function POST(req: Request) {
     });
 
     if (!emailSent) {
-      console.warn(`[INVITE] Email не отправлен для ${email}, но приглашение создано`);
+      logger.warn(`[INVITE] Email не отправлен для ${email}, но приглашение создано`);
     }
 
-    console.log(`[INVITE] Created invite for ${email}: ${inviteLink} (email sent: ${emailSent})`);
+    logger.info(`[INVITE] Created invite for ${email}: ${inviteLink} (email sent: ${emailSent})`);
 
     return NextResponse.json(
       {
