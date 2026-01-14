@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import AuthModal from './AuthModal';
 import Loader from './Loader';
+import { logger } from '@/lib/logger';
 
 type SidebarProps = {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export default function Sidebar({ isOpen, toggle }: SidebarProps) {
       await signOut({ redirect: false });
       router.push('/');
     } catch (err) {
-      console.error('Logout error:', err);
+      logger.error('Logout failed', { error: err });
       try { router.push('/'); } catch {}
     } finally {
       if (typeof window !== 'undefined' && window.innerWidth < 1024) toggle();

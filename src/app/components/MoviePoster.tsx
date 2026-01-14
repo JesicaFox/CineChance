@@ -4,6 +4,7 @@
 import { useState, useEffect, memo } from 'react';
 import Image from 'next/image';
 import { Media } from '@/lib/tmdb';
+import { logger } from '@/lib/logger';
 
 interface MoviePosterProps {
   movie: Media;
@@ -49,7 +50,7 @@ const MoviePoster = memo(({
           }
         }
       } catch (error) {
-        console.error('Error fetching Fanart.tv poster:', error);
+        logger.error('Failed to fetch Fanart.tv poster', { tmdbId: movie.id, mediaType: movie.media_type, error });
       }
     }
     setImageError(true);

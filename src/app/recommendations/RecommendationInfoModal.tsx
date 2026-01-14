@@ -8,6 +8,7 @@ import {
   getMovieNote,
   TagData 
 } from '@/app/actions/tagsActions';
+import { logger } from '@/lib/logger';
 
 type MediaStatus = 'want' | 'watched' | 'dropped' | 'rewatched' | null;
 
@@ -143,7 +144,7 @@ export default function RecommendationInfoModal({
             }
           }
         } catch (error) {
-          console.error('Error loading cast:', error);
+          logger.error('Failed to load cast information', { tmdbId, mediaType, error });
         } finally {
           setIsLoadingCast(false);
         }
@@ -180,7 +181,7 @@ export default function RecommendationInfoModal({
         setCurrentTags(result.data);
       }
     } catch (error) {
-      console.error('Error loading tags:', error);
+      logger.error('Failed to load movie tags', { tmdbId, mediaType, error });
     } finally {
       setIsLoadingTags(false);
     }
@@ -197,7 +198,7 @@ export default function RecommendationInfoModal({
         setNote(result.data || '');
       }
     } catch (error) {
-      console.error('Error loading note:', error);
+      logger.error('Failed to load movie note', { tmdbId, mediaType, error });
     } finally {
       setIsLoadingNote(false);
     }

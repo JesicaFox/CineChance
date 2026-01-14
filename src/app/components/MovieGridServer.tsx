@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { isUnder18 } from '@/lib/age-utils';
+import { logger } from '@/lib/logger';
 
 export default async function MovieGridServer() {
   try {
@@ -56,7 +57,7 @@ export default async function MovieGridServer() {
       </div>
     );
   } catch (error) {
-    console.error('Error in MovieGridServer:', error);
+    logger.error('Error in MovieGridServer', { error });
     return (
       <div className="w-full">
         <h1 className="text-3xl sm:text-4xl font-bold mb-8 mt-4">Популярное на этой неделе</h1>

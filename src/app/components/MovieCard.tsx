@@ -9,6 +9,7 @@ import RatingInfoModal from './RatingInfoModal';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 import MoviePoster from './MoviePoster';
 import StatusOverlay from './StatusOverlay';
+import { logger } from '@/lib/logger';
 
 const RATING_TEXTS: Record<number, string> = {
   1: 'Хуже некуда',
@@ -125,7 +126,7 @@ export default function MovieCard({
           }
         }
       } catch (error) {
-        console.error('Error fetching Fanart.tv poster:', error);
+        logger.error('Failed to fetch Fanart.tv poster', { tmdbId: movie.id, mediaType: movie.media_type, error });
       }
     }
     setImageError(true);
@@ -158,7 +159,7 @@ export default function MovieCard({
           }
         }
       } catch (error) {
-        console.error("Failed to fetch data", error);
+        logger.error('Failed to fetch watchlist/blacklist data', { tmdbId: movie.id, mediaType: movie.media_type, error });
       }
     };
 
@@ -235,7 +236,7 @@ export default function MovieCard({
           alert('Ошибка сохранения');
         }
       } catch (error) {
-        console.error('Network error', error);
+        logger.error('Network error while saving rating', { tmdbId: movie.id, error });
         alert('Ошибка сети');
       }
     };
@@ -304,7 +305,7 @@ export default function MovieCard({
         }
       }
     } catch (error) {
-      console.error('Network error', error);
+      logger.error('Network error while toggling blacklist', { tmdbId: movie.id, isBlacklisted: targetState, error });
     }
   };
 

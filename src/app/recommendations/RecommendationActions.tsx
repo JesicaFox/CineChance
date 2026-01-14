@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { logger } from '@/lib/logger';
 
 interface MovieData {
   id: number;
@@ -54,7 +55,7 @@ export default function RecommendationActions({
       await handler();
       onTrackEvent(`recommendation_${action}`, { movieId: movie.id, movieTitle: movie.title });
     } catch (error) {
-      console.error(`Error in ${action}:`, error);
+      logger.error(`Action failed: ${action}`, { movieId: movie.id, action, error });
     } finally {
       setIsLoading(null);
     }

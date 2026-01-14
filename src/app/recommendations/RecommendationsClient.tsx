@@ -8,6 +8,7 @@ import FilterForm from './FilterForm';
 import SessionTracker from './SessionTracker';
 import FilterStateManager from './FilterStateManager';
 import { useSessionTracking } from './useSessionTracking';
+import { logger } from '@/lib/logger';
 
 // Типы данных
 interface MovieData {
@@ -117,7 +118,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
       const data: ActionResponse = await res.json();
       return data;
     } catch (err) {
-      console.error('Error recording action:', err);
+      logger.error('Failed to record action', { logId, action, error: err });
       return null;
     }
   }, [logId]);
@@ -240,7 +241,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
         setViewState('error');
       }
     } catch (err) {
-      console.error('Error fetching recommendation:', err);
+      logger.error('Failed to fetch recommendation', { error: err });
       setErrorMessage('Ошибка при загрузке рекомендации');
       setProgress(100);
       setViewState('error');
@@ -268,7 +269,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
         alert('Ошибка при очистке истории');
       }
     } catch (err) {
-      console.error('Error resetting logs:', err);
+      logger.error('Failed to reset recommendation logs', { error: err });
       alert('Ошибка при очистке истории');
     }
   };

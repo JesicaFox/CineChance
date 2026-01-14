@@ -123,7 +123,7 @@ export default function RecommendationCard({
   const handleHoverStart = useCallback((elementType: string) => {
     hoverStartTime.current = Date.now();
     // Здесь можно вызвать API для записи hover_start события
-    // console.log(`Hover start on ${elementType}`);
+      // Hover tracking removed - performance optimization
   }, []);
 
   const handleHoverEnd = useCallback((elementType: string) => {
@@ -131,7 +131,7 @@ export default function RecommendationCard({
       const duration = Date.now() - hoverStartTime.current;
       // Записываем duration если больше порога (например, 500мс)
       if (duration > 500) {
-        // console.log(`Hover end on ${elementType}, duration: ${duration}ms`);
+      // Hover end tracking removed - performance optimization
         // Здесь можно вызвать API для записи события
       }
     }

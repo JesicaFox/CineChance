@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import TermsOfServiceModal from './TermsOfServiceModal';
+import { logger } from '@/lib/logger';
 
 type AuthModalProps = {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export default function AuthModal({ isOpen, onClose, initialEmail = '', inviteCo
   // Установка начальных значений при открытии модального окна
   useEffect(() => {
     if (isOpen) {
-      console.log('[AUTH_MODAL] Opened with:', { initialEmail, inviteCode });
+      logger.info('Auth modal opened', { initialEmail: !!initialEmail, hasInviteCode: !!inviteCode });
       
       if (initialEmail) {
         setEmail(initialEmail);
@@ -82,11 +83,7 @@ export default function AuthModal({ isOpen, onClose, initialEmail = '', inviteCo
       ...(inviteCode && { inviteToken: inviteCode }),
     };
     
-    console.log('[AUTH_MODAL] Submitting signup with:', { 
-      email, 
-      hasInviteToken: !!inviteCode,
-      inviteToken: inviteCode ? inviteCode.substring(0, 20) + '...' : null 
-    });
+    logger.info('Submitting signup', { hasInviteToken: !!inviteCode });
 
     const res = await fetch('/api/auth/signup', {
       method: 'POST',

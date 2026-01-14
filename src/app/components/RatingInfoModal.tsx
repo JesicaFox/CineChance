@@ -13,6 +13,7 @@ import {
   TagData 
 } from '@/app/actions/tagsActions';
 import RatingModal from './RatingModal';
+import { logger } from '@/lib/logger';
 
 type MediaStatus = 'want' | 'watched' | 'dropped' | 'rewatched' | null;
 
@@ -142,7 +143,7 @@ export default function RatingInfoModal({
         setCurrentTags(result.data);
       }
     } catch (error) {
-      console.error('Error loading tags:', error);
+      logger.error('Failed to load movie tags', { tmdbId, mediaType, error });
     } finally {
       setIsLoadingTags(false);
     }
@@ -165,7 +166,7 @@ export default function RatingInfoModal({
         }
       }
     } catch (error) {
-      console.error('Error loading note:', error);
+      logger.error('Failed to load movie note', { tmdbId, mediaType, error });
     } finally {
       setIsLoadingNote(false);
     }
@@ -184,7 +185,7 @@ export default function RatingInfoModal({
       setOriginalNote(note);
       setLastSaved(new Date());
     } catch (error) {
-      console.error('Error saving note:', error);
+      logger.error('Failed to save movie note', { tmdbId, mediaType, error });
     } finally {
       setIsSavingNote(false);
     }
@@ -231,7 +232,7 @@ export default function RatingInfoModal({
         alert(result.error);
       }
     } catch (error) {
-      console.error('Error adding tag:', error);
+      logger.error('Failed to add tag to movie', { tmdbId, mediaType, tagName: nameToAdd, error });
     } finally {
       setIsSavingTags(false);
     }
@@ -248,7 +249,7 @@ export default function RatingInfoModal({
         setCurrentTags(prev => prev.filter(t => t.id !== tagId));
       }
     } catch (error) {
-      console.error('Error removing tag:', error);
+      logger.error('Failed to remove tag from movie', { tmdbId, mediaType, tagId, error });
     } finally {
       setIsSavingTags(false);
     }
@@ -387,10 +388,10 @@ export default function RatingInfoModal({
           onRatingUpdate(rating);
         }
       } else {
-        console.error('Error updating rating');
+        logger.error('Failed to update rating on rewatch', { tmdbId, mediaType, rating });
       }
     } catch (error) {
-      console.error('Network error', error);
+      logger.error('Network error while updating rating', { tmdbId, mediaType, error });
     }
   };
 
