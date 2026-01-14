@@ -1,11 +1,11 @@
 'use client';
 
-import { SessionProvider } from "next-auth/react";
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import AuthModal from './AuthModal';
+import Providers from '../providers';
 
 // Компонент для обработки параметров URL (обёрнут в Suspense)
 function AuthParamsHandler({ onAuthRequired }: { onAuthRequired: () => void }) {
@@ -46,11 +46,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }, []);
 
   return (
-    <SessionProvider
-      session={undefined}
-      refetchInterval={0}
-      refetchOnWindowFocus={false}
-    >
+    <Providers>
       <div className="flex min-h-screen bg-gray-950">
         <Sidebar isOpen={isSidebarOpen} toggle={toggleSidebar} />
         
@@ -77,6 +73,6 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
-    </SessionProvider>
+    </Providers>
   );
 }

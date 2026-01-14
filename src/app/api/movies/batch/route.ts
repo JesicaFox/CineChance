@@ -50,11 +50,16 @@ export async function POST(req: Request) {
 
     // Если пользователь авторизован, получаем данные из watchlist и blacklist
     if (userId) {
-      // Получаем watchlist данные
+      // Build arrays for efficient querying
+      const movieIds = movies.map(m => m.tmdbId);
+      const mediaTypes = Array.from(new Set(movies.map(m => m.mediaType)));
+      
+      // Получаем watchlist данные - используем where IN для эффективности
       const watchlistRecords = await prisma.watchList.findMany({
         where: {
           userId,
-          OR: movies.map(({ tmdbId, mediaType }) => ({ tmdbId, mediaType })),
+          tmdbId: { in: movieIds },
+          mediaType: { in: mediaTypes },
         },
         include: {
           status: true,
@@ -76,7 +81,8 @@ export async function POST(req: Request) {
       const blacklistRecords = await prisma.blacklist.findMany({
         where: {
           userId,
-          OR: movies.map(({ tmdbId, mediaType }) => ({ tmdbId, mediaType })),
+          tmdbId: { in: movieIds },
+          mediaType: { in: mediaTypes },
         },
       });
 
@@ -89,9 +95,13 @@ export async function POST(req: Request) {
     }
 
     // Получаем средние рейтинги для всех фильмов
+    const movieIds = movies.map(m => m.tmdbId);
+    const mediaTypes = Array.from(new Set(movies.map(m => m.mediaType)));
+    
     const ratingRecords = await prisma.watchList.findMany({
       where: {
-        OR: movies.map(({ tmdbId, mediaType }) => ({ tmdbId, mediaType })),
+        tmdbId: { in: movieIds },
+        mediaType: { in: mediaTypes },
         userRating: { not: null },
       },
       select: {
