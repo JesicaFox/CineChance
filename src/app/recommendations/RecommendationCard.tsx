@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import RecommendationInfoModal from './RecommendationInfoModal';
+import dynamic from 'next/dynamic';
+const RecommendationInfoModal = dynamic(() => import('./RecommendationInfoModal'), { ssr: false });
 
 interface MovieData {
   id: number;

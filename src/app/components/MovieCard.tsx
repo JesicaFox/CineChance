@@ -4,8 +4,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
 import Image from 'next/image';
 import { Media } from '@/lib/tmdb';
-import RatingModal from './RatingModal';
-import RatingInfoModal from './RatingInfoModal';
+import dynamic from 'next/dynamic';
+const RatingModal = dynamic(() => import('./RatingModal'), { ssr: false });
+const RatingInfoModal = dynamic(() => import('./RatingInfoModal'), { ssr: false });
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 import MoviePoster from './MoviePoster';
 import StatusOverlay from './StatusOverlay';
