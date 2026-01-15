@@ -76,5 +76,19 @@ export class Logger {
   }
 }
 
+
 // Глобальный логгер по умолчанию
 export const logger = new Logger();
+
+/**
+ * Централизованный сбор ошибок для ErrorBoundary и асинхронных ошибок.
+ * Можно расширить для отправки ошибок во внешний сервис.
+ */
+export function logError(context: string, error: unknown, errorInfo?: unknown) {
+  if (error instanceof Error) {
+    logger.error(`[${context}] ${error.message}`, error.stack, errorInfo);
+  } else {
+    logger.error(`[${context}]`, error, errorInfo);
+  }
+  // TODO: отправка ошибок во внешний сервис (например, Sentry)
+}

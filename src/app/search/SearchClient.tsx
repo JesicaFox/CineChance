@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MovieCard from '../components/MovieCard';
+import { MovieCardErrorBoundary } from '../components/ErrorBoundary';
 import Loader from '../components/Loader';
 import { Media } from '@/lib/tmdb';
 import SearchFilters, { FilterState } from './SearchFilters';
@@ -120,16 +121,18 @@ export default function SearchClient({ initialQuery, blacklistedIds }: SearchCli
                   key={`${item.media_type}_${item.id}`}
                   className="w-full min-w-0 p-1"
                 >
-                  <MovieCard 
-                    movie={item} 
-                    priority={index < 6}
-                    initialStatus={batch.status as 'want' | 'watched' | 'dropped' | 'rewatched' | null | undefined}
-                    initialIsBlacklisted={batch.isBlacklisted}
-                    initialUserRating={batch.userRating}
-                    initialWatchCount={batch.watchCount}
-                    initialAverageRating={batch.averageRating}
-                    initialRatingCount={batch.ratingCount}
-                  />
+                  <MovieCardErrorBoundary>
+                    <MovieCard 
+                      movie={item} 
+                      priority={index < 6}
+                      initialStatus={batch.status as 'want' | 'watched' | 'dropped' | 'rewatched' | null | undefined}
+                      initialIsBlacklisted={batch.isBlacklisted}
+                      initialUserRating={batch.userRating}
+                      initialWatchCount={batch.watchCount}
+                      initialAverageRating={batch.averageRating}
+                      initialRatingCount={batch.ratingCount}
+                    />
+                  </MovieCardErrorBoundary>
                 </div>
               );
             })}

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieCard from '@/app/components/MovieCard';
+import { MovieCardErrorBoundary } from '@/app/components/ErrorBoundary';
 import Loader from '@/app/components/Loader';
 import { Media } from '@/lib/tmdb';
 import { BlacklistProvider } from '@/app/components/BlacklistContext';
@@ -358,6 +359,7 @@ export default function PersonClient({ personId }: PersonClientProps) {
                       
                       return (
                         <div key={statusKey} className="p-1">
+                          <MovieCardErrorBoundary>
                           <MovieCard
                             movie={movie as Media}
                             restoreView={false}
@@ -365,6 +367,7 @@ export default function PersonClient({ personId }: PersonClientProps) {
                             showRatingBadge
                             priority={index < 6}
                           />
+                          </MovieCardErrorBoundary>
                           {/* Роль актера */}
                           {movie.character && (
                             <p className="text-xs text-gray-500 mt-1 px-1 truncate">

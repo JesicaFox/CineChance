@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
 import MovieCard from '../components/MovieCard';
+import { MovieCardErrorBoundary } from '../components/ErrorBoundary';
 import Loader from '../components/Loader';
 import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from './FilmFilters';
 import { MovieWithStatus, fetchMoviesByStatus, getMoviesCounts, getUserGenres, updateWatchStatus } from './actions';
@@ -664,17 +665,19 @@ export default function MyMoviesClient({
                 const batch = batchData[key] || {};
                 return (
                   <div key={`${movie.id}-${index}`} className="p-1">
-                    <MovieCard 
-                      movie={movie as Media} 
-                      restoreView={isRestoreView}
-                      showRatingBadge 
-                      priority={index < 6}
-                      initialStatus={movie.statusName ? STATUS_MAP[movie.statusName] || null : null}
-                      initialIsBlacklisted={movie.isBlacklisted}
-                      initialUserRating={movie.userRating}
-                      initialAverageRating={batch.averageRating}
-                      initialRatingCount={batch.ratingCount}
-                    />
+                    <MovieCardErrorBoundary>
+                      <MovieCard 
+                        movie={movie as Media} 
+                        restoreView={isRestoreView}
+                        showRatingBadge 
+                        priority={index < 6}
+                        initialStatus={movie.statusName ? STATUS_MAP[movie.statusName] || null : null}
+                        initialIsBlacklisted={movie.isBlacklisted}
+                        initialUserRating={movie.userRating}
+                        initialAverageRating={batch.averageRating}
+                        initialRatingCount={batch.ratingCount}
+                      />
+                    </MovieCardErrorBoundary>
                   </div>
                 );
               })}

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieCard from '@/app/components/MovieCard';
+import { MovieCardErrorBoundary } from '@/app/components/ErrorBoundary';
 import Loader from '@/app/components/Loader';
 
 interface CollectionMovie {
@@ -106,14 +107,16 @@ export default function CollectionClient({ collectionId }: { collectionId: strin
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {collection.parts.map((movie, index) => (
                 <div key={movie.id} className="p-1">
-                  <MovieCard
-                    movie={movie}
-                    restoreView={movie.isBlacklisted}
-                    initialIsBlacklisted={movie.isBlacklisted}
-                    initialStatus={movie.status}
-                    showRatingBadge
-                    priority={index < 6}
-                  />
+                  <MovieCardErrorBoundary>
+                    <MovieCard
+                      movie={movie}
+                      restoreView={movie.isBlacklisted}
+                      initialIsBlacklisted={movie.isBlacklisted}
+                      initialStatus={movie.status}
+                      showRatingBadge
+                      priority={index < 6}
+                    />
+                  </MovieCardErrorBoundary>
                 </div>
               ))}
             </div>
