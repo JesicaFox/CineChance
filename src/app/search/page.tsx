@@ -1,8 +1,11 @@
 // src/app/search/page.tsx
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
 import SearchClient from './SearchClient';
+
+export const revalidate = 3600; // ISR: обновление страницы раз в час (3600 секунд)
+export const dynamicParams = true; // Разрешаем динамические параметры
+
+// Теги для инвалидации кэша
+export const cacheTags = ['search-results'];
 
 interface SearchPageProps {
   searchParams: Promise<{ q?: string; page?: string }>;
@@ -12,23 +15,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const query = params.q || '';
 
-  // Получаем список tmdbId из черного списка (если пользователь авторизован)
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-
-  let blacklistedIds: number[] = [];
-
-  if (userId) {
-    try {
-      const blacklist = await prisma.blacklist.findMany({
-        where: { userId },
-        select: { tmdbId: true }
-      });
-      blacklistedIds = blacklist.map(b => b.tmdbId);
-    } catch (error) {
-      console.error("Failed to fetch blacklist", error);
-    }
-  }
+  // Blacklist данные теперь загружаются на клиенте в SearchClient
+  // для обеспечения актуальности при изменениях пользователя
 
   return (
     <div className="min-h-screen bg-gray-950 py-4">
@@ -37,7 +25,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           {query ? `Поиск: "${query}"` : 'Поиск фильмов и сериалов'}
         </h1>
 
-        <SearchClient initialQuery={query} blacklistedIds={blacklistedIds} />
+        <SearchClient initialQuery={query} />
       </div>
     </div>
   );

@@ -7,13 +7,42 @@ import Loader from '../components/Loader';
 import SearchFilters, { FilterState } from './SearchFilters';
 import { useSearch, useBatchData } from '@/hooks';
 import { Media } from '@/lib/tmdb';
+import { useSession } from 'next-auth/react';
 
 interface SearchClientProps {
   initialQuery: string;
-  blacklistedIds: number[];
 }
 
-export default function SearchClient({ initialQuery, blacklistedIds }: SearchClientProps) {
+export default function SearchClient({ initialQuery }: SearchClientProps) {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+
+  // Blacklist state - загружаем клиентски для актуальности данных
+  const [blacklistedIds, setBlacklistedIds] = useState<number[]>([]);
+
+  // Fetch blacklist data on mount
+  useEffect(() => {
+    const fetchBlacklist = async () => {
+      if (!userId) {
+        setBlacklistedIds([]);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/user/blacklist');
+        if (response.ok) {
+          const blacklist = await response.json();
+          setBlacklistedIds(blacklist.map((b: { tmdbId: number }) => b.tmdbId));
+        }
+      } catch (err) {
+        console.error('Failed to fetch blacklist', err);
+        setBlacklistedIds([]);
+      }
+    };
+
+    fetchBlacklist();
+  }, [userId]);
+
   // Filter state
   const [currentFilters, setCurrentFilters] = useState<FilterState | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);

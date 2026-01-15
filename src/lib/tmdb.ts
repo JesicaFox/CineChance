@@ -36,7 +36,10 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
       headers: {
         'accept': 'application/json',
       },
-      cache: 'no-store',
+      next: { 
+        revalidate: 3600, // ISR: обновление раз в час
+        tags: ['trending-movies', 'home-page'] 
+      },
     });
     
     if (!response.ok) {

@@ -1,3 +1,4 @@
+// src/app/profile/components/ProfileOverviewClient.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,8 +9,9 @@ import dynamic from 'next/dynamic';
 const TermsOfServiceModal = dynamic(() => import('@/app/components/TermsOfServiceModal'), { ssr: false });
 import { FileText, Settings } from 'lucide-react';
 import NicknameEditor from './NicknameEditor';
+import Loader from '@/app/components/Loader';
 
-interface UserData {
+export interface UserData {
   id: string;
   name: string | null;
   email: string | null;
@@ -17,20 +19,62 @@ interface UserData {
   createdAt: Date;
 }
 
-interface ProfileOverviewClientProps {
-  initialUserData: UserData;
-  watchListCount: number;
-  blacklistCount: number;
+export interface ProfileOverviewClientProps {
+  userId: string;
 }
 
-export default function ProfileOverviewClient({ 
-  initialUserData, 
-  watchListCount, 
-  blacklistCount 
-}: ProfileOverviewClientProps) {
-  const [userData, setUserData] = useState(initialUserData);
+export default function ProfileOverviewClient({ userId }: ProfileOverviewClientProps) {
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [watchListCount, setWatchListCount] = useState(0);
+  const [blacklistCount, setBlacklistCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Загружаем данные пользователя клиентски для актуальности
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Параллельная загрузка всех данных
+        const [profileResponse, watchlistResponse, blacklistResponse] = await Promise.all([
+          fetch('/api/user/profile'),
+          fetch('/api/watchlist/count'),
+          fetch('/api/user/blacklist/count'),
+        ]);
+
+        if (profileResponse.ok) {
+          const data = await profileResponse.json();
+          if (data.user) {
+            setUserData({
+              id: userId,
+              name: data.user.name,
+              email: data.user.email,
+              birthDate: data.user.birthDate ? new Date(data.user.birthDate) : null,
+              createdAt: new Date(data.user.createdAt),
+            });
+          }
+        }
+
+        if (watchlistResponse.ok) {
+          const data = await watchlistResponse.json();
+          setWatchListCount(data.count || 0);
+        }
+
+        if (blacklistResponse.ok) {
+          const data = await blacklistResponse.json();
+          setBlacklistCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [userId]);
 
   // Определяем мобильное устройство
   useEffect(() => {
@@ -43,14 +87,33 @@ export default function ProfileOverviewClient({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const userEmail = userData.email || '';
+  if (isLoading) {
+    return (
+      <div className="space-y-4 md:space-y-6 px-4 sm:px-0">
+        <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-800">
+          <Loader text="Загрузка профиля..." />
+        </div>
+      </div>
+    );
+  }
 
+  if (!userData) {
+    return (
+      <div className="space-y-4 md:space-y-6 px-4 sm:px-0">
+        <div className="bg-red-900/30 border border-red-700 rounded-lg p-6">
+          <p className="text-red-300">Не удалось загрузить данные профиля</p>
+        </div>
+      </div>
+    );
+  }
+
+  const userEmail = userData.email || '';
   const formattedBirthDate = userData.birthDate 
     ? format(userData.birthDate, isMobile ? 'dd.MM.yyyy' : 'dd MMMM yyyy', { locale: ru })
     : null;
 
   const handleNicknameChange = (newName: string | null) => {
-    setUserData(prev => ({ ...prev, name: newName }));
+    setUserData(prev => prev ? { ...prev, name: newName } : null);
   };
 
   return (
@@ -108,7 +171,7 @@ export default function ProfileOverviewClient({
         </div>
       </div>
 
-      {/* Сбор данных и Пользовательское соглашение - ИСПРАВЛЕНО */}
+      {/* Сбор данных и Пользовательское соглашение */}
       <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
           <div className="flex-1">
