@@ -14,26 +14,35 @@ jobs:
       - name: Configure rclone for Yandex Disk
         run: |
           mkdir -p ~/.config/rclone
+
+          # Сначала "замаскируем" токен для rclone
+          OBSCURED_TOKEN=$(rclone obscure "${{ secrets.YANDEX_DISK_TOKEN }}")
+
+          # Создаем конфиг с замаскированным токеном
           cat > ~/.config/rclone/rclone.conf << EOF
           [yandex]
           type = webdav
           url = https://webdav.yandex.ru
           vendor = other
           user = oauth
-          pass = ${{ secrets.YANDEX_DISK_TOKEN }}
+          pass = ${OBSCURED_TOKEN}
           EOF
 
+          echo "Config created with obscured token"
+
+      - name: List remotes
+        run: rclone listremotes
+
       - name: Create folder on Yandex Disk
-        run: rclone mkdir yandex:/CineChanceTest
+        run: rclone mkdir yandex:/CineChanceTest || echo "Folder exists"
 
       - name: Create test file
         run: |
-          echo "Test backup from GitHub Actions - $(date)" > test_file.txt
-          echo "Filename: test_file.txt" >> test_file.txt
+          echo "Test from GitHub Actions - $(date)" > test_file.txt
           echo "Timestamp: $(date +%Y%m%d_%H%M%S)" >> test_file.txt
 
-      - name: Upload test file to Yandex Disk
-        run: rclone copy test_file.txt yandex:/CineChanceTest/ --verbose
+      - name: Upload test file
+        run: rclone copy test_file.txt yandex:/CineChanceTest/ -v
 
       - name: Verify upload
         run: rclone ls yandex:/CineChanceTest/
