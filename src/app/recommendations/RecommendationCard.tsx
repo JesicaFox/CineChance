@@ -107,6 +107,7 @@ export default function RecommendationCard({
 }: RecommendationCardProps) {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const hoverStartTime = useRef<number>(0);
@@ -159,6 +160,10 @@ export default function RecommendationCard({
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   return (
     <>
       <div className="max-w-xs mx-auto animate-in fade-in duration-300">
@@ -175,7 +180,7 @@ export default function RecommendationCard({
           onMouseLeave={() => handleHoverEnd('poster')}
           className={`relative w-full aspect-[2/3] bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden shadow-lg cursor-pointer`}
         >
-          {movie.poster_path ? (
+          {movie.poster_path && !imageError ? (
             <Image
               src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
               alt={movie.title || movie.name}
@@ -186,10 +191,20 @@ export default function RecommendationCard({
               blurDataURL={STATIC_BLUR_PLACEHOLDER}
               sizes="(max-width: 640px) 80vw, (max-width: 1024px) 50vw, 33vw"
               quality={85}
+              onError={handleImageError}
             />
           ) : (
-            <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-              <span className="text-gray-600 text-sm">Нет постера</span>
+            <div className="w-full h-full flex items-center justify-center bg-gray-800">
+              <svg 
+                className="w-1/2 h-1/2 text-gray-600"
+                viewBox="0 0 24 24" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                <path d="M21 15L16 10L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
           )}
           
