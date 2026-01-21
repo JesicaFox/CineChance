@@ -10,6 +10,7 @@ const TermsOfServiceModal = dynamic(() => import('@/app/components/TermsOfServic
 import { FileText, Settings, Users, ArrowRight, Eye, Clock, Star, TrendingUp, Monitor, Tv, Film } from 'lucide-react';
 import NicknameEditor from './NicknameEditor';
 import Loader from '@/app/components/Loader';
+import '@/app/profile/components/AchievementCards.css';
 
 interface UserStats {
   total: {
@@ -45,6 +46,16 @@ interface CollectionAchievement {
   progress_percent: number;
 }
 
+interface ActorAchievement {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  watched_movies: number;
+  total_movies: number;
+  progress_percent: number;
+  average_rating: number | null;
+}
+
 interface ProfileOverviewClientProps {
   userId: string;
 }
@@ -59,6 +70,8 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
   const [retryCount, setRetryCount] = useState(0);
   const [collections, setCollections] = useState<CollectionAchievement[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
+  const [actors, setActors] = useState<ActorAchievement[]>([]);
+  const [actorsLoading, setActorsLoading] = useState(true);
 
   // Загружаем данные пользователя клиентски для актуальности
   useEffect(() => {
@@ -68,10 +81,11 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
         setErrorDetails([]);
 
         // Параллельная загрузка всех данных
-        const [profileResponse, statsResponse, collectionsResponse] = await Promise.all([
+        const [profileResponse, statsResponse, collectionsResponse, actorsResponse] = await Promise.all([
           fetch('/api/user/profile'),
           fetch('/api/user/stats'),
-          fetch('/api/user/achievements'),
+          fetch('/api/user/achiev_collection'),
+          fetch('/api/user/achiev_actors'),
         ]);
 
         let hasError = false;
@@ -126,6 +140,15 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
           console.error('Collections API error:', collectionsResponse.status);
         }
         setCollectionsLoading(false);
+
+        if (actorsResponse.ok) {
+          const data = await actorsResponse.json();
+          console.log('Actors API response:', data);
+          setActors(Array.isArray(data) ? data.slice(0, 5) : []);
+        } else {
+          console.error('Actors API error:', actorsResponse.status);
+        }
+        setActorsLoading(false);
 
         setErrorDetails(errors);
 
@@ -424,8 +447,9 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
             {collections
               .sort((a, b) => b.progress_percent - a.progress_percent)
               .map((collection) => {
-                // Рассчитываем opacity на основе прогресса
-                const overlayOpacity = (100 - collection.progress_percent) / 100;
+                // Рассчитываем grayscale и saturate на основе прогресса
+                const grayscaleValue = 100 - collection.progress_percent;
+                const saturateValue = collection.progress_percent;
                 
                 return (
                   <Link
@@ -440,22 +464,16 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                           <img
                             src={`https://image.tmdb.org/t/p/w300${collection.poster_path}`}
                             alt={collection.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster"
+                            style={{ 
+                              filter: `grayscale(${grayscaleValue}%) saturate(${saturateValue}%)`
+                            }}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-600">
                             <Film className="w-8 h-8" />
                           </div>
                         )}
-                        
-                        {/* Оверлей прогресса - с important в классе для переопределения */}
-                        <div 
-                          className="absolute inset-0 bg-gray-900 transition-opacity duration-300 group-hover:!opacity-0"
-                          style={{ 
-                            opacity: overlayOpacity,
-                            transition: 'opacity 300ms !important'
-                          }}
-                        />
                         
                         {/* Прогресс просмотра */}
                         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800">
@@ -490,6 +508,88 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
             className="flex items-center justify-center gap-2 w-full py-3 bg-gray-900 hover:bg-gray-800 rounded-lg border border-gray-800 hover:border-gray-700 transition text-gray-400 hover:text-white text-sm"
           >
             <span>Показать все коллекции</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
+      {/* Любимые актеры */}
+      {actors.length > 0 && (
+        <div className="space-y-4">
+          {/* Заголовок секции */}
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-amber-400" />
+            <h2 className="text-lg font-semibold text-white">Любимые актеры</h2>
+          </div>
+
+          {/* Постеры актеров - горизонтальный ряд */}
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {actors
+              .sort((a, b) => b.watched_movies - a.watched_movies)
+              .map((actor) => {
+                // Используем progress_percent из API
+                const progressPercent = actor.progress_percent || 0;
+                // Рассчитываем grayscale и saturate на основе прогресса
+                const grayscaleValue = 100 - progressPercent;
+                const saturateValue = progressPercent;
+                
+                return (
+                  <Link
+                    key={actor.id}
+                    href={`/person/${actor.id}`}
+                    className="flex-shrink-0 group relative"
+                  >
+                    <div className="relative w-28 sm:w-36">
+                      {/* Постер актера */}
+                      <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-800 border border-gray-700 group-hover:border-amber-500/50 transition-all relative">
+                        {actor.profile_path ? (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
+                            alt={actor.name}
+                            className="w-full h-full object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster"
+                            style={{ 
+                              filter: `grayscale(${grayscaleValue}%) saturate(${saturateValue}%)`
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-600">
+                            <Users className="w-8 h-8" />
+                          </div>
+                        )}
+                        
+                        {/* Прогресс просмотра */}
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800">
+                          <div 
+                            className="h-full bg-amber-500"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        
+                        {/* Количество фильмов */}
+                        <div className="absolute top-2 right-2 bg-amber-600/90 text-white text-xs font-medium px-2 py-1 rounded">
+                          {actor.progress_percent}%
+                        </div>
+                      </div>
+                      
+                      {/* Имя актера */}
+                      <p className="mt-2 text-gray-300 text-xs sm:text-sm truncate group-hover:text-amber-400 transition-colors">
+                        {actor.name}
+                      </p>
+                      <p className="text-gray-500 text-xs">
+                        {actor.watched_movies} / {actor.total_movies} фильмов
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
+
+          {/* Кнопка показать всех актеров */}
+          <Link
+            href="/profile/actors"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-gray-900 hover:bg-gray-800 rounded-lg border border-gray-800 hover:border-gray-700 transition text-gray-400 hover:text-white text-sm"
+          >
+            <span>Показать всех актеров</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

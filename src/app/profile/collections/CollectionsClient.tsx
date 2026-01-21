@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Film } from 'lucide-react';
 import Loader from '@/app/components/Loader';
+import '@/app/profile/components/AchievementCards.css';
 
 interface CollectionAchievement {
   id: number;
@@ -20,18 +21,23 @@ interface CollectionsClientProps {
   userId: string;
 }
 
+const ITEMS_PER_PAGE = 12;
+const INITIAL_ITEMS = 24;
+
 export default function CollectionsClient({ userId }: CollectionsClientProps) {
-  const [collections, setCollections] = useState<CollectionAchievement[]>([]);
+  const [allCollections, setAllCollections] = useState<CollectionAchievement[]>([]);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_ITEMS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
     const fetchCollections = async () => {
       try {
-        const res = await fetch('/api/user/achievements');
+        const res = await fetch('/api/user/achiev_collection');
         if (!res.ok) throw new Error('Failed to fetch collections');
         const data = await res.json();
-        setCollections(Array.isArray(data) ? data : []);
+        setAllCollections(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to fetch collections:', err);
         setError('Не удалось загрузить коллекции');
@@ -42,6 +48,23 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
 
     fetchCollections();
   }, [userId]);
+
+  // Scroll to top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const loadMore = () => {
+    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+  };
+
+  const visibleCollections = allCollections.slice(0, visibleCount);
+  const hasMore = visibleCount < allCollections.length;
+  const isLoadingMore = false; // For loading state during pagination
 
   if (loading) {
     return (
@@ -59,7 +82,7 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
     );
   }
 
-  if (collections.length === 0) {
+  if (allCollections.length === 0) {
     return (
       <div className="bg-gray-900 rounded-lg md:rounded-xl p-6 border border-gray-800">
         <p className="text-gray-400 text-center py-10">
@@ -70,14 +93,15 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <>
       {/* Сетка коллекций */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {collections
+        {visibleCollections
           .sort((a, b) => b.progress_percent - a.progress_percent)
           .map((collection) => {
-            // Рассчитываем opacity на основе прогресса
-            const overlayOpacity = (100 - collection.progress_percent) / 100;
+            // Рассчитываем grayscale и saturate на основе прогресса
+            const grayscaleValue = 100 - collection.progress_percent;
+            const saturateValue = collection.progress_percent;
             
             return (
               <Link
@@ -92,23 +116,16 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
                       <img
                         src={`https://image.tmdb.org/t/p/w300${collection.poster_path}`}
                         alt={collection.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster"
+                        style={{ 
+                          filter: `grayscale(${grayscaleValue}%) saturate(${saturateValue}%)`
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-600">
                         <Film className="w-10 h-10" />
                       </div>
                     )}
-                    
-                    {/* Оверлей прогресса */}
-                    <div 
-                      className="absolute inset-0 bg-gray-900 transition-opacity duration-300 group-hover:!opacity-0"
-                      style={{ 
-                        opacity: overlayOpacity,
-                        // Используем important в инлайн-стиле для переопределения
-                        transition: 'opacity 300ms !important'
-                      }}
-                    />
                     
                     {/* Прогресс просмотра */}
                     <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-800">
@@ -142,10 +159,54 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
           })}
       </div>
 
+      {/* Кнопка "Ещё" */}
+      {hasMore && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="px-6 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {isLoadingMore ? (
+              <>
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-white rounded-full animate-spin"></div>
+                Загрузка...
+              </>
+            ) : (
+              'Ещё...'
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Итого */}
       <p className="text-gray-500 text-sm text-center pt-4">
-        Всего коллекций: {collections.length}
+        Показано {visibleCollections.length} из {allCollections.length} коллекций
       </p>
-    </div>
+
+      {/* Кнопка "Наверх" */}
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-50"
+          aria-label="Наверх"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 10l7-7m0 0l7 7m-7-7v18"
+            />
+          </svg>
+        </button>
+      )}
+    </>
   );
 }

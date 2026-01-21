@@ -1,0 +1,10 @@
+/* src/app/profile/actors/ActorsClient.css */
+/* Стили для карточек коллекций и актеров на странице профиля */
+
+.achievement-poster {
+  transition: filter 0.3s ease;
+}
+
+.achievement-poster:hover {
+  filter: grayscale(0%) saturate(100%) !important;
+}

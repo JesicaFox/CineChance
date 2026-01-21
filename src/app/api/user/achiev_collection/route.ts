@@ -158,7 +158,7 @@ export async function GET(request: Request) {
 
       // Небольшая пауза между батчами для избежания rate limiting
       if (i + BATCH_SIZE < watchedMovies.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
 
@@ -185,6 +185,9 @@ export async function GET(request: Request) {
           ? Math.round((watchedInCollection / totalMovies) * 100)
           : 0,
       });
+
+      // Пауза между запросами для избежания rate limiting
+      await new Promise(resolve => setTimeout(resolve, 25));
     }
 
     // Сортируем по прогрессу и количеству просмотренных
