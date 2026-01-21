@@ -12,7 +12,9 @@ import {
   CandidatePoolMetrics,
   TemporalContext,
   MLFeatures,
-  RecommendationContext
+  RecommendationContext,
+  ContentType,
+  ListType,
 } from '@/lib/recommendation-types';
 
 // Константы алгоритма
@@ -20,9 +22,6 @@ const RECOMMENDATION_COOLDOWN_DAYS = 7;
 const MIN_RATING_THRESHOLD = 6.5;
 
 // Типы фильтров
-type ContentType = 'movie' | 'tv' | 'anime';
-type ListType = 'want' | 'watched';
-
 interface FilterParams {
   types: ContentType[];
   lists: ListType[];
@@ -55,7 +54,7 @@ function parseFilterParams(url: URL): FilterParams {
   let lists: ListType[] = [];
   if (listsParam) {
     const requestedLists = listsParam.split(',') as ListType[];
-    lists = requestedLists.filter(t => ['want', 'watched'].includes(t));
+    lists = requestedLists.filter(t => ['want', 'watched', 'dropped'].includes(t));
   }
 
   // Парсим дополнительные фильтры
@@ -180,6 +179,7 @@ function createFiltersSnapshot(
     lists: {
       want: lists.includes('want'),
       watched: lists.includes('watched'),
+      dropped: lists.includes('dropped'),
     },
     additionalFilters: {
       minRating,
@@ -196,9 +196,9 @@ function createFiltersSnapshot(
  * 
  * Query params:
  * - types: comma-separated list of content types (movie, tv, anime)
- * - lists: comma-separated list of lists (want, watched)
+ * - lists: comma-separated list of lists (want, watched, dropped)
  * 
- * Пример: /api/recommendations/random?types=movie,anime&lists=want,watched
+ * Пример: /api/recommendations/random?types=movie,anime&lists=want,watched,dropped
  */
 export async function GET(req: Request) {
   // Apply rate limiting
@@ -242,6 +242,8 @@ export async function GET(req: Request) {
     if (lists.includes('watched')) {
       statusConditions.push('Просмотрено');
       statusConditions.push('Пересмотрено');
+    }
+    if (lists.includes('dropped')) {
       statusConditions.push('Брошено');
     }
 
@@ -282,7 +284,7 @@ export async function GET(req: Request) {
     if (watchListItems.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'Выбранные списки пусты. Добавьте фильмы в "Хочу посмотреть" или отметьте просмотренные.',
+        message: 'Выбранные списки пусты. Добавьте фильмы в список "Хочу посмотреть", отметьте просмотренные или брошенные.',
         movie: null,
       });
     }

@@ -117,6 +117,9 @@ model RecommendationSettings {
   preferUnwatched    Boolean  @default(true)   // Приоритет непросмотренного контента
   noveltyWeight      Float    @default(1.0)    // Вес новизны (1.0 = нейтрально)
   randomnessWeight   Float    @default(1.0)    // Вес случайности (1.0 = нейтрально)
+  includeWant        Boolean  @default(true)   // Включать список "Хочу посмотреть"
+  includeWatched     Boolean  @default(true)   // Включать список "Уже просмотрено"
+  includeDropped     Boolean  @default(false)  // Включать список "Брошено"
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

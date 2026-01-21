@@ -33,6 +33,9 @@ export async function GET(req: Request) {
         preferUnwatched: true,
         noveltyWeight: true,
         randomnessWeight: true,
+        includeWant: true,
+        includeWatched: true,
+        includeDropped: true,
       },
     });
 
@@ -47,6 +50,9 @@ export async function GET(req: Request) {
           preferUnwatched: true,
           noveltyWeight: 1.0,
           randomnessWeight: 1.0,
+          includeWant: true,
+          includeWatched: true,
+          includeDropped: false,
         },
         { status: 200 }
       );
@@ -62,6 +68,9 @@ export async function GET(req: Request) {
         preferUnwatched: settings.preferUnwatched,
         noveltyWeight: settings.noveltyWeight,
         randomnessWeight: settings.randomnessWeight,
+        includeWant: settings.includeWant,
+        includeWatched: settings.includeWatched,
+        includeDropped: settings.includeDropped,
       },
       { status: 200 }
     );
@@ -95,7 +104,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const { minRating } = body;
+    const { minRating, includeWant, includeWatched, includeDropped } = body;
 
     // Валидация minRating
     if (minRating !== undefined) {
@@ -107,11 +116,34 @@ export async function PUT(req: Request) {
       }
     }
 
+    // Валидация булевых полей
+    if (includeWant !== undefined && typeof includeWant !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeWant must be a boolean" },
+        { status: 400 }
+      );
+    }
+    if (includeWatched !== undefined && typeof includeWatched !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeWatched must be a boolean" },
+        { status: 400 }
+      );
+    }
+    if (includeDropped !== undefined && typeof includeDropped !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeDropped must be a boolean" },
+        { status: 400 }
+      );
+    }
+
     // Обновляем или создаём настройки рекомендаций
     const settings = await prisma.recommendationSettings.upsert({
       where: { userId: session.user.id },
       update: {
         minRating: minRating !== undefined ? minRating : undefined,
+        includeWant: includeWant !== undefined ? includeWant : undefined,
+        includeWatched: includeWatched !== undefined ? includeWatched : undefined,
+        includeDropped: includeDropped !== undefined ? includeDropped : undefined,
         updatedAt: new Date(),
       },
       create: {
@@ -122,12 +154,15 @@ export async function PUT(req: Request) {
         preferUnwatched: true,
         noveltyWeight: 1.0,
         randomnessWeight: 1.0,
+        includeWant: includeWant ?? true,
+        includeWatched: includeWatched ?? true,
+        includeDropped: includeDropped ?? false,
       },
     });
 
     logger.info('User settings updated', {
       userId: session.user.id,
-      updatedFields: { minRating },
+      updatedFields: { minRating, includeWant, includeWatched, includeDropped },
       context: 'UserSettings'
     });
 
@@ -140,6 +175,9 @@ export async function PUT(req: Request) {
         preferUnwatched: settings.preferUnwatched,
         noveltyWeight: settings.noveltyWeight,
         randomnessWeight: settings.randomnessWeight,
+        includeWant: settings.includeWant,
+        includeWatched: settings.includeWatched,
+        includeDropped: settings.includeDropped,
       },
       { status: 200 }
     );

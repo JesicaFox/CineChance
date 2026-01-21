@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-
-type ContentType = 'movie' | 'tv' | 'anime';
-type ListType = 'want' | 'watched';
+import { useState, useCallback, useEffect } from 'react';
+import { ContentType, ListType } from '@/lib/recommendation-types';
 
 interface AdditionalFilters {
   minRating: number;
@@ -19,6 +17,8 @@ interface FilterFormProps {
   onListChange?: (lists: ListType[]) => void;
   onAdditionalFilterChange?: (filters: AdditionalFilters) => void;
   initialMinRating?: number;
+  initialTypes?: ContentType[];
+  initialLists?: ListType[];
 }
 
 const defaultAdditionalFilters: AdditionalFilters = {
@@ -53,15 +53,26 @@ export default function FilterForm({
   onTypeChange, 
   onListChange, 
   onAdditionalFilterChange, 
-  initialMinRating = 0 
+  initialMinRating = 0,
+  initialTypes = ['movie', 'tv', 'anime'],
+  initialLists = ['want', 'watched'],
 }: FilterFormProps) {
-  const [selectedTypes, setSelectedTypes] = useState<ContentType[]>(['movie', 'tv', 'anime']);
-  const [selectedLists, setSelectedLists] = useState<ListType[]>(['want', 'watched']);
+  const [selectedTypes, setSelectedTypes] = useState<ContentType[]>(initialTypes);
+  const [selectedLists, setSelectedLists] = useState<ListType[]>(initialLists);
   const [isAdditionalExpanded, setIsAdditionalExpanded] = useState(false);
   const [additionalFilters, setAdditionalFilters] = useState<AdditionalFilters>({
     ...defaultAdditionalFilters,
     minRating: initialMinRating > 0 ? initialMinRating : 0,
   });
+
+  // Синхронизируем состояние с пропсами при их изменении
+  useEffect(() => {
+    setSelectedTypes(initialTypes);
+  }, [initialTypes]);
+
+  useEffect(() => {
+    setSelectedLists(initialLists);
+  }, [initialLists]);
 
   const handleTypeToggle = (type: ContentType) => {
     const newTypes = selectedTypes.includes(type)
@@ -280,6 +291,33 @@ export default function FilterForm({
                   </span>
                   <span className="text-xs text-gray-500">
                     Просмотренные, пересмотренные
+                  </span>
+                </div>
+              </div>
+            </button>
+
+            {/* Кнопка Брошено */}
+            <button
+              type="button"
+              onClick={() => handleListToggle('dropped')}
+              className={`
+                px-3 py-2 rounded-lg transition-all duration-200 w-full sm:w-82 text-left
+                ${selectedLists.includes('dropped')
+                  ? 'bg-red-500/20 border border-red-500/30'
+                  : 'bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800'
+                }
+              `}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedLists.includes('dropped') ? 'bg-red-500' : 'bg-gray-700'}`}>
+                  <span className="font-bold text-white text-sm">×</span>
+                </div>
+                <div className="flex-1">
+                  <span className={`text-sm font-medium block ${selectedLists.includes('dropped') ? 'text-white' : 'text-gray-300'}`}>
+                    Брошено
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Незавершённые, отложенные
                   </span>
                 </div>
               </div>

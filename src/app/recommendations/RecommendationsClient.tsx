@@ -10,6 +10,7 @@ import FilterStateManager from './FilterStateManager';
 import { useSessionTracking } from './useSessionTracking';
 import { logger } from '@/lib/logger';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ContentType, ListType } from '@/lib/recommendation-types';
 
 // Типы данных
 interface MovieData {
@@ -54,9 +55,6 @@ interface RecommendationsClientProps {
   userId: string;
 }
 
-type ContentType = 'movie' | 'tv' | 'anime';
-type ListType = 'want' | 'watched';
-
 interface AdditionalFilters {
   minRating: number;
   yearFrom: string;
@@ -95,6 +93,15 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
   const [isResetting, setIsResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [userMinRating, setUserMinRating] = useState<number>(6.0); // Настройка minRating пользователя
+  const [userListPreferences, setUserListPreferences] = useState<{
+    includeWant: boolean;
+    includeWatched: boolean;
+    includeDropped: boolean;
+  }>({
+    includeWant: true,
+    includeWatched: true,
+    includeDropped: false,
+  });
   const [isLoadingSettings, setIsLoadingSettings] = useState(true); // Флаг загрузки настроек
   const fetchStartTime = useRef<number>(0);
   const [currentFilters, setCurrentFilters] = useState<{
@@ -115,6 +122,12 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
           if (data.minRating !== undefined && data.minRating !== null) {
             setUserMinRating(data.minRating);
           }
+          // Загружаем настройки списков
+          setUserListPreferences({
+            includeWant: data.includeWant ?? true,
+            includeWatched: data.includeWatched ?? true,
+            includeDropped: data.includeDropped ?? false,
+          });
         }
       } catch (error) {
         console.error('Failed to fetch user settings:', error);
@@ -401,6 +414,13 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
 
         return (
           <FilterStateManager
+            initialFilters={{
+              lists: [
+                ...(userListPreferences.includeWant ? ['want'] as const : []),
+                ...(userListPreferences.includeWatched ? ['watched'] as const : []),
+                ...(userListPreferences.includeDropped ? ['dropped'] as const : []),
+              ],
+            }}
             onFiltersChange={() => {}}
             onFilterChange={(parameterName, previousValue, newValue) => {
               tracking.trackFilterChange(parameterName, previousValue, newValue);
@@ -431,6 +451,8 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                           }
                           isLoading={false}
                           initialMinRating={userMinRating}
+                          initialTypes={filters.types}
+                          initialLists={filters.lists}
                           onTypeChange={(types) => updateFilter('types', types)}
                           onListChange={(lists) => updateFilter('lists', lists)}
                           onAdditionalFilterChange={(additionalFilters) => {

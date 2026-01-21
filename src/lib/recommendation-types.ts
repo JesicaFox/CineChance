@@ -3,6 +3,10 @@
  * Используются для типизации JSON-полей в Prisma моделях
  */
 
+// Общие типы для компонентов фильтров
+export type ContentType = 'movie' | 'tv' | 'anime';
+export type ListType = 'want' | 'watched' | 'dropped';
+
 // ============================================
 // Типы для RecommendationLog
 // ============================================
@@ -19,6 +23,7 @@ export interface FiltersSnapshot {
   lists: {
     want: boolean;
     watched: boolean;
+    dropped: boolean;
   };
   additionalFilters?: {
     minRating?: number;
@@ -114,6 +119,7 @@ export interface UserPreferencesSnapshot {
   preferredLists: {
     want: boolean;
     watched: boolean;
+    dropped: boolean;
   };
   preferredGenres?: number[];
   averageRatingThreshold?: number;

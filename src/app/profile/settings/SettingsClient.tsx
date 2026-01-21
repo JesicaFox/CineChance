@@ -21,6 +21,9 @@ export default function SettingsClient() {
 
   // Состояния для настроек рекомендаций
   const [minRating, setMinRating] = useState(6.0);
+  const [includeWant, setIncludeWant] = useState(true);
+  const [includeWatched, setIncludeWatched] = useState(true);
+  const [includeDropped, setIncludeDropped] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -39,9 +42,49 @@ export default function SettingsClient() {
         if (data.minRating !== undefined && data.minRating !== null) {
           setMinRating(data.minRating);
         }
+        if (data.includeWant !== undefined) {
+          setIncludeWant(data.includeWant);
+        }
+        if (data.includeWatched !== undefined) {
+          setIncludeWatched(data.includeWatched);
+        }
+        if (data.includeDropped !== undefined) {
+          setIncludeDropped(data.includeDropped);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
+    }
+  };
+
+  // Подсчёт количества включённых фильтров
+  const enabledFiltersCount = [includeWant, includeWatched, includeDropped].filter(Boolean).length;
+
+  // Обработчики с защитой от выключения всех фильтров
+  const handleToggleWant = () => {
+    if (!includeWant) {
+      // Включаем
+      setIncludeWant(true);
+    } else if (enabledFiltersCount > 1) {
+      // Выключаем, если есть другие включённые фильтры
+      setIncludeWant(false);
+    }
+    // Если это единственный включённый фильтр - ничего не делаем
+  };
+
+  const handleToggleWatched = () => {
+    if (!includeWatched) {
+      setIncludeWatched(true);
+    } else if (enabledFiltersCount > 1) {
+      setIncludeWatched(false);
+    }
+  };
+
+  const handleToggleDropped = () => {
+    if (!includeDropped) {
+      setIncludeDropped(true);
+    } else if (enabledFiltersCount > 1) {
+      setIncludeDropped(false);
     }
   };
 
@@ -54,7 +97,7 @@ export default function SettingsClient() {
       const response = await fetch('/api/user/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minRating }),
+        body: JSON.stringify({ minRating, includeWant, includeWatched, includeDropped }),
       });
 
       const data = await response.json();
@@ -171,6 +214,98 @@ export default function SettingsClient() {
               <span>5</span>
               <span>10</span>
             </div>
+          </div>
+
+          {/* Переключатели списков */}
+          <div className="p-4 bg-gray-800/50 rounded-lg">
+            <label className="text-white font-medium block mb-4">Включить в рекомендации</label>
+            
+            {/* Хочу посмотреть */}
+            <button
+              type="button"
+              onClick={handleToggleWant}
+              className={`
+                w-full px-3 py-3 rounded-lg transition-all duration-200 mb-2 text-left
+                ${includeWant
+                  ? 'bg-blue-500/20 border border-blue-500/30'
+                  : 'bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800'
+                }
+                ${!includeWant && enabledFiltersCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+              disabled={!includeWant && enabledFiltersCount === 0}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${includeWant ? 'bg-white' : 'bg-gray-700'}`}>
+                    <span className={`font-bold ${includeWant ? 'text-blue-500 text-base' : 'text-gray-400 text-sm'}`}>+</span>
+                  </div>
+                  <span className={`text-sm font-medium ${includeWant ? 'text-white' : 'text-gray-300'}`}>
+                    Хочу посмотреть
+                  </span>
+                </div>
+                <div className={`w-10 h-5 rounded-full transition-colors ${includeWant ? 'bg-blue-500' : 'bg-gray-700'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full transform transition-transform mt-0.5 ${includeWant ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
+            </button>
+
+            {/* Уже просмотрено */}
+            <button
+              type="button"
+              onClick={handleToggleWatched}
+              className={`
+                w-full px-3 py-3 rounded-lg transition-all duration-200 mb-2 text-left
+                ${includeWatched
+                  ? 'bg-green-500/20 border border-green-500/30'
+                  : 'bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800'
+                }
+                ${!includeWatched && enabledFiltersCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+              disabled={!includeWatched && enabledFiltersCount === 0}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${includeWatched ? 'bg-green-500' : 'bg-gray-700'}`}>
+                    <span className="text-xs font-bold text-white">✓</span>
+                  </div>
+                  <span className={`text-sm font-medium ${includeWatched ? 'text-white' : 'text-gray-300'}`}>
+                    Уже просмотрено
+                  </span>
+                </div>
+                <div className={`w-10 h-5 rounded-full transition-colors ${includeWatched ? 'bg-green-500' : 'bg-gray-700'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full transform transition-transform mt-0.5 ${includeWatched ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
+            </button>
+
+            {/* Брошено */}
+            <button
+              type="button"
+              onClick={handleToggleDropped}
+              className={`
+                w-full px-3 py-3 rounded-lg transition-all duration-200 text-left
+                ${includeDropped
+                  ? 'bg-red-500/20 border border-red-500/30'
+                  : 'bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800'
+                }
+                ${!includeDropped && enabledFiltersCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+              disabled={!includeDropped && enabledFiltersCount === 0}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${includeDropped ? 'bg-red-500' : 'bg-gray-700'}`}>
+                    <span className="font-bold text-white text-sm">×</span>
+                  </div>
+                  <span className={`text-sm font-medium ${includeDropped ? 'text-white' : 'text-gray-300'}`}>
+                    Брошено
+                  </span>
+                </div>
+                <div className={`w-10 h-5 rounded-full transition-colors ${includeDropped ? 'bg-red-500' : 'bg-gray-700'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full transform transition-transform mt-0.5 ${includeDropped ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
+            </button>
           </div>
 
           {/* Кнопка сохранения и сообщение */}

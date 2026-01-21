@@ -2,9 +2,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-
-type ContentType = 'movie' | 'tv' | 'anime';
-type ListType = 'want' | 'watched';
+import { ContentType, ListType } from '@/lib/recommendation-types';
 
 interface AdditionalFilters {
   minRating: number;
@@ -50,8 +48,23 @@ export default function FilterStateManager({
 }: FilterStateManagerProps) {
   const [filters, setFilters] = useState<FilterState>({
     ...defaultFilters,
-    ...initialFilters,
+    lists: initialFilters.lists || defaultFilters.lists,
+    types: initialFilters.types || defaultFilters.types,
+    additionalFilters: initialFilters.additionalFilters || defaultFilters.additionalFilters,
   });
+
+  // Синхронизируем состояние с initialFilters при их изменении
+  useEffect(() => {
+    if (initialFilters.lists) {
+      setFilters(prev => ({ ...prev, lists: initialFilters.lists as ListType[] }));
+    }
+    if (initialFilters.types) {
+      setFilters(prev => ({ ...prev, types: initialFilters.types as ContentType[] }));
+    }
+    if (initialFilters.additionalFilters) {
+      setFilters(prev => ({ ...prev, additionalFilters: initialFilters.additionalFilters }));
+    }
+  }, [initialFilters]);
 
   const updateFilter = useCallback(<K extends keyof FilterState>(
     key: K,
