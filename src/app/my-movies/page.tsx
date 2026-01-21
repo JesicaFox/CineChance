@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import MyMoviesClient from './MyMoviesClient';
 import { fetchMoviesByStatus, getMoviesCounts } from './actions';
+import LoaderSkeleton from '@/app/components/LoaderSkeleton';
 
 function MyMoviesContent() {
   return <MyMoviesClientWrapper />;
@@ -50,7 +51,7 @@ async function MyMoviesClientWrapper() {
 
 export default function MyMoviesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center"><p className="text-white">Загрузка...</p></div>}>
+    <Suspense fallback={<LoaderSkeleton variant="full" text="Загрузка списка фильмов..." />}>
       <MyMoviesContent />
     </Suspense>
   );

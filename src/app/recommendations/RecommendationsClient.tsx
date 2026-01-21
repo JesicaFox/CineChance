@@ -418,10 +418,10 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                   {viewState === 'filters' && (
                     <>
                       {isLoadingSettings ? (
-                        <div className="flex items-center justify-center min-h-[200px]">
-                          <div className="flex items-center gap-2 text-gray-400">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span>Загрузка настроек...</span>
+                        <div className="flex items-center justify-center min-h-[300px]">
+                          <div className="flex items-center gap-3 text-gray-400">
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <span className="text-sm">Загрузка настроек...</span>
                           </div>
                         </div>
                       ) : (
@@ -445,13 +445,16 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                   {viewState === 'loading' && (
                     <div className="flex flex-col items-center justify-center min-h-[50vh]">
                       {/* Прогресс бар */}
-                      <div className="w-full max-w-xs h-1.5 bg-gray-800 rounded-full overflow-hidden mb-3">
-                        <div
-                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ease-out"
-                          style={{ width: `${progress}%` }}
-                        />
+                      <div className="w-full max-w-xs">
+                        <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-2">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-150 ease-out"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <p className="text-gray-400 text-xs text-center">{Math.round(progress)}%</p>
                       </div>
-                      <p className="text-gray-500 text-sm">Идёт подбор...</p>
+                      <p className="text-gray-500 text-sm mt-4">Идёт подбор...</p>
                     </div>
                   )}
 

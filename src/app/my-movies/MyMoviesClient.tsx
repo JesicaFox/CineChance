@@ -7,6 +7,7 @@ const RatingModal = dynamic(() => import('../components/RatingModal'), { ssr: fa
 import MovieCard from '../components/MovieCard';
 import { MovieCardErrorBoundary } from '../components/ErrorBoundary';
 import Loader from '../components/Loader';
+import LoaderSkeleton from '../components/LoaderSkeleton';
 import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from './FilmFilters';
 import { MovieWithStatus, fetchMoviesByStatus, getMoviesCounts, getUserGenres, updateWatchStatus } from './actions';
 import { getUserTags } from '../actions/tagsActions';
@@ -657,7 +658,7 @@ export default function MyMoviesClient({
         </div>
 
         {loadingMore && currentMovies.length === 0 ? (
-          <Loader text="Загрузка..." />
+          <LoaderSkeleton variant="grid" text="Загрузка фильмов..." skeletonCount={12} />
         ) : currentMovies.length > 0 ? (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

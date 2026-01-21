@@ -3,11 +3,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import MovieList from './MovieList';
-import SearchSkeleton from './SearchSkeleton';
 import SearchFilters, { FilterState } from './SearchFilters';
 import { useSearch, useBatchData } from '@/hooks';
 import { Media } from '@/lib/tmdb';
 import { useSession } from 'next-auth/react';
+import LoaderSkeleton from '@/app/components/LoaderSkeleton';
 
 interface SearchClientProps {
   initialQuery: string;
@@ -132,7 +132,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
       />
 
       {isLoading && searchQuery.results.length === 0 ? (
-        <SearchSkeleton />
+        <LoaderSkeleton variant="grid" text="Поиск фильмов..." skeletonCount={12} />
       ) : searchQuery.results.length > 0 ? (
         <>
           <MovieList
