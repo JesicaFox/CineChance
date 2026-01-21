@@ -367,7 +367,7 @@ export default function FilterForm({
             {/* Фильтр по жанрам */}
             <div>
               <label className="text-xs text-gray-400 block mb-2">Жанры</label>
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 justify-center sm:justify-start">
+              <div className="flex flex-wrap gap-2 p-1 justify-center sm:justify-start">
                 {GENRES.map((genre) => (
                   <button
                     key={genre.id}
