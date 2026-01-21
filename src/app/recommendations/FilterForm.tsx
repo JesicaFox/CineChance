@@ -19,6 +19,7 @@ interface FilterFormProps {
   initialMinRating?: number;
   initialTypes?: ContentType[];
   initialLists?: ListType[];
+  availableGenres?: { id: number; name: string }[];
 }
 
 const defaultAdditionalFilters: AdditionalFilters = {
@@ -56,6 +57,7 @@ export default function FilterForm({
   initialMinRating = 0,
   initialTypes = ['movie', 'tv', 'anime'],
   initialLists = ['want', 'watched'],
+  availableGenres = [],
 }: FilterFormProps) {
   const [selectedTypes, setSelectedTypes] = useState<ContentType[]>(initialTypes);
   const [selectedLists, setSelectedLists] = useState<ListType[]>(initialLists);
@@ -405,22 +407,28 @@ export default function FilterForm({
             {/* Фильтр по жанрам */}
             <div>
               <label className="text-xs text-gray-400 block mb-2">Жанры</label>
-              <div className="flex flex-wrap gap-2 p-1 justify-center sm:justify-start">
-                {GENRES.map((genre) => (
-                  <button
-                    key={genre.id}
-                    type="button"
-                    onClick={() => toggleGenre(genre.id)}
-                    className={`px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
-                      additionalFilters.selectedGenres.includes(genre.id)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    {genre.name}
-                  </button>
-                ))}
-              </div>
+              {availableGenres.length > 0 ? (
+                <div className="flex flex-wrap gap-2 p-1 justify-center sm:justify-start">
+                  {availableGenres.map((genre) => (
+                    <button
+                      key={genre.id}
+                      type="button"
+                      onClick={() => toggleGenre(genre.id)}
+                      className={`px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
+                        additionalFilters.selectedGenres.includes(genre.id)
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {genre.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm text-center py-2">
+                  Добавьте фильмы в списки, чтобы увидеть доступные жанры
+                </p>
+              )}
             </div>
 
             {/* Кнопка сброса */}

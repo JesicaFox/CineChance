@@ -102,6 +102,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
     includeWatched: true,
     includeDropped: false,
   });
+  const [availableGenres, setAvailableGenres] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true); // Флаг загрузки настроек
   const fetchStartTime = useRef<number>(0);
   const [currentFilters, setCurrentFilters] = useState<{
@@ -136,6 +137,24 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
       }
     };
     fetchUserSettings();
+  }, []);
+
+  // Загружаем доступные жанры из списков пользователя
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const response = await fetch('/api/user/genres');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.genres) {
+            setAvailableGenres(data.genres);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user genres:', error);
+      }
+    };
+    fetchGenres();
   }, []);
 
   // Получение года из даты
@@ -453,6 +472,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                           initialMinRating={userMinRating}
                           initialTypes={filters.types}
                           initialLists={filters.lists}
+                          availableGenres={availableGenres}
                           onTypeChange={(types) => updateFilter('types', types)}
                           onListChange={(lists) => updateFilter('lists', lists)}
                           onAdditionalFilterChange={(additionalFilters) => {
