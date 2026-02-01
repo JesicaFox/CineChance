@@ -18,6 +18,7 @@ interface FilterFormProps {
   onTypeChange?: (types: ContentType[]) => void;
   onListChange?: (lists: ListType[]) => void;
   onAdditionalFilterChange?: (filters: AdditionalFilters) => void;
+  updateAdditionalFilter?: <K extends keyof AdditionalFilters>(key: K, value: AdditionalFilters[K]) => void;
   initialMinRating?: number;
   initialTypes?: ContentType[];
   initialLists?: ListType[];
@@ -39,6 +40,7 @@ export default function FilterForm({
   onTypeChange, 
   onListChange, 
   onAdditionalFilterChange, 
+  updateAdditionalFilter,
   initialMinRating = 0,
   initialTypes = ['movie', 'tv', 'anime'],
   initialLists = ['want', 'watched'],
@@ -87,7 +89,9 @@ export default function FilterForm({
   const updateMinRating = (value: number) => {
     const newFilters = { ...additionalFilters, minRating: value };
     setAdditionalFilters(newFilters);
-    if (onAdditionalFilterChange) {
+    if (updateAdditionalFilter) {
+      updateAdditionalFilter('minRating', value);
+    } else if (onAdditionalFilterChange) {
       onAdditionalFilterChange(newFilters);
     }
   };
@@ -95,7 +99,9 @@ export default function FilterForm({
   const updateYearFrom = (value: string) => {
     const newFilters = { ...additionalFilters, yearFrom: value };
     setAdditionalFilters(newFilters);
-    if (onAdditionalFilterChange) {
+    if (updateAdditionalFilter) {
+      updateAdditionalFilter('yearFrom', value);
+    } else if (onAdditionalFilterChange) {
       onAdditionalFilterChange(newFilters);
     }
   };
@@ -103,7 +109,9 @@ export default function FilterForm({
   const updateYearTo = (value: string) => {
     const newFilters = { ...additionalFilters, yearTo: value };
     setAdditionalFilters(newFilters);
-    if (onAdditionalFilterChange) {
+    if (updateAdditionalFilter) {
+      updateAdditionalFilter('yearTo', value);
+    } else if (onAdditionalFilterChange) {
       onAdditionalFilterChange(newFilters);
     }
   };
@@ -115,7 +123,9 @@ export default function FilterForm({
     
     const newFilters = { ...additionalFilters, selectedGenres: newGenres };
     setAdditionalFilters(newFilters);
-    if (onAdditionalFilterChange) {
+    if (updateAdditionalFilter) {
+      updateAdditionalFilter('selectedGenres', newGenres);
+    } else if (onAdditionalFilterChange) {
       onAdditionalFilterChange(newFilters);
     }
   };
@@ -123,7 +133,14 @@ export default function FilterForm({
   const resetAdditionalFilters = () => {
     const newFilters = defaultAdditionalFilters;
     setAdditionalFilters(newFilters);
-    if (onAdditionalFilterChange) {
+    if (updateAdditionalFilter) {
+      // Обновляем каждое поле по отдельности для правильного отслеживания изменений
+      updateAdditionalFilter('minRating', newFilters.minRating);
+      updateAdditionalFilter('yearFrom', newFilters.yearFrom);
+      updateAdditionalFilter('yearTo', newFilters.yearTo);
+      updateAdditionalFilter('selectedGenres', newFilters.selectedGenres);
+      updateAdditionalFilter('selectedTags', newFilters.selectedTags);
+    } else if (onAdditionalFilterChange) {
       onAdditionalFilterChange(newFilters);
     }
   };
@@ -399,7 +416,9 @@ export default function FilterForm({
                 onTagsChange={(tags) => {
                   const newFilters = { ...additionalFilters, selectedTags: tags };
                   setAdditionalFilters(newFilters);
-                  if (onAdditionalFilterChange) {
+                  if (updateAdditionalFilter) {
+                    updateAdditionalFilter('selectedTags', tags);
+                  } else if (onAdditionalFilterChange) {
                     onAdditionalFilterChange(newFilters);
                   }
                 }}

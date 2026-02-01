@@ -9,6 +9,7 @@ interface AdditionalFilters {
   yearFrom: string;
   yearTo: string;
   selectedGenres: number[];
+  selectedTags: string[];
 }
 
 export interface FilterState {
@@ -24,6 +25,7 @@ interface FilterStateManagerProps {
   children: (state: {
     filters: FilterState;
     updateFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
+    updateAdditionalFilter: <K extends keyof AdditionalFilters>(key: K, value: AdditionalFilters[K]) => void;
     resetFilters: () => void;
     hasActiveFilters: boolean;
   }) => React.ReactNode;
@@ -37,6 +39,7 @@ const defaultFilters: FilterState = {
     yearFrom: '',
     yearTo: '',
     selectedGenres: [],
+    selectedTags: [],
   },
 };
 
@@ -83,6 +86,31 @@ export default function FilterStateManager({
     });
   }, [onFilterChange]);
 
+  // Добавляем функцию для обновления вложенных свойств additionalFilters
+  const updateAdditionalFilter = useCallback(<K extends keyof AdditionalFilters>(
+    key: K,
+    value: AdditionalFilters[K]
+  ) => {
+    setFilters(prev => {
+      const previousValue = prev.additionalFilters?.[key];
+      const newValue = value;
+      
+      // Вызываем onFilterChange если он предоставлен
+      if (onFilterChange && JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
+        onFilterChange(`additionalFilters.${key}`, previousValue, newValue);
+      }
+      
+      return {
+        ...prev,
+        additionalFilters: {
+          ...prev.additionalFilters,
+          ...defaultFilters.additionalFilters,
+          [key]: value
+        }
+      } as FilterState;
+    });
+  }, [onFilterChange]);
+
   const resetFilters = useCallback(() => {
     setFilters(defaultFilters);
   }, []);
@@ -98,7 +126,8 @@ export default function FilterStateManager({
       return additional.minRating !== defaultAdditional.minRating ||
              additional.yearFrom !== defaultAdditional.yearFrom ||
              additional.yearTo !== defaultAdditional.yearTo ||
-             additional.selectedGenres.length !== defaultAdditional.selectedGenres.length;
+             additional.selectedGenres.length !== defaultAdditional.selectedGenres.length ||
+             additional.selectedTags.length !== defaultAdditional.selectedTags.length;
     }
     return JSON.stringify(value) !== JSON.stringify(defaultValue);
   });
@@ -112,6 +141,7 @@ export default function FilterStateManager({
       {children({
         filters,
         updateFilter,
+        updateAdditionalFilter,
         resetFilters,
         hasActiveFilters,
       })}

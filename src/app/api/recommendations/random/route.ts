@@ -29,6 +29,7 @@ interface FilterParams {
   yearFrom?: string;
   yearTo?: string;
   genres?: number[];
+  tags?: string[];
 }
 
 /**
@@ -41,6 +42,7 @@ function parseFilterParams(url: URL): FilterParams {
   const yearFromParam = url.searchParams.get('yearFrom');
   const yearToParam = url.searchParams.get('yearTo');
   const genresParam = url.searchParams.get('genres');
+  const tagsParam = url.searchParams.get('tags');
 
   // Парсим типы контента
   let types: ContentType[] = [];
@@ -62,12 +64,13 @@ function parseFilterParams(url: URL): FilterParams {
   const yearFrom = yearFromParam || undefined;
   const yearTo = yearToParam || undefined;
   const genres = genresParam ? genresParam.split(',').map(g => parseInt(g)).filter(g => !isNaN(g)) : undefined;
+  const tags = tagsParam ? tagsParam.split(',').filter(t => t.trim() !== '') : undefined;
 
   // Значения по умолчанию
   if (types.length === 0) types = ['movie', 'tv', 'anime'];
   if (lists.length === 0) lists = ['want'];
 
-  return { types, lists, minRating, yearFrom, yearTo, genres };
+  return { types, lists, minRating, yearFrom, yearTo, genres, tags };
 }
 
 /**
@@ -168,7 +171,8 @@ function createFiltersSnapshot(
   minRating?: number,
   yearFrom?: string,
   yearTo?: string,
-  genres?: number[]
+  genres?: number[],
+  tags?: string[]
 ): FiltersSnapshot {
   return {
     contentTypes: {
@@ -186,6 +190,7 @@ function createFiltersSnapshot(
       yearFrom,
       yearTo,
       selectedGenres: genres && genres.length > 0 ? genres : undefined,
+      selectedTags: tags && tags.length > 0 ? tags : undefined,
     },
   };
 }
@@ -197,8 +202,13 @@ function createFiltersSnapshot(
  * Query params:
  * - types: comma-separated list of content types (movie, tv, anime)
  * - lists: comma-separated list of lists (want, watched, dropped)
+ * - minRating: minimum rating filter
+ * - yearFrom: minimum year filter
+ * - yearTo: maximum year filter
+ * - genres: comma-separated list of genre IDs
+ * - tags: comma-separated list of tag names
  * 
- * Пример: /api/recommendations/random?types=movie,anime&lists=want,watched,dropped
+ * Пример: /api/recommendations/random?types=movie,anime&lists=want,watched,dropped&genres=28,12&tags=action,comedy
  */
 export async function GET(req: Request) {
   // Apply rate limiting
@@ -216,7 +226,7 @@ export async function GET(req: Request) {
 
     const userId = session.user.id as string;
     const url = new URL(req.url);
-    const { types, lists, minRating, yearFrom, yearTo, genres } = parseFilterParams(url);
+    const { types, lists, minRating, yearFrom, yearTo, genres, tags } = parseFilterParams(url);
 
     // 1. Получаем настройки пользователя
     const settings = await prisma.recommendationSettings.findUnique({
@@ -445,7 +455,7 @@ export async function GET(req: Request) {
     });
 
     // Применяем фильтры по году и жанрам из TMDB данных
-    if (yearFrom || yearTo || (genres && genres.length > 0)) {
+    if (yearFrom || yearTo || (genres && genres.length > 0) || (tags && tags.length > 0)) {
       candidates = candidates.filter(item => {
         const details = detailsMap.get(item.tmdbId);
         if (!details) return false;
@@ -464,6 +474,13 @@ export async function GET(req: Request) {
           const itemGenreIds = details.genreIds || [];
           const hasMatchingGenre = genres.some(g => itemGenreIds.includes(g));
           if (!hasMatchingGenre) return false;
+        }
+
+        // Фильтр по тегам (пока пропускаем, так как теги хранятся в другой таблице)
+        // TODO: Добавить фильтрацию по тегам, когда будет реализована связь с watchList
+        if (tags && tags.length > 0) {
+          // Временно пропускаем фильтрацию по тегам
+          // В будущем нужно будет добавить JOIN с таблицей тегов
         }
 
         return true;
@@ -573,7 +590,7 @@ export async function GET(req: Request) {
     const userStatus = userStatusMap[selected.status.name] || null;
 
     // 9. Формируем контекстные данные для записи
-    const filtersSnapshot = createFiltersSnapshot(types, lists, minRating, yearFrom, yearTo, genres);
+    const filtersSnapshot = createFiltersSnapshot(types, lists, minRating, yearFrom, yearTo, genres, tags);
     const candidatePoolMetrics = calculateCandidatePoolMetrics(
       initialCount,
       afterTypeFilter,
