@@ -38,6 +38,12 @@ export async function GET(request: Request) {
 
   try {
     const apiKey = process.env.TMDB_API_KEY;
+    
+    if (!apiKey) {
+      logger.error('TMDB API key is missing');
+      return NextResponse.json({ error: 'Search service unavailable' }, { status: 500 });
+    }
+    
     let allResults: any[] = [];
     let totalResults = 0;
     let totalPages = 1;
@@ -69,7 +75,16 @@ export async function GET(request: Request) {
         url.searchParams.set('query', query);
 
         const promise = fetch(url.toString(), { next: { revalidate: 3600 } })
-          .then(res => res.json())
+          .then(async res => {
+            if (!res.ok) {
+              throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
+            }
+            const data = await res.json();
+            if (data.status_code) {
+              throw new Error(`TMDB API error: ${data.status_message}`);
+            }
+            return data;
+          })
           .catch(error => ({ error, page: apiPage })); // В случае ошибки возвращаем объект с ошибкой
         fetchPromises.push(promise);
       }
@@ -78,11 +93,37 @@ export async function GET(request: Request) {
       const results = await Promise.allSettled(fetchPromises);
 
       // Собираем результаты, игнорируя ошибки
+      let hasErrors = false;
       for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.results && result.value.results.length > 0) {
-          allResults = allResults.concat(result.value.results);
+        if (result.status === 'fulfilled') {
+          if (result.value.error) {
+            logger.error('TMDB API fetch error', { 
+              error: result.value.error.message || result.value.error,
+              page: result.value.page,
+              query 
+            });
+            hasErrors = true;
+          } else if (result.value.results && result.value.results.length > 0) {
+            allResults = allResults.concat(result.value.results);
+          }
+        } else {
+          logger.error('Promise rejected', { 
+            error: result.reason,
+            query 
+          });
+          hasErrors = true;
         }
-        // Если rejected или нет результатов, пропускаем
+      }
+
+      // Если все запросы завершились с ошибками, возвращаем пустой результат
+      if (hasErrors && allResults.length === 0) {
+        logger.warn('All TMDB API requests failed', { query });
+        return NextResponse.json({ 
+          results: [], 
+          totalPages: 1, 
+          totalResults: 0,
+          error: 'Search temporarily unavailable' 
+        });
       }
 
       // Дополнительная серверная фильтрация на случай, если TMDB не применил настройки
@@ -122,7 +163,7 @@ export async function GET(request: Request) {
             select: {
               tmdbId: true,
               mediaType: true,
-              status: { select: { name: true } },
+              statusId: true,
             },
           });
           
@@ -133,10 +174,10 @@ export async function GET(request: Request) {
           });
 
           // Create maps for quick lookup
-          const watchlistMap = new Map<number, { status: string; mediaType: string }>();
+          const watchlistMap = new Map<number, { statusId: number; mediaType: string }>();
           watchlist.forEach(item => {
             watchlistMap.set(item.tmdbId, { 
-              status: item.status.name, 
+              statusId: item.statusId, 
               mediaType: item.mediaType 
             });
           });
@@ -166,15 +207,15 @@ export async function GET(request: Request) {
               
               case 'wantToWatch':
                 // В списке "Хочу посмотреть"
-                return isInWatchlist && watchlistItem.status === 'Хочу посмотреть';
+                return isInWatchlist && watchlistItem.statusId === 1;
               
               case 'watched':
                 // В списке "Просмотрено"
-                return isInWatchlist && watchlistItem.status === 'Просмотрено';
+                return isInWatchlist && watchlistItem.statusId === 2;
               
               case 'dropped':
                 // В списке "Брошено"
-                return isInWatchlist && watchlistItem.status === 'Брошено';
+                return isInWatchlist && watchlistItem.statusId === 3;
               
               default:
                 return true;
@@ -354,7 +395,14 @@ export async function GET(request: Request) {
           discoverUrl.searchParams.set('sort_by', sortParam);
 
           const res = await fetch(discoverUrl.toString());
+          if (!res.ok) {
+            throw new Error(`TMDB discover API error: ${res.status} ${res.statusText}`);
+          }
           const data = await res.json();
+          
+          if (data.status_code) {
+            throw new Error(`TMDB discover API error: ${data.status_message}`);
+          }
 
           if (data.results && data.results.length > 0) {
             // Filter out anime from movie results
@@ -427,7 +475,14 @@ export async function GET(request: Request) {
           discoverUrl.searchParams.set('sort_by', sortParam);
 
           const res = await fetch(discoverUrl.toString());
+          if (!res.ok) {
+            throw new Error(`TMDB TV discover API error: ${res.status} ${res.statusText}`);
+          }
           const data = await res.json();
+          
+          if (data.status_code) {
+            throw new Error(`TMDB TV discover API error: ${data.status_message}`);
+          }
 
           if (data.results && data.results.length > 0) {
             discoverResults = discoverResults.concat(data.results);

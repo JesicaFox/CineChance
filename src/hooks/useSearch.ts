@@ -55,13 +55,35 @@ const fetchSearchResults = async (params: SearchParams, pageParam: number): Prom
   }
 
   const queryString = buildSearchParams(params, pageParam);
-  const response = await fetch(`/api/search?${queryString}`);
   
-  if (!response.ok) {
-    throw new Error('Search failed');
+  try {
+    const response = await fetch(`/api/search?${queryString}`);
+    
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a moment.');
+      }
+      if (response.status === 500) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Search service temporarily unavailable');
+      }
+      throw new Error(`Search failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Если API вернул ошибку в ответе
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Network error occurred while searching');
   }
-  
-  return response.json();
 };
 
 export const useSearch = (params: SearchParams, blacklistedIds: number[]) => {
@@ -80,6 +102,19 @@ export const useSearch = (params: SearchParams, blacklistedIds: number[]) => {
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
     placeholderData: (previousData) => previousData,
+    retry: (failureCount, error) => {
+      // Ретраим для rate limit ошибок и сетевых ошибок
+      if (error instanceof Error) {
+        if (error.message.includes('Rate limit exceeded')) {
+          return failureCount < 3; // До 3 попыток для rate limit
+        }
+        if (error.message.includes('Network error')) {
+          return failureCount < 2; // До 2 попыток для сетевых ошибок
+        }
+      }
+      return false; // Не ретраим другие ошибки
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Экспоненциальный бэкофф до 30 секунд
   });
 
   // Simple filter without complex deduplication
