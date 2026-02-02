@@ -33,12 +33,7 @@ function isCartoon(movie: any): boolean {
   return hasAnimationGenre && isNotJapanese;
 }
 
-export async function GET(req: Request) {
-  const { success } = await rateLimit(req, '/api/user');
-  if (!success) {
-    return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
-  }
-
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -169,7 +164,7 @@ export async function GET(req: Request) {
       timestamp: new Date().toISOString(),
     };
 
-    return NextResponse.json({
+    const responseData = {
       total: {
         watched: watchedCount,
         wantToWatch: wantToWatchCount,
@@ -180,8 +175,15 @@ export async function GET(req: Request) {
       typeBreakdown: typeCounts,
       averageRating,
       ratedCount,
-      debug: debugInfo, // Добавляем debug информацию
-    });
+      debug: debugInfo,
+    };
+
+    const response = NextResponse.json(responseData);
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('Error fetching user stats:', error);
     return NextResponse.json(
