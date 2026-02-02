@@ -663,10 +663,12 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                               <div>Duration: <span className="text-cyan-400">{debugInfo.fetchDuration}ms</span></div>
                               <div>TMDB Calls: <span className="text-purple-400">{debugInfo.tmdbCalls}</span></div>
                               <div>DB Records: <span className="text-orange-400">{debugInfo.dbRecords}</span></div>
+                              
+                              {/* Дополнительная debug информация будет доступна после завершения запроса */}
                               <div className="mt-2 pt-2 border-t border-gray-700">
-                                <div className="text-gray-600">Filters:</div>
-                                <div className="text-gray-400 text-xs break-all">
-                                  {JSON.stringify(currentFilters || {}, null, 2)}
+                                <div className="text-gray-600">Note:</div>
+                                <div className="text-xs text-gray-400">
+                                  Detailed performance metrics will be available after request completion.
                                 </div>
                               </div>
                             </div>

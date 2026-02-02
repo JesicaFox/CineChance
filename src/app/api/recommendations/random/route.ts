@@ -23,6 +23,13 @@ import {
 const RECOMMENDATION_COOLDOWN_DAYS = 7;
 const MIN_RATING_THRESHOLD = 6.5;
 
+// Функция для отправки прогресса (если доступно)
+function sendProgress(stage: string, progress: number, details?: any) {
+  // В будущем здесь будет интеграция с SSE
+  // Пока просто логируем для отладки
+  logger.info('Progress update', { stage, progress, details });
+}
+
 // Типы фильтров
 interface FilterParams {
   types: ContentType[];
@@ -299,16 +306,52 @@ export async function GET(req: Request) {
       });
     }
 
-    // 4. Получаем актуальные данные из TMDB для фильтрации по типам
+    // 4. ОПТИМИЗАЦИЯ: Умная выборка перед TMDB запросами
+    sendProgress('sampling', 10, { totalItems: watchListItems.length });
+    
+    // Сначала применяем базовые фильтры, которые не требуют TMDB данных
+    let preFilteredItems = watchListItems.filter(item => {
+      // Базовая фильтрация по статусам (уже применена в запросе)
+      return true; // Пока все элементы проходят базовую фильтрацию
+    });
+
+    // Если у нас много фильмов, берем случайную выборку для ускорения
+    const SAMPLE_SIZE = Math.min(100, Math.max(50, preFilteredItems.length / 5)); // 50-100 фильмов
+    let sampledItems = preFilteredItems;
+    
+    if (preFilteredItems.length > SAMPLE_SIZE) {
+      // Перемешиваем массив и берем первые SAMPLE_SIZE элементов
+      const shuffled = [...preFilteredItems].sort(() => Math.random() - 0.5);
+      sampledItems = shuffled.slice(0, SAMPLE_SIZE);
+      
+      logger.info('Sampling strategy applied', {
+        totalItems: preFilteredItems.length,
+        sampledItems: sampledItems.length,
+        sampleRatio: (sampledItems.length / preFilteredItems.length * 100).toFixed(1) + '%'
+      });
+      
+      sendProgress('sampling_complete', 20, { 
+        totalItems: preFilteredItems.length, 
+        sampledItems: sampledItems.length 
+      });
+    }
+
+    // 5. Получаем актуальные данные из TMDB только для выборки
     // Используем батчинг с retry логикой для предотвращения rate limiting
-    const BATCH_SIZE = 5; // Уменьшаем размер батча для большей стабильности
-    const BATCH_DELAY = 200; // Увеличиваем задержку между батчами
+    const BATCH_SIZE = 3; // Уменьшаем размер батча для большей стабильности
+    const BATCH_DELAY = 100; // Уменьшаем задержку между батчами
     const MAX_RETRIES = 2; // Количество повторных попыток
     
-    const tmdbDetailsPromises = [];
+    sendProgress('tmdb_start', 30, { 
+      itemsToProcess: sampledItems.length, 
+      batchSize: BATCH_SIZE 
+    });
     
-    for (let i = 0; i < watchListItems.length; i += BATCH_SIZE) {
-      const batch = watchListItems.slice(i, i + BATCH_SIZE);
+    const tmdbDetailsPromises = [];
+    let processedBatches = 0;
+    
+    for (let i = 0; i < sampledItems.length; i += BATCH_SIZE) {
+      const batch = sampledItems.slice(i, i + BATCH_SIZE);
       
       const batchPromises = batch.map(async (item) => {
         let lastError: Error | null = null;
@@ -399,20 +442,32 @@ export async function GET(req: Request) {
       });
       
       tmdbDetailsPromises.push(...batchPromises);
+      processedBatches++;
+      
+      // Отправляем прогресс после каждого батча
+      const batchProgress = 30 + (processedBatches / Math.ceil(sampledItems.length / BATCH_SIZE)) * 40;
+      sendProgress('tmdb_batch', Math.round(batchProgress), {
+        processedBatches,
+        totalBatches: Math.ceil(sampledItems.length / BATCH_SIZE),
+        currentBatchSize: batch.length
+      });
       
       // Добавляем задержку между батчами для предотвращения rate limiting
-      if (i + BATCH_SIZE < watchListItems.length) {
+      if (i + BATCH_SIZE < sampledItems.length) {
         await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
     }
 
     const tmdbDetails = await Promise.all(tmdbDetailsPromises);
+    sendProgress('tmdb_complete', 70, { totalDetails: tmdbDetails.length });
 
     // Создаём Map для быстрого доступа к деталям
     const detailsMap = new Map(tmdbDetails.map(d => [d.tmdbId, d]));
 
-    // 5. Фильтруем по типам контента
-    let filteredItems = watchListItems.filter(item => {
+    // 6. Фильтруем по типам контента
+    sendProgress('filtering_start', 75, { itemsToFilter: sampledItems.length });
+    
+    let filteredItems = sampledItems.filter(item => {
       const details = detailsMap.get(item.tmdbId);
       if (!details) return false;
 
@@ -545,9 +600,15 @@ export async function GET(req: Request) {
     }
 
     const afterAdditionalFilters = candidates.length;
+    sendProgress('filtering_complete', 85, { 
+      finalCandidates: candidates.length,
+      afterTypeFilter,
+      afterAdditionalFilters
+    });
 
     // Если все кандидаты отфильтрованы, возвращаем сообщение
     if (candidates.length === 0) {
+      sendProgress('no_candidates', 100, { message: 'No candidates found' });
       return NextResponse.json({
         success: false,
         message: 'Нет доступных рекомендаций по выбранным фильтрам. Попробуйте изменить настройки.',
@@ -556,8 +617,15 @@ export async function GET(req: Request) {
     }
 
     // 7. Случайный выбор
+    sendProgress('selecting', 90, { candidatesCount: candidates.length });
+    
     let randomIndex = Math.floor(Math.random() * candidates.length);
     let selected = candidates[randomIndex];
+    
+    sendProgress('selected', 95, { 
+      selectedTmdbId: selected.tmdbId,
+      selectedTitle: selected.title 
+    });
 
     // 7.1. Получаем полные данные о выбранном фильме из watchlist (включая рейтинг пользователя)
     let watchListData = await prisma.watchList.findFirst({
@@ -729,6 +797,11 @@ export async function GET(req: Request) {
       original_language: tmdbData?.original_language,
     };
 
+    sendProgress('complete', 100, { 
+      movieTitle: movie.title || movie.name,
+      totalDuration: Date.now() - startTime
+    });
+
     return NextResponse.json({
       success: true,
       movie,
@@ -742,11 +815,22 @@ export async function GET(req: Request) {
       // Debug информация для разработки (только для администратора)
       ...(isAdmin && {
         debug: {
-          tmdbCalls: watchListItems.length,
-          dbRecords: watchListItems.length,
+          tmdbCalls: sampledItems.length, // Теперь отражает реальное количество запросов
+          dbRecords: initialCount,
           cached: false, // TODO: Добавить реальную проверку кэша
           fetchDuration: Date.now() - startTime,
-          filters: { types, lists, minRating, yearFrom, yearTo, genres, tags: tags || [] }
+          filters: { types, lists, minRating, yearFrom, yearTo, genres, tags: tags || [] },
+          // Добавляем детальную статистику
+          sampling: {
+            totalItems: initialCount,
+            sampledItems: sampledItems.length,
+            sampleRatio: initialCount > 0 ? (sampledItems.length / initialCount * 100).toFixed(1) + '%' : '0%'
+          },
+          performance: {
+            batchSize: BATCH_SIZE,
+            batchDelay: BATCH_DELAY,
+            totalBatches: Math.ceil(sampledItems.length / BATCH_SIZE)
+          }
         }
       })
     });
