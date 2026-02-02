@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { fetchMediaDetails } from '@/lib/tmdb';
-import { shouldFilterAdult } from '@/lib/age-utils';
+import { getCachedMediaDetails, setCachedMediaDetails } from '@/lib/tmdbCache';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
@@ -300,41 +300,91 @@ export async function GET(req: Request) {
     }
 
     // 4. Получаем актуальные данные из TMDB для фильтрации по типам
-    // Сначала собираем tmdbId всех фильмов из списков
-    const tmdbIds = watchListItems.map(item => item.tmdbId);
-
-    // Загружаем детали для определения типа контента (аниме/не аниме)
-    const tmdbDetailsPromises = watchListItems.map(async (item) => {
-      try {
-        const details = await fetchMediaDetails(item.tmdbId, item.mediaType as 'movie' | 'tv');
+    // Используем батчинг с retry логикой для предотвращения rate limiting
+    const BATCH_SIZE = 5; // Уменьшаем размер батча для большей стабильности
+    const BATCH_DELAY = 200; // Увеличиваем задержку между батчами
+    const MAX_RETRIES = 2; // Количество повторных попыток
+    
+    const tmdbDetailsPromises = [];
+    
+    for (let i = 0; i < watchListItems.length; i += BATCH_SIZE) {
+      const batch = watchListItems.slice(i, i + BATCH_SIZE);
+      
+      const batchPromises = batch.map(async (item) => {
+        let lastError: Error | null = null;
         
-        // Фильтруем взрослый контент
-        if (filterAdult && details?.adult) {
-          return {
-            tmdbId: item.tmdbId,
-            mediaType: item.mediaType,
-            isAnime: false,
-            originalLanguage: null,
-            genreIds: [] as number[],
-            release_date: null,
-            first_air_date: null,
-            adult: true,
-            vote_count: 0,
-          };
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            // Добавляем экспоненциальную задержку для retry
+            if (attempt > 0) {
+              const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 секунд
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            // Сначала проверяем кэш
+            let details = getCachedMediaDetails(item.tmdbId, item.mediaType);
+            
+            if (!details) {
+              // Если в кэше нет, запрашиваем из TMDB
+              details = await fetchMediaDetails(item.tmdbId, item.mediaType as 'movie' | 'tv');
+              // Сохраняем в кэш
+              if (details) {
+                setCachedMediaDetails(item.tmdbId, item.mediaType, details);
+              }
+            }
+            
+            // Фильтруем взрослый контент
+            if (filterAdult && details?.adult) {
+              return {
+                tmdbId: item.tmdbId,
+                mediaType: item.mediaType,
+                isAnime: false,
+                originalLanguage: null,
+                genreIds: [] as number[],
+                release_date: null,
+                first_air_date: null,
+                adult: true,
+                vote_count: 0,
+              };
+            }
+            
+            return {
+              tmdbId: item.tmdbId,
+              mediaType: item.mediaType,
+              isAnime: details ? isAnime(details) : false,
+              originalLanguage: details?.original_language,
+              genreIds: details?.genres?.map((g: any) => g.id) || [],
+              release_date: details?.release_date || null,
+              first_air_date: details?.first_air_date || null,
+              adult: details?.adult || false,
+              vote_count: details?.vote_count || 0,
+            };
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error('Unknown error');
+            
+            // Если это 429 ошибка, ждем дольше перед следующей попыткой
+            if (error && typeof error === 'object' && 'status' in error && error.status === 429) {
+              logger.warn('TMDB rate limit hit, retrying...', { 
+                tmdbId: item.tmdbId, 
+                attempt: attempt + 1,
+                maxRetries: MAX_RETRIES + 1
+              });
+              continue;
+            }
+            
+            // Для других ошибок не retry, кроме последней попытки
+            if (attempt < MAX_RETRIES) {
+              continue;
+            }
+          }
         }
         
-        return {
-          tmdbId: item.tmdbId,
-          mediaType: item.mediaType,
-          isAnime: details ? isAnime(details) : false,
-          originalLanguage: details?.original_language,
-          genreIds: details?.genres?.map((g: any) => g.id) || [],
-          release_date: details?.release_date || null,
-          first_air_date: details?.first_air_date || null,
-          adult: details?.adult || false,
-          vote_count: details?.vote_count || 0,
-        };
-      } catch {
+        // Если все попытки неудачны, возвращаем значения по умолчанию
+        logger.warn('Failed to fetch TMDB details after all retries', { 
+          tmdbId: item.tmdbId, 
+          mediaType: item.mediaType, 
+          error: lastError?.message || 'Unknown error' 
+        });
         return {
           tmdbId: item.tmdbId,
           mediaType: item.mediaType,
@@ -346,8 +396,15 @@ export async function GET(req: Request) {
           adult: false,
           vote_count: 0,
         };
+      });
+      
+      tmdbDetailsPromises.push(...batchPromises);
+      
+      // Добавляем задержку между батчами для предотвращения rate limiting
+      if (i + BATCH_SIZE < watchListItems.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
-    });
+    }
 
     const tmdbDetails = await Promise.all(tmdbDetailsPromises);
 
