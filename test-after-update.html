@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test After Update</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .error { background: #ffe6e6; padding: 10px; margin: 10px 0; }
+        .warning { background: #fff3cd; padding: 10px; margin: 10px 0; }
+        pre { white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; }
+        .highlight { background: #d4edda; padding: 5px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔄 Тест после обновления статуса</h1>
+    
+    <div class="section">
+        <h2>1. 📊 Статистика пользователя</h2>
+        <button onclick="testStatsAPI()">Проверить статистику</button>
+        <div id="stats-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. 🎬 Брошенные фильмы</h2>
+        <button onclick="testDroppedAPI()">Проверить брошенные</button>
+        <div id="dropped-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. 🐉 Debug информация</h2>
+        <button onclick="testDebugAPI()">Полная debug информация</button>
+        <div id="debug-result"></div>
+    </div>
+
+    <script>
+        async function testStatsAPI() {
+            const resultDiv = document.getElementById('stats-result');
+            resultDiv.innerHTML = '<p>Загрузка...</p>';
+            
+            try {
+                const response = await fetch('/api/user/stats');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const droppedCount = data.total?.dropped || 0;
+                    const cartoonCount = data.typeBreakdown?.cartoon || 0;
+                    const animeCount = data.typeBreakdown?.anime || 0;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>✅ API статистики</h3>
+                            <div class="${droppedCount > 0 ? 'highlight' : 'warning'}">
+                                <strong>🚮 Брошено:</strong> ${droppedCount} ${droppedCount > 0 ? '✅' : '❌ (должно быть > 0)'}
+                            </div>
+                            <div class="${cartoonCount > 0 ? 'highlight' : 'warning'}">
+                                <strong>🎨 Мультфильмы:</strong> ${cartoonCount} ${cartoonCount > 0 ? '✅' : '❌ (проверить жанры)'}
+                            </div>
+                            <div class="${animeCount > 0 ? 'highlight' : 'warning'}">
+                                <strong>🐲 Аниме:</strong> ${animeCount} ${animeCount > 0 ? '✅' : '❌ (проверить жанры+язык)'}
+                            </div>
+                            <p><strong>Просмотрено:</strong> ${data.total?.watched || 0}</p>
+                            <p><strong>Хочу посмотреть:</strong> ${data.total?.wantToWatch || 0}</p>
+                            <p><strong>Скрыто:</strong> ${data.total?.hidden || 0}</p>
+                            <p><strong>totalForPercentage:</strong> ${data.total?.totalForPercentage || 0}</p>
+                            ${data.debug ? `<h4>Debug:</h4><pre>${JSON.stringify(data.debug, null, 2)}</pre>` : ''}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error"><h3>❌ Ошибка:</h3><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><h3>❌ Ошибка запроса:</h3><p>${error.message}</p></div>`;
+            }
+        }
+        
+        async function testDroppedAPI() {
+            const resultDiv = document.getElementById('dropped-result');
+            resultDiv.innerHTML = '<p>Загрузка...</p>';
+            
+            try {
+                const response = await fetch('/api/my-movies?statusName=Брошено&page=1&limit=20');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const hasMovies = data.totalCount > 0 && data.movies && data.movies.length > 0;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>✅ API моих фильмов</h3>
+                            <div class="${hasMovies ? 'highlight' : 'warning'}">
+                                <strong>📦 Всего записей:</strong> ${data.totalCount} ${hasMovies ? '✅' : '❌ (должно быть > 0)'}
+                            </div>
+                            <div class="${data.movies && data.movies.length > 0 ? 'highlight' : 'warning'}">
+                                <strong>🎬 Загружено фильмов:</strong> ${data.movies?.length || 0} ${data.movies && data.movies.length > 0 ? '✅' : '❌'}
+                            </div>
+                            <p><strong>Есть еще:</strong> ${data.hasMore ? 'Да' : 'Нет'}</p>
+                            ${data.debug ? `<h4>Debug:</h4><pre>${JSON.stringify(data.debug, null, 2)}</pre>` : ''}
+                            ${data.movies && data.movies.length > 0 ? `
+                                <h4>📋 Фильмы:</h4>
+                                <ul>${data.movies.slice(0, 5).map(m => `
+                                    <li><strong>${m.title}</strong> (${m.statusName}) - ${m.media_type}</li>
+                                `).join('')}</ul>
+                            ` : '<p class="warning">❌ Нет фильмов для отображения</p>'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error"><h3>❌ Ошибка:</h3><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><h3>❌ Ошибка запроса:</h3><p>${error.message}</p></div>`;
+            }
+        }
+        
+        async function testDebugAPI() {
+            const resultDiv = document.getElementById('debug-result');
+            resultDiv.innerHTML = '<p>Загрузка...</p>';
+            
+            try {
+                const response = await fetch('/api/debug/stats');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const hasDropped = data.databaseCounts?.dropped > 0;
+                    const hasSamples = data.sampleRecords && data.sampleRecords.length > 0;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>✅ Debug API</h3>
+                            <div class="${hasDropped ? 'highlight' : 'warning'}">
+                                <strong>🚮 Брошено в БД:</strong> ${data.databaseCounts?.dropped || 0} ${hasDropped ? '✅' : '❌'}
+                            </div>
+                            <div class="${hasSamples ? 'highlight' : 'warning'}">
+                                <strong>📋 Примеры записей:</strong> ${data.sampleRecords?.length || 0} ${hasSamples ? '✅' : '❌'}
+                            </div>
+                            <h4>📊 Счетчики в БД:</h4>
+                            <pre>${JSON.stringify(data.databaseCounts, null, 2)}</pre>
+                            <h4>🧪 Тесты статусов:</h4>
+                            <pre>${JSON.stringify(data.statusTests, null, 2)}</pre>
+                            ${hasSamples ? `
+                                <h4>📋 Примеры "Брошено":</h4>
+                                <pre>${JSON.stringify(data.sampleRecords, null, 2)}</pre>
+                            ` : '<p class="warning">❌ Нет примеров записей "Брошено"</p>'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error"><h3>❌ Ошибка:</h3><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><h3>❌ Ошибка запроса:</h3><p>${error.message}</p></div>`;
+            }
+        }
+    </script>
+</body>
+</html>

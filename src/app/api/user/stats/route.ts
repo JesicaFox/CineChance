@@ -68,6 +68,27 @@ export async function GET(req: Request) {
       prisma.blacklist.count({ where: { userId } }),
     ]);
 
+    // Получаем соотношение по типам контента (по всем статусам кроме скрытых)
+    // Получаем все записи кроме скрытых (blacklist)
+    const allRecords = await prisma.watchList.findMany({
+      where: {
+        userId,
+        // Все статусы: WANT_TO_WATCH, WATCHED, REWATCHED, DROPPED
+        statusId: { 
+          in: [
+            MOVIE_STATUS_IDS.WANT_TO_WATCH, 
+            MOVIE_STATUS_IDS.WATCHED, 
+            MOVIE_STATUS_IDS.REWATCHED, 
+            MOVIE_STATUS_IDS.DROPPED
+          ] 
+        },
+      },
+      select: {
+        tmdbId: true,
+        mediaType: true,
+      },
+    });
+
     // Отладочная информация
     console.log('=== СТАТИСТИКА ПОЛЬЗОВАТЕЛЯ ===');
     console.log('User ID:', userId);
@@ -76,19 +97,7 @@ export async function GET(req: Request) {
     console.log('Dropped count:', droppedCount);
     console.log('Hidden count:', hiddenCount);
     console.log('DROPPED status ID:', MOVIE_STATUS_IDS.DROPPED);
-
-    // Получаем соотношение по типам контента (только для просмотренных)
-    // Сначала получаем все просмотренные записи
-    const watchedRecords = await prisma.watchList.findMany({
-      where: {
-        userId,
-        statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED] },
-      },
-      select: {
-        tmdbId: true,
-        mediaType: true,
-      },
-    });
+    console.log('All records count (for types):', allRecords.length);
 
     const typeCounts = {
       movie: 0,
@@ -98,7 +107,7 @@ export async function GET(req: Request) {
     };
 
     // Для каждой записи получаем данные TMDB и определяем тип контента
-    for (const record of watchedRecords) {
+    for (const record of allRecords) {
       const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
       
       if (tmdbData) {
@@ -118,6 +127,8 @@ export async function GET(req: Request) {
         }
       }
     }
+    
+    console.log('Type counts result:', typeCounts);
 
     // Средняя оценка пользователя
     const avgRatingResult = await prisma.watchList.aggregate({
