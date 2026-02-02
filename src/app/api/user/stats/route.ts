@@ -9,27 +9,44 @@ import { rateLimit } from '@/middleware/rateLimit';
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
   const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log('TMDB_API_KEY не найден');
+    return null;
+  }
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
+    console.log(`Запрос TMDB: ${mediaType}/${tmdbId}`);
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
-    if (!res.ok) return null;
-    return await res.json();
+    if (!res.ok) {
+      console.log(`Ошибка TMDB: ${res.status} ${res.statusText} для ${mediaType}/${tmdbId}`);
+      return null;
+    }
+    const data = await res.json();
+    console.log(`Получены данные для ${mediaType}/${tmdbId}:`, {
+      title: data.title || data.name,
+      genres: data.genres?.map((g: any) => ({ id: g.id, name: g.name })),
+      original_language: data.original_language
+    });
+    return data;
   } catch (error) {
+    console.log(`Ошибка запроса к TMDB для ${mediaType}/${tmdbId}:`, error);
     return null;
   }
 }
 
 // Helper function to check if movie is anime
 function isAnime(movie: any): boolean {
-  const hasAnimeGenre = movie.genre_ids?.includes(16) ?? false;
-  return hasAnimeGenre && movie.original_language === 'ja';
+  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+  const isJapanese = movie.original_language === 'ja';
+  console.log(`Проверка аниме: ${movie.title || movie.name} - жанр 16: ${hasAnimeGenre}, язык ja: ${isJapanese}`);
+  return hasAnimeGenre && isJapanese;
 }
 
 // Helper function to check if movie is cartoon (animation but not anime)
 function isCartoon(movie: any): boolean {
-  const hasAnimationGenre = movie.genre_ids?.includes(16) ?? false;
+  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
+  console.log(`Проверка мультфильма: ${movie.title || movie.name} - жанр 16: ${hasAnimationGenre}, язык не ja: ${isNotJapanese}`);
   return hasAnimationGenre && isNotJapanese;
 }
 

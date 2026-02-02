@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест статистики мультфильмов и аниме</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-white p-8">
+    <div class="max-w-4xl mx-auto space-y-6">
+        <h1 class="text-2xl font-bold">Тест статистики мультфильмов и аниме</h1>
+        
+        <div id="loading" class="text-gray-400">Загрузка данных...</div>
+        
+        <div id="results" class="space-y-4 hidden">
+            <!-- Общая статистика -->
+            <div class="bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Общая статистика</h2>
+                <div id="totalStats" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+            </div>
+            
+            <!-- Типы контента -->
+            <div class="bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Типы контента</h2>
+                <div id="typeBreakdown" class="space-y-2"></div>
+            </div>
+            
+            <!-- Debug информация -->
+            <div class="bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Debug информация</h2>
+                <pre id="debugInfo" class="text-xs text-gray-400 overflow-x-auto"></pre>
+            </div>
+            
+            <!-- Детальная информация по записям -->
+            <div class="bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Детальная информация по записям</h2>
+                <div id="detailedRecords" class="space-y-2 max-h-96 overflow-y-auto"></div>
+            </div>
+        </div>
+        
+        <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+            Обновить
+        </button>
+    </div>
+
+    <script>
+        async function fetchStats() {
+            try {
+                console.log('=== ЗАПРОС СТАТИСТИКИ ===');
+                const response = await fetch('/api/user/stats');
+                const data = await response.json();
+                
+                console.log('Ответ API:', data);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('results').classList.remove('hidden');
+                
+                // Отображаем общую статистику
+                const totalStats = document.getElementById('totalStats');
+                totalStats.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-400">${data.total?.watched || 0}</div>
+                        <div class="text-sm text-gray-400">Просмотрено</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-400">${data.total?.wantToWatch || 0}</div>
+                        <div class="text-sm text-gray-400">Отложено</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-400">${data.total?.dropped || 0}</div>
+                        <div class="text-sm text-gray-400">Брошено</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-400">${data.total?.hidden || 0}</div>
+                        <div class="text-sm text-gray-400">Скрыто</div>
+                    </div>
+                `;
+                
+                // Отображаем типы контента
+                const typeBreakdown = document.getElementById('typeBreakdown');
+                const total = data.total?.totalForPercentage || 1;
+                typeBreakdown.innerHTML = `
+                    <div class="flex justify-between items-center p-2 bg-gray-800 rounded">
+                        <span>🎬 Фильмы</span>
+                        <span class="font-bold ${data.typeBreakdown?.movie === 0 ? 'text-red-400' : 'text-green-400'}">${data.typeBreakdown?.movie || 0}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-gray-800 rounded">
+                        <span>📺 Сериалы</span>
+                        <span class="font-bold ${data.typeBreakdown?.tv === 0 ? 'text-red-400' : 'text-green-400'}">${data.typeBreakdown?.tv || 0}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-gray-800 rounded">
+                        <span>😊 Мультфильмы</span>
+                        <span class="font-bold ${data.typeBreakdown?.cartoon === 0 ? 'text-red-400' : 'text-green-400'}">${data.typeBreakdown?.cartoon || 0}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-gray-800 rounded">
+                        <span>🌸 Аниме</span>
+                        <span class="font-bold ${data.typeBreakdown?.anime === 0 ? 'text-red-400' : 'text-green-400'}">${data.typeBreakdown?.anime || 0}</span>
+                    </div>
+                `;
+                
+                // Отображаем debug информацию
+                document.getElementById('debugInfo').textContent = JSON.stringify(data.debug, null, 2);
+                
+                // Проверяем конкретные мультфильмы и аниме
+                await checkSpecificContent();
+                
+            } catch (error) {
+                console.error('Ошибка:', error);
+                document.getElementById('loading').innerHTML = `<div class="text-red-400">Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        async function checkSpecificContent() {
+            try {
+                // Получаем детальную отладочную информацию
+                const response = await fetch('/api/debug/stats');
+                const debugData = await response.json();
+                
+                console.log('Debug данные:', debugData);
+                
+                const detailedRecords = document.getElementById('detailedRecords');
+                detailedRecords.innerHTML = '';
+                
+                // Показываем анализ типов контента
+                if (debugData.typeAnalysis) {
+                    const typeDiv = document.createElement('div');
+                    typeDiv.className = 'p-3 bg-gray-800 rounded mb-3';
+                    typeDiv.innerHTML = `
+                        <h3 class="font-semibold text-sm mb-2">Анализ типов контента (первые ${debugData.typeAnalysis.totalRecords} записей)</h3>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>🎬 Фильмы: <span class="font-bold">${debugData.typeAnalysis.typeCounts.movie}</span></div>
+                            <div>📺 Сериалы: <span class="font-bold">${debugData.typeAnalysis.tv}</span></div>
+                            <div>😊 Мультфильмы: <span class="font-bold text-orange-400">${debugData.typeAnalysis.typeCounts.cartoon}</span></div>
+                            <div>🌸 Аниме: <span class="font-bold text-purple-400">${debugData.typeAnalysis.typeCounts.anime}</span></div>
+                        </div>
+                    `;
+                    detailedRecords.appendChild(typeDiv);
+                    
+                    // Показываем контент с жанром Animation
+                    if (debugData.typeAnalysis.animationContent.length > 0) {
+                        const animHeader = document.createElement('div');
+                        animHeader.className = 'font-semibold text-sm mb-2 text-yellow-400';
+                        animHeader.textContent = `Найдено контента с жанром Animation: ${debugData.typeAnalysis.animationContent.length}`;
+                        detailedRecords.appendChild(animHeader);
+                        
+                        debugData.typeAnalysis.animationContent.forEach(item => {
+                            const recordDiv = document.createElement('div');
+                            recordDiv.className = `p-2 bg-gray-800 rounded text-xs mb-2 ${item.finalType === 'anime' ? 'border-l-4 border-purple-500' : item.finalType === 'cartoon' ? 'border-l-4 border-orange-500' : 'border-l-4 border-gray-500'}`;
+                            recordDiv.innerHTML = `
+                                <div class="font-semibold">${item.title}</div>
+                                <div class="text-gray-400">
+                                    Тип: ${item.finalType} | Язык: ${item.original_language} | ID: ${item.tmdbId}
+                                </div>
+                                <div class="text-gray-500">
+                                    Жанры: ${item.genres?.map(g => `${g.name}(${g.id})`).join(', ') || 'Нет данных'}
+                                </div>
+                                <div class="text-gray-600">
+                                    Has Animation: ${item.hasAnimationGenre} | Is Japanese: ${item.isJapanese}
+                                </div>
+                                ${item.tmdbError ? '<div class="text-red-400">TMDB Error</div>' : ''}
+                            `;
+                            detailedRecords.appendChild(recordDiv);
+                        });
+                    } else {
+                        const noAnimDiv = document.createElement('div');
+                        noAnimDiv.className = 'text-gray-400 text-sm';
+                        noAnimDiv.textContent = 'Не найдено контента с жанром Animation в выборке';
+                        detailedRecords.appendChild(noAnimDiv);
+                    }
+                }
+                
+                // Показываем общую статистику
+                if (debugData.databaseCounts) {
+                    const statsDiv = document.createElement('div');
+                    statsDiv.className = 'p-3 bg-gray-800 rounded mt-3';
+                    statsDiv.innerHTML = `
+                        <h3 class="font-semibold text-sm mb-2">Общая статистика базы данных</h3>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>Хочу посмотреть: <span class="font-bold">${debugData.databaseCounts.wantToWatch}</span></div>
+                            <div>Просмотрено: <span class="font-bold">${debugData.databaseCounts.watched}</span></div>
+                            <div>Пересмотрено: <span class="font-bold">${debugData.databaseCounts.rewatched}</span></div>
+                            <div>Брошено: <span class="font-bold">${debugData.databaseCounts.dropped}</span></div>
+                        </div>
+                    `;
+                    detailedRecords.appendChild(statsDiv);
+                }
+                
+            } catch (error) {
+                console.error('Ошибка при проверке контента:', error);
+                document.getElementById('detailedRecords').innerHTML = `<div class="text-red-400">Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        // Запускаем загрузку
+        fetchStats();
+    </script>
+</body>
+</html>
