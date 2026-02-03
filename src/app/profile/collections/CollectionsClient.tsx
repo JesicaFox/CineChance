@@ -1,11 +1,13 @@
 // src/app/profile/collections/CollectionsClient.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import ImageWithProxy from '@/app/components/ImageWithProxy';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Film } from 'lucide-react';
+import { useCollections } from '@/hooks/useCollections';
+import Loader from '@/app/components/Loader';
 import '@/app/profile/components/AchievementCards.css';
 
 interface CollectionAchievement {
@@ -50,48 +52,68 @@ function PageSkeleton() {
 }
 
 export default function CollectionsClient({ userId }: CollectionsClientProps) {
-  const [allCollections, setAllCollections] = useState<CollectionAchievement[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_ITEMS);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isFetchingRef = useRef(false);
 
+  // Use our optimized hook for infinite query
+  const collectionsQuery = useCollections(userId);
+
+  // Loading states
+  const isLoading = collectionsQuery.isLoading;
+  const isFetchingNextPage = collectionsQuery.isFetchingNextPage;
+  const hasNextPage = collectionsQuery.hasNextPage ?? false;
+  const collections = collectionsQuery.collections;
+  const totalCount = collectionsQuery.totalCount;
+
+  // Fetch next page handler with safeguards
+  const handleFetchNextPage = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && !isFetchingRef.current) {
+      isFetchingRef.current = true;
+      collectionsQuery.fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, collectionsQuery]);
+
+  // Infinite scroll observer
   useEffect(() => {
-    const fetchCollections = async () => {
-      try {
-        const res = await fetch('/api/user/achiev_collection');
-        if (!res.ok) throw new Error('Failed to fetch collections');
-        const data = await res.json();
-        setAllCollections(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Failed to fetch collections:', err);
-        setError('Не удалось загрузить коллекции');
-      } finally {
-        setLoading(false);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const sentinel = entries[0];
+        if (sentinel.isIntersecting && hasNextPage && !isFetchingNextPage && !isFetchingRef.current) {
+          isFetchingRef.current = true;
+          collectionsQuery.fetchNextPage();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '200px',
+      }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
       }
     };
+  }, [hasNextPage, isFetchingNextPage, collectionsQuery]);
 
-    fetchCollections();
-  }, [userId]);
-
-  // Scroll to top button
+  // Reset fetching ref when fetch completes
   useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 300);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    if (!isFetchingNextPage) {
+      isFetchingRef.current = false;
+    }
+  }, [isFetchingNextPage]);
 
-  const loadMore = () => {
-    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
-  };
-
-  const visibleCollections = allCollections.slice(0, visibleCount);
-  const hasMore = visibleCount < allCollections.length;
+  const visibleCollections = collections.slice(0, visibleCount);
+  const hasMoreVisible = visibleCount < collections.length;
   const isLoadingMore = false;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         {/* Skeleton заголовка */}
@@ -102,15 +124,15 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
     );
   }
 
-  if (error) {
+  if (collectionsQuery.error) {
     return (
       <div className="bg-red-900/30 border border-red-700 rounded-lg p-6">
-        <p className="text-red-300">{error}</p>
+        <p className="text-red-300">Не удалось загрузить коллекции</p>
       </div>
     );
   }
 
-  if (allCollections.length === 0) {
+  if (collections.length === 0) {
     return (
       <div className="bg-gray-900 rounded-lg md:rounded-xl p-6 border border-gray-800">
         <p className="text-gray-400 text-center py-10">
@@ -224,14 +246,18 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
           })}
       </div>
 
-      {hasMore && (
+      {/* Sentinel для infinite scroll */}
+      <div ref={sentinelRef} className="h-4" />
+
+      {/* Кнопка "Ещё" */}
+      {hasNextPage && (
         <div className="flex justify-center mt-6">
           <button
-            onClick={loadMore}
-            disabled={isLoadingMore}
+            onClick={handleFetchNextPage}
+            disabled={isFetchingNextPage}
             className="px-6 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            {isLoadingMore ? (
+            {isFetchingNextPage ? (
               <>
                 <div className="w-4 h-4 border-2 border-gray-400 border-t-white rounded-full animate-spin"></div>
                 Загрузка...
@@ -243,32 +269,16 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
         </div>
       )}
 
-      <p className="text-gray-500 text-sm text-center pt-4">
-        Показано {visibleCollections.length} из {allCollections.length} коллекций
-      </p>
-
-      {showScrollTop && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-50"
-          aria-label="Наверх"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 10l7-7m0 0l7 7m-7-7v18"
-            />
-          </svg>
-        </button>
+      {/* Индикатор загрузки в конце */}
+      {isFetchingNextPage && (
+        <div className="flex justify-center mt-6">
+          <Loader size="small" />
+        </div>
       )}
+
+      <p className="text-gray-500 text-sm text-center pt-4">
+        Показано {visibleCollections.length} из {totalCount} коллекций
+      </p>
     </>
   );
 }

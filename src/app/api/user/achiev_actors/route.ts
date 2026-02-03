@@ -294,9 +294,28 @@ export async function GET(request: Request) {
       });
     }
 
-    // Возвращаем базовые данные без фильмографии
+    // Возвращаем базовые данные без фильмографии, но с сортировкой
+    const sortedBaseActors = baseActorsData
+      .sort((a, b) => {
+        if (a.average_rating !== null && b.average_rating !== null) {
+          if (b.average_rating !== a.average_rating) {
+            return b.average_rating - a.average_rating;
+          }
+        } else if (a.average_rating === null && b.average_rating !== null) {
+          return 1;
+        } else if (a.average_rating !== null && b.average_rating === null) {
+          return -1;
+        }
+        
+        if (b.progress_percent !== a.progress_percent) {
+          return b.progress_percent - a.progress_percent;
+        }
+        
+        return a.name.localeCompare(b.name, 'ru');
+      });
+
     return NextResponse.json({
-      actors: baseActorsData,
+      actors: sortedBaseActors,
       hasMore: offset + limit < allActors.length,
       total: allActors.length,
     });

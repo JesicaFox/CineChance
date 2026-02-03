@@ -1,11 +1,12 @@
 // src/app/profile/actors/ActorsClient.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import ImageWithProxy from '@/app/components/ImageWithProxy';
-import Image from 'next/image';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { User } from 'lucide-react';
+import Image from 'next/image';
+import { Users } from 'lucide-react';
+import ImageWithProxy from '@/app/components/ImageWithProxy';
+import Loader from '@/app/components/Loader';
 import '@/app/profile/components/AchievementCards.css';
 
 interface ActorAchievement {
@@ -59,6 +60,8 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isFetchingRef = useRef(false);
 
   // Функция загрузки актеров с пагинацией
   const fetchActors = async (offsetValue = 0, append = false) => {
@@ -135,7 +138,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
     }
   }, [visibleCount, allActors.length, loading]);
 
-  // Scroll to top button
+  // Scroll to top button + Infinite scroll
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
@@ -143,6 +146,41 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const sentinel = entries[0];
+        if (sentinel.isIntersecting && hasMore && !loadingMore && !isFetchingRef.current) {
+          isFetchingRef.current = true;
+          loadMore();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '200px',
+      }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [hasMore, loadingMore]);
+
+  // Reset fetching ref when load completes
+  useEffect(() => {
+    if (!loadingMore) {
+      isFetchingRef.current = false;
+    }
+  }, [loadingMore]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -246,7 +284,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
                     </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-600">
-                      <User className="w-10 h-10" />
+                      <Users className="w-10 h-10" />
                     </div>
                   )}
                   
@@ -312,6 +350,10 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         })}
       </div>
 
+      {/* Sentinel для infinite scroll */}
+      <div ref={sentinelRef} className="h-4" />
+
+      {/* Кнопка "Ещё" */}
       {hasMore && (
         <div className="flex justify-center mt-6">
           <button
@@ -328,6 +370,13 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
               'Ещё...'
             )}
           </button>
+        </div>
+      )}
+
+      {/* Индикатор загрузки в конце */}
+      {loadingMore && (
+        <div className="flex justify-center mt-6">
+          <Loader size="small" />
         </div>
       )}
 
