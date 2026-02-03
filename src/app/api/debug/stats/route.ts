@@ -9,26 +9,17 @@ import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/mo
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    console.log('TMDB_API_KEY не найден');
     return null;
   }
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
-    console.log(`Запрос TMDB: ${mediaType}/${tmdbId}`);
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) {
-      console.log(`Ошибка TMDB: ${res.status} ${res.statusText} для ${mediaType}/${tmdbId}`);
       return null;
     }
     const data = await res.json();
-    console.log(`Получены данные для ${mediaType}/${tmdbId}:`, {
-      title: data.title || data.name,
-      genres: data.genres?.map((g: any) => ({ id: g.id, name: g.name })),
-      original_language: data.original_language
-    });
     return data;
   } catch (error) {
-    console.log(`Ошибка запроса к TMDB для ${mediaType}/${tmdbId}:`, error);
     return null;
   }
 }
@@ -37,7 +28,6 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
 function isAnime(movie: any): boolean {
   const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
   const isJapanese = movie.original_language === 'ja';
-  console.log(`Проверка аниме: ${movie.title || movie.name} - жанр 16: ${hasAnimeGenre}, язык ja: ${isJapanese}`);
   return hasAnimeGenre && isJapanese;
 }
 
@@ -45,7 +35,6 @@ function isAnime(movie: any): boolean {
 function isCartoon(movie: any): boolean {
   const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
-  console.log(`Проверка мультфильма: ${movie.title || movie.name} - жанр 16: ${hasAnimationGenre}, язык не ja: ${isNotJapanese}`);
   return hasAnimationGenre && isNotJapanese;
 }
 
@@ -57,8 +46,6 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    console.log('=== DEBUG ПОЛНЫЙ АНАЛИЗ ===');
-    console.log('User ID:', userId);
     
     // Собираем всю отладочную информацию
     const debugInfo = {
@@ -88,21 +75,12 @@ export async function GET(request: NextRequest) {
     };
 
     // Считаем количество записей по каждому статусу
-    console.log('\n=== ПОДСЧЕТ ЗАПИСЕЙ ПО СТАТУСАМ ===');
-    
     const counts = await Promise.all([
       prisma.watchList.count({ where: { userId, statusId: MOVIE_STATUS_IDS.WANT_TO_WATCH } }),
       prisma.watchList.count({ where: { userId, statusId: MOVIE_STATUS_IDS.WATCHED } }),
       prisma.watchList.count({ where: { userId, statusId: MOVIE_STATUS_IDS.REWATCHED } }),
       prisma.watchList.count({ where: { userId, statusId: MOVIE_STATUS_IDS.DROPPED } }),
     ]);
-
-    console.log('Результаты подсчета:');
-    console.log(`WANT_TO_WATCH (${MOVIE_STATUS_IDS.WANT_TO_WATCH}): ${counts[0]}`);
-    console.log(`WATCHED (${MOVIE_STATUS_IDS.WATCHED}): ${counts[1]}`);
-    console.log(`REWATCHED (${MOVIE_STATUS_IDS.REWATCHED}): ${counts[2]}`);
-    console.log(`DROPPED (${MOVIE_STATUS_IDS.DROPPED}): ${counts[3]}`);
-    console.log(`WATCHED + REWATCHED: ${counts[1] + counts[2]}`);
 
     debugInfo.databaseCounts = {
       wantToWatch: counts[0],
@@ -138,7 +116,6 @@ export async function GET(request: NextRequest) {
     }));
 
     // Анализ типов контента (аниме/мультфильмы)
-    console.log('\n=== АНАЛИЗ ТИПОВ КОНТЕНТА ===');
     
     // Получаем все записи для анализа типов контента
     const allRecords = await prisma.watchList.findMany({
@@ -161,8 +138,6 @@ export async function GET(request: NextRequest) {
       take: 20, // Ограничим для анализа
     });
 
-    console.log(`Анализируем ${allRecords.length} записей для типов контента`);
-
     const detailedAnalysis = [];
     const typeCounts = {
       movie: 0,
@@ -173,8 +148,6 @@ export async function GET(request: NextRequest) {
 
     // Для каждой записи получаем данные TMDB и определяем тип контента
     for (const record of allRecords) {
-      console.log(`\n--- Анализ записи: ${record.mediaType}/${record.tmdbId} ---`);
-      
       const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
       
       if (tmdbData) {
@@ -228,9 +201,6 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log('\n=== ИТОГОВЫЕ СЧЕТЧИКИ ТИПОВ ===');
-    console.log('Type counts:', typeCounts);
-
     // Фильтруем только контент с жанром Animation
     const animationContent = detailedAnalysis.filter(item => 
       item.hasAnimationGenre || item.finalType === 'anime' || item.finalType === 'cartoon'

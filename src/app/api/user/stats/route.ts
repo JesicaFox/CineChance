@@ -10,26 +10,17 @@ import { rateLimit } from '@/middleware/rateLimit';
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
-    console.log('TMDB_API_KEY не найден');
     return null;
   }
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
-    console.log(`Запрос TMDB: ${mediaType}/${tmdbId}`);
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) {
-      console.log(`Ошибка TMDB: ${res.status} ${res.statusText} для ${mediaType}/${tmdbId}`);
       return null;
     }
     const data = await res.json();
-    console.log(`Получены данные для ${mediaType}/${tmdbId}:`, {
-      title: data.title || data.name,
-      genres: data.genres?.map((g: any) => ({ id: g.id, name: g.name })),
-      original_language: data.original_language
-    });
     return data;
   } catch (error) {
-    console.log(`Ошибка запроса к TMDB для ${mediaType}/${tmdbId}:`, error);
     return null;
   }
 }
@@ -38,7 +29,6 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
 function isAnime(movie: any): boolean {
   const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
   const isJapanese = movie.original_language === 'ja';
-  console.log(`Проверка аниме: ${movie.title || movie.name} - жанр 16: ${hasAnimeGenre}, язык ja: ${isJapanese}`);
   return hasAnimeGenre && isJapanese;
 }
 
@@ -46,7 +36,6 @@ function isAnime(movie: any): boolean {
 function isCartoon(movie: any): boolean {
   const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
-  console.log(`Проверка мультфильма: ${movie.title || movie.name} - жанр 16: ${hasAnimationGenre}, язык не ja: ${isNotJapanese}`);
   return hasAnimationGenre && isNotJapanese;
 }
 
@@ -60,10 +49,6 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
 
     // Получаем общую статистику
-    console.log('\n=== ПОДСЧЕТ СТАТИСТИКИ В /api/user/stats ===');
-    console.log('User ID:', userId);
-    console.log('MOVIE_STATUS_IDS:', MOVIE_STATUS_IDS);
-    
     const [watchedCount, wantToWatchCount, droppedCount, hiddenCount] = await Promise.all([
       // Просмотрено + Пересмотрено
       prisma.watchList.count({
@@ -83,12 +68,6 @@ export async function GET(request: NextRequest) {
       // Скрыто (blacklist)
       prisma.blacklist.count({ where: { userId } }),
     ]);
-
-    console.log('Результаты подсчета в /api/user/stats:');
-    console.log(`WATCHED + REWATCHED: ${watchedCount}`);
-    console.log(`WANT_TO_WATCH: ${wantToWatchCount}`);
-    console.log(`DROPPED: ${droppedCount}`);
-    console.log(`HIDDEN (blacklist): ${hiddenCount}`);
 
     // Получаем соотношение по типам контента (по всем статусам кроме скрытых)
     // Получаем все записи кроме скрытых (blacklist)
@@ -112,15 +91,6 @@ export async function GET(request: NextRequest) {
     });
 
     // Отладочная информация
-    console.log('=== СТАТИСТИКА ПОЛЬЗОВАТЕЛЯ ===');
-    console.log('User ID:', userId);
-    console.log('Watched count:', watchedCount);
-    console.log('Want to watch count:', wantToWatchCount);
-    console.log('Dropped count:', droppedCount);
-    console.log('Hidden count:', hiddenCount);
-    console.log('DROPPED status ID:', MOVIE_STATUS_IDS.DROPPED);
-    console.log('All records count (for types):', allRecords.length);
-
     const typeCounts = {
       movie: 0,
       tv: 0,
@@ -149,8 +119,6 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-    
-    console.log('Type counts result:', typeCounts);
 
     // Средняя оценка пользователя
     const avgRatingResult = await prisma.watchList.aggregate({
