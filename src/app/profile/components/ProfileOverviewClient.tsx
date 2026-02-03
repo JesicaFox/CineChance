@@ -9,7 +9,7 @@ import { ru } from 'date-fns/locale';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 const TermsOfServiceModal = dynamic(() => import('@/app/components/TermsOfServiceModal'), { ssr: false });
-import { FileText, Settings, Users, ArrowRight, Clock, Star, TrendingUp, Monitor, Tv, Film, CheckIcon, PlusIcon, XIcon, BanIcon, Smile } from 'lucide-react';
+import { FileText, Settings, Users, ArrowRight, Clock, Star, TrendingUp, Monitor, Tv, Film, CheckIcon, PlusIcon, XIcon, BanIcon, Smile, Clock as ClockIcon, EyeOff as EyeOffIcon, PieChart as PieChartIcon, Star as StarIcon } from 'lucide-react';
 import NicknameEditor from './NicknameEditor';
 import Loader from '@/app/components/Loader';
 import '@/app/profile/components/AchievementCards.css';
@@ -185,6 +185,9 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
   // Отдельные состояния загрузки для каждого блока
   const [userDataLoading, setUserDataLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [basicStatsLoading, setBasicStatsLoading] = useState(true);
+  const [typeBreakdownLoading, setTypeBreakdownLoading] = useState(true);
+  const [averageRatingLoading, setAverageRatingLoading] = useState(true);
   const [collections, setCollections] = useState<CollectionAchievement[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
   const [actors, setActors] = useState<ActorAchievement[]>([]);
@@ -219,22 +222,22 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
     return () => clearTimeout(timer);
   }, [userId]);
 
-  // Параллельная загрузка всех данных для быстрого старта
+  // Последовательная загрузка данных для лучшего UX
   useEffect(() => {
-    const loadAllData = async () => {
+    const loadDataSequentially = async () => {
       try {
-        // Запускаем все запросы параллельно без задержек
-        const [statsRes, collectionsRes, actorsRes] = await Promise.all([
-          fetch('/api/user/stats'),
-          // Используем тот же лимит что и страница всех коллекций для полной консистентности
-          fetch('/api/user/achiev_collection?limit=50&singleLoad=true'),
-          // Используем тот же лимит что и страница всех актеров для полной консистентности
-          fetch('/api/user/achiev_actors?limit=50&singleLoad=true')
-        ]);
-
-        // Обрабатываем статистику
+        // Этап 1: Быстро загружаем статистику с последовательным отображением
+        setStatsLoading(true);
+        setBasicStatsLoading(true);
+        setTypeBreakdownLoading(true);
+        setAverageRatingLoading(true);
+        
+        const statsRes = await fetch('/api/user/stats');
+        
         if (statsRes.ok) {
           const data = await statsRes.json();
+          
+          // Сначала отображаем базовую статистику
           setStats({
             total: {
               watched: data.total?.watched || 0,
@@ -244,39 +247,82 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
               totalForPercentage: data.total?.totalForPercentage || 0,
             },
             typeBreakdown: {
+              movie: 0,
+              tv: 0,
+              cartoon: 0,
+              anime: 0,
+            },
+            averageRating: null,
+            ratedCount: 0,
+          });
+          setBasicStatsLoading(false);
+          
+          // Небольшая задержка для визуального эффекта
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Затем отображаем breakdown по типам
+          setStats(prev => prev ? ({
+            ...prev,
+            typeBreakdown: {
               movie: data.typeBreakdown?.movie || 0,
               tv: data.typeBreakdown?.tv || 0,
               cartoon: data.typeBreakdown?.cartoon || 0,
               anime: data.typeBreakdown?.anime || 0,
             },
+          }) : null);
+          setTypeBreakdownLoading(false);
+          
+          // Еще одна небольшая задержка
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // В конце отображаем среднюю оценку
+          setStats(prev => prev ? ({
+            ...prev,
             averageRating: data.averageRating || null,
             ratedCount: data.ratedCount || 0,
-          });
+          }) : null);
+          setAverageRatingLoading(false);
+        } else {
+          // Если запрос не удался, все равно завершаем загрузку
+          setBasicStatsLoading(false);
+          setTypeBreakdownLoading(false);
+          setAverageRatingLoading(false);
         }
+        setStatsLoading(false);
 
-        // Обрабатываем коллекции - берем топ-5 из того же списка что и на странице всех коллекций
+        // Этап 2: Загружаем коллекции (параллельно с актерами)
+        setCollectionsLoading(true);
+        const collectionsRes = await fetch('/api/user/achiev_collection?limit=50&singleLoad=true');
+        
         if (collectionsRes.ok) {
           const data = await collectionsRes.json();
           setCollections(data.collections ? data.collections.slice(0, 5) : []);
         }
+        setCollectionsLoading(false);
 
-        // Обрабатываем актеров - берем топ-5 из того же списка что и на странице всех актеров
+        // Этап 3: Загружаем актеров
+        setActorsLoading(true);
+        const actorsRes = await fetch('/api/user/achiev_actors?limit=50&singleLoad=true');
+        
         if (actorsRes.ok) {
           const data = await actorsRes.json();
           setActors(data.actors ? data.actors.slice(0, 5) : []);
         }
+        setActorsLoading(false);
 
       } catch (error) {
         console.error('Failed to load profile data:', error);
-      } finally {
-        // Завершаем все состояния загрузки одновременно
+        // В случае ошибки все равно завершаем загрузку
         setStatsLoading(false);
+        setBasicStatsLoading(false);
+        setTypeBreakdownLoading(false);
+        setAverageRatingLoading(false);
         setCollectionsLoading(false);
         setActorsLoading(false);
       }
     };
 
-    loadAllData();
+    loadDataSequentially();
   }, []);
 
   // Определяем мобильное устройство
@@ -356,14 +402,14 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
 
         {/* Основные метрики - сетка 2x2 на мобильных, 4 колонки на десктопе */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {statsLoading ? (
+          {basicStatsLoading ? (
             <>
               <StatsCardSkeleton />
               <StatsCardSkeleton />
               <StatsCardSkeleton />
               <StatsCardSkeleton />
             </>
-          ) : stats ? (
+          ) : stats?.total ? (
             <>
               {/* Всего просмотрено */}
               <Link
@@ -388,7 +434,7 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
               >
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-7 h-7 bg-blue-400/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <PlusIcon className="w-4 h-4 text-blue-400" />
+                    <ClockIcon className="w-4 h-4 text-blue-400" />
                   </div>
                   <p className="text-gray-400 text-xs md:text-sm">Отложено</p>
                 </div>
@@ -397,7 +443,7 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 </p>
               </Link>
 
-              {/* Всего брошено */}
+              {/* Брошено */}
               <Link
                 href="/my-movies?tab=dropped"
                 className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-red-500/50 hover:bg-gray-800/80 transition cursor-pointer block"
@@ -413,154 +459,73 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 </p>
               </Link>
 
-              {/* Всего заблокировано */}
-              <Link
-                href="/my-movies?tab=hidden"
-                className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-gray-500/50 hover:bg-gray-800/80 transition cursor-pointer block"
-              >
+              {/* Скрыто */}
+              <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-7 h-7 bg-gray-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <BanIcon className="w-4 h-4 text-gray-400" />
+                  <div className="w-7 h-7 bg-gray-400/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <EyeOffIcon className="w-4 h-4 text-gray-400" />
                   </div>
-                  <p className="text-gray-400 text-xs md:text-sm">Заблокировано</p>
+                  <p className="text-gray-400 text-xs md:text-sm">Скрыто</p>
                 </div>
                 <p className="text-2xl md:text-3xl font-bold text-white pl-10">
                   {stats.total.hidden}
                 </p>
-              </Link>
+              </div>
             </>
           ) : null}
         </div>
 
         {/* Вторая строка: Типы контента и Средняя оценка */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          {statsLoading ? (
-            <>
-              <TypeBreakdownSkeleton />
-              <AverageRatingSkeleton />
-            </>
-          ) : stats ? (
-            <>
-              {/* Соотношение типов контента */}
-              <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <Monitor className="w-4 h-4 text-purple-400" />
-                  <p className="text-gray-400 text-xs md:text-sm">Типы контента</p>
+          {/* Типы контента */}
+          {typeBreakdownLoading ? (
+            <TypeBreakdownSkeleton />
+          ) : stats?.typeBreakdown ? (
+            <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800">
+              <div className="flex items-center gap-2 mb-3">
+                <PieChartIcon className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-medium text-white">Типы контента</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-xs">🎬 Фильмы</span>
+                  <span className="text-white text-xs font-medium">{stats.typeBreakdown.movie}</span>
                 </div>
-                <div className="space-y-3">
-                  {/* Фильмы */}
-                  <div className="flex items-center gap-3">
-                    <Film className="w-5 h-5 text-green-400 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-gray-300 text-sm">Фильмы</span>
-                        <span className="text-white font-medium">{stats.typeBreakdown.movie}</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-green-500 rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${stats.total.totalForPercentage > 0 
-                              ? (stats.typeBreakdown.movie / stats.total.totalForPercentage) * 100 
-                              : 0}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  {/* Сериалы */}
-                  <div className="flex items-center gap-3">
-                    <Tv className="w-5 h-5 text-blue-400 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-gray-300 text-sm">Сериалы</span>
-                        <span className="text-white font-medium">{stats.typeBreakdown.tv}</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${stats.total.totalForPercentage > 0 
-                              ? (stats.typeBreakdown.tv / stats.total.totalForPercentage) * 100 
-                              : 0}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  {/* Мультфильмы */}
-                  <div className="flex items-center gap-3">
-                    <Smile className="w-5 h-5 text-orange-400 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-gray-300 text-sm">Мультфильмы</span>
-                        <span className="text-white font-medium">{stats.typeBreakdown.cartoon}</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-orange-500 rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${stats.total.totalForPercentage > 0 
-                              ? (stats.typeBreakdown.cartoon / stats.total.totalForPercentage) * 100 
-                              : 0}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  {/* Аниме */}
-                  <div className="flex items-center gap-3">
-                    <span className="w-5 h-5 text-purple-400 text-sm font-bold">あ</span>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-gray-300 text-sm">Аниме</span>
-                        <span className="text-white font-medium">{stats.typeBreakdown.anime}</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-purple-500 rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${stats.total.totalForPercentage > 0 
-                              ? (stats.typeBreakdown.anime / stats.total.totalForPercentage) * 100 
-                              : 0}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-xs">📺 Сериалы</span>
+                  <span className="text-white text-xs font-medium">{stats.typeBreakdown.tv}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-xs">🎨 Мультфильмы</span>
+                  <span className="text-white text-xs font-medium">{stats.typeBreakdown.cartoon}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-xs">🌸 Аниме</span>
+                  <span className="text-white text-xs font-medium">{stats.typeBreakdown.anime}</span>
                 </div>
               </div>
+            </div>
+          ) : null}
 
-              {/* Средняя оценка */}
-              <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <Star className="w-4 h-4 text-yellow-400" />
-                  <p className="text-gray-400 text-xs md:text-sm">Средняя оценка</p>
-                </div>
-                <div className="flex items-end gap-3">
-                  <span className="text-4xl md:text-5xl font-bold text-white">
-                    {stats.averageRating?.toFixed(1) || '-'}
-                  </span>
-                  <div className="flex-1 pb-1">
-                    <div className="flex gap-0.5 mb-1">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                        <Star 
-                          key={star}
-                          className={`w-4 h-4 ${
-                            (stats.averageRating || 0) >= star 
-                              ? 'text-yellow-400 fill-yellow-400' 
-                              : 'text-gray-600'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-gray-500 text-xs">
-                      {stats.ratedCount} оценённых
-                    </p>
-                  </div>
-                </div>
+          {/* Средняя оценка */}
+          {averageRatingLoading ? (
+            <AverageRatingSkeleton />
+          ) : stats?.averageRating !== null ? (
+            <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800">
+              <div className="flex items-center gap-2 mb-3">
+                <StarIcon className="w-4 h-4 text-yellow-400" />
+                <h3 className="text-sm font-medium text-white">Средняя оценка</h3>
               </div>
-            </>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl md:text-3xl font-bold text-white">
+                  {stats?.averageRating?.toFixed(1) || '—'}
+                </span>
+                <span className="text-gray-400 text-xs">/ 10</span>
+              </div>
+              <p className="text-gray-400 text-xs mt-1">
+                Оценено фильмов: {stats?.ratedCount || 0}
+              </p>
+            </div>
           ) : null}
         </div>
       </div>
