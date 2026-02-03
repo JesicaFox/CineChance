@@ -7,7 +7,6 @@ import Image from 'next/image';
 import { Users } from 'lucide-react';
 import ImageWithProxy from '@/app/components/ImageWithProxy';
 import Loader from '@/app/components/Loader';
-import ProgressBar from '@/app/components/ProgressBar';
 import '@/app/profile/components/AchievementCards.css';
 
 interface ActorAchievement {
@@ -65,7 +64,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         setError(null);
         setProgress(0);
 
-        // Запускаем анимацию прогресса
+        // Запускаем анимацию прогресса с информативными сообщениями
         progressIntervalRef.current = setInterval(() => {
           setProgress(prev => {
             if (prev < 70) {
@@ -141,6 +140,25 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
     };
   }, [userId]);
 
+  // Получаем информативное сообщение на основе прогресса
+  const getProgressMessage = () => {
+    if (progress < 20) return '🎬 Собираем информацию об актерах...';
+    if (progress < 40) return '📊 Анализируем фильмографии...';
+    if (progress < 60) return '⭐ Формируем рейтинги...';
+    if (progress < 80) return '🎭 Готовим списки лучших...';
+    if (progress < 95) return '📸 Загружаем фотографии...';
+    return '✨ Почти готово...';
+  };
+
+  const getProgressSubtext = () => {
+    if (progress < 20) return 'Изучаем ваши предпочтения в кино';
+    if (progress < 40) return 'Считаем просмотренные фильмы каждого актера';
+    if (progress < 60) return 'Упорядочиваем по вашим оценкам';
+    if (progress < 80) return 'Отбираем самых любимых исполнителей';
+    if (progress < 95) return 'Подготавливаем постеры для отображения';
+    return 'Скоро покажем результат!';
+  };
+
   // Обработчик загрузки изображения
   const handleImageLoad = useCallback((actorId: number) => {
     setLoadedImages(prev => new Set(prev).add(actorId));
@@ -157,13 +175,27 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         {/* Skeleton заголовка */}
         <div className="h-6 w-48 bg-gray-800 rounded animate-pulse" />
         
-        {/* Прогресс-бар */}
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <ProgressBar 
-            progress={progress} 
-            message="Подготовка списка актеров..." 
-            color="amber"
-          />
+        {/* Прогресс-бар с информативными сообщениями */}
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <div className="w-full max-w-xs">
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-150 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-gray-400 text-xs text-center">{Math.round(progress)}%</p>
+          </div>
+          
+          {/* Информативные сообщения */}
+          <div className="text-center mt-4">
+            <p className="text-gray-500 text-sm mb-2">
+              {getProgressMessage()}
+            </p>
+            <p className="text-gray-600 text-xs">
+              {getProgressSubtext()}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -205,28 +237,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
 
       {/* Сетка актеров */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {actors
-          .sort((a, b) => {
-            // Первичная сортировка по средней оценке (null в конце)
-            if (a.average_rating !== null && b.average_rating !== null) {
-              if (b.average_rating !== a.average_rating) {
-                return b.average_rating - a.average_rating;
-              }
-            } else if (a.average_rating === null && b.average_rating !== null) {
-              return 1;
-            } else if (a.average_rating !== null && b.average_rating === null) {
-              return -1;
-            }
-            
-            // Вторичная сортировка по проценту заполнения
-            if (b.progress_percent !== a.progress_percent) {
-              return b.progress_percent - a.progress_percent;
-            }
-            
-            // Третичная сортировка по алфавиту
-            return a.name.localeCompare(b.name, 'ru');
-          })
-          .map((actor, index) => {
+        {actors.map((actor, index) => {
             // Гибкая формула цветности с нелинейной прогрессией
             const progress = actor.progress_percent || 0;
             
