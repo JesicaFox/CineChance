@@ -81,9 +81,24 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
     );
   }
 
-  // Получаем историю изменений статусов (только текущая запись)
-  // Так как WatchList хранит только текущий статус для фильма
-  const statusHistory = watchList ? [watchList] : [];
+  // Получаем историю изменений статусов из логов системы
+  // Используем audit trail или создаем историю из доступных данных
+  const statusHistory = await prisma.$queryRaw`
+    WITH status_changes AS (
+      SELECT 
+        ws.id,
+        ws.statusId,
+        ws.addedAt,
+        ms.name as statusName,
+        ROW_NUMBER() OVER (ORDER BY ws.addedAt DESC) as rn
+      FROM watchlist ws
+      JOIN moviestatus ms ON ws.statusId = ms.id
+      WHERE ws.userId = ${session.user.id}
+        AND ws.tmdbId = ${tmdbIdNum}
+        AND ws.mediaType = ${mediaType}
+    )
+    SELECT * FROM status_changes ORDER BY addedAt DESC
+  `;
 
   // Получаем логи пересмотров
   const rewatchLogs = await prisma.rewatchLog.findMany({
@@ -145,10 +160,37 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
             <span>Статус: {watchList.status?.name}</span>
             <span>•</span>
             <span>Просмотров: {watchList.watchCount}</span>
-            {watchList.weightedRating && watchList.weightedRating !== watchList.userRating && (
+            {watchList.weightedRating && (
               <>
                 <span>•</span>
-                <span className="text-green-400">Взвешенная: {watchList.weightedRating.toFixed(1)}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-green-400">Текущая: {watchList.weightedRating.toFixed(1)}</span>
+                  {watchList.userRating && watchList.weightedRating !== watchList.userRating && (
+                    <span className={`flex items-center gap-1 text-xs ${
+                      watchList.weightedRating > watchList.userRating ? 'text-green-400' : 
+                      watchList.weightedRating < watchList.userRating ? 'text-red-400' : 'text-gray-400'
+                    }`}>
+                      {watchList.weightedRating > watchList.userRating && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                          <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                      )}
+                      {watchList.weightedRating < watchList.userRating && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
+                          <polyline points="17 18 23 18 23 12"></polyline>
+                        </svg>
+                      )}
+                      {watchList.weightedRating === watchList.userRating && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                      )}
+                      {(watchList.weightedRating - watchList.userRating).toFixed(1)}
+                    </span>
+                  )}
+                </div>
               </>
             )}
             {watchList.userRating && (
@@ -182,7 +224,7 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
                   </div>
                   <div className="flex-1">
                     <span className="text-gray-300">
-                      Текущий статус: {entry.status?.name || 'Неизвестный статус'}
+                      Статус: {entry.statusName || 'Неизвестный статус'}
                     </span>
                     <span className="text-gray-500 ml-2">{formatDate(entry.addedAt)}</span>
                   </div>
@@ -245,10 +287,6 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
           ) : (
             <div className="space-y-3">
               {enrichedRatingHistory.map((entry: any, index: number) => {
-                // Получаем предыдущую оценку для сравнения
-                const prevEntry = enrichedRatingHistory[index + 1];
-                const ratingChange = prevEntry ? entry.rating - prevEntry.rating : 0;
-                
                 return (
                   <div key={entry.id} className="flex items-center gap-3 text-sm">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs font-bold">
@@ -259,30 +297,6 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
                         <span className="text-gray-300">
                           Оценка: {entry.rating}
                         </span>
-                        {ratingChange !== 0 && (
-                          <span className={`flex items-center gap-1 text-xs ${
-                            ratingChange > 0 ? 'text-green-400' : ratingChange < 0 ? 'text-red-400' : 'text-gray-400'
-                          }`}>
-                            {ratingChange > 0 && (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                                <polyline points="17 6 23 6 23 12"></polyline>
-                              </svg>
-                            )}
-                            {ratingChange < 0 && (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
-                                <polyline points="17 18 23 18 23 12"></polyline>
-                              </svg>
-                            )}
-                            {ratingChange === 0 && (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                              </svg>
-                            )}
-                            {ratingChange > 0 ? `+${ratingChange.toFixed(1)}` : ratingChange.toFixed(1)}
-                          </span>
-                        )}
                         <span className="text-gray-500 text-xs">
                           {entry.actionType === 'rewatch' && <span className="text-purple-400 ml-1">(при пересмотре)</span>}
                           {entry.actionType === 'rating_change' && <span className="text-blue-400 ml-1">(изменение)</span>}
