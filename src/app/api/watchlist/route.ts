@@ -136,6 +136,16 @@ export async function POST(req: Request) {
           mediaType
         );
         weightedValue = weightedResult.weightedRating;
+        
+        // Debug логирование для понимания проблемы
+        console.log('Weighted Rating Debug:', {
+          userId: session.user.id,
+          tmdbId,
+          mediaType,
+          newRating,
+          weightedValue,
+          calculationDetails: weightedResult.calculationDetails
+        });
       }
 
       // Обновляем только оценку
@@ -195,11 +205,31 @@ export async function POST(req: Request) {
       const newRating = userRating ? Number(userRating) : null;
       const isRatingChanged = existingRecord && newRating !== null && previousRating !== newRating;
 
+      // Расчитываем взвешенную оценку для пересмотра
+      let weightedValue = null;
+      if (newRating !== null) {
+        const weightedResult = await calculateWeightedRating(
+          session.user.id,
+          tmdbId,
+          mediaType
+        );
+        weightedValue = weightedResult.weightedRating;
+        
+        // Debug логирование для понимания проблемы
+        console.log('Weighted Rating Debug (REWATCH):', {
+          userId: session.user.id,
+          tmdbId,
+          mediaType,
+          newRating,
+          weightedValue,
+          calculationDetails: weightedResult.calculationDetails
+        });
+      }
+
       // Получаем ID статуса "Пересмотрено" для создания/обновления записи
       const rewatchedStatus = await prisma.movieStatus.findUnique({
         where: { name: 'Пересмотрено' },
       });
-
       if (!rewatchedStatus) {
         return NextResponse.json({ error: 'Status "Пересмотрено" not found' }, { status: 404 });
       }
@@ -218,6 +248,7 @@ export async function POST(req: Request) {
           title,
           voteAverage,
           userRating: newRating,
+          weightedRating: weightedValue, // Сохраняем взвешенную оценку
           watchedDate: watchedDate ? new Date(watchedDate) : null,
           watchCount: previousWatchCount + 1,
         },
@@ -229,6 +260,7 @@ export async function POST(req: Request) {
           voteAverage,
           statusId: rewatchedStatus.id,
           userRating: newRating,
+          weightedRating: weightedValue, // Сохраняем взвешенную оценку
           watchedDate: watchedDate ? new Date(watchedDate) : null,
           watchCount: 1,
         },
@@ -308,6 +340,16 @@ export async function POST(req: Request) {
         mediaType
       );
       weightedValue = weightedResult.weightedRating;
+      
+      // Debug логирование для понимания проблемы
+      console.log('Weighted Rating Debug (POST):', {
+        userId: session.user.id,
+        tmdbId,
+        mediaType,
+        newRating,
+        weightedValue,
+        calculationDetails: weightedResult.calculationDetails
+      });
     }
 
     const record = await prisma.watchList.upsert({

@@ -105,6 +105,42 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
     },
   });
 
+  // Функция расчета взвешенной оценки согласно плану
+  const calculateWeightedRating = (ratingHistory: any[], watchCount: number) => {
+    if (!ratingHistory.length) return null;
+    
+    // Сортируем по дате (старые сначала)
+    const sortedHistory = [...ratingHistory].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    
+    let weightedSum = 0;
+    let weightSum = 0;
+    let rewatchCounter = 0;
+    
+    sortedHistory.forEach((entry, index) => {
+      let weight = 1.0;
+      
+      if (entry.actionType === 'initial') {
+        weight = 1.0; // Первый просмотр
+      } else if (entry.actionType === 'rating_change') {
+        weight = 0.9; // Изменение оценки
+      } else if (entry.actionType === 'rewatch') {
+        rewatchCounter++;
+        weight = Math.max(0.4, 1.0 - (rewatchCounter * 0.2)); // 0.8, 0.6, 0.4...
+      }
+      
+      weightedSum += entry.rating * weight;
+      weightSum += weight;
+    });
+    
+    return weightSum > 0 ? weightedSum / weightSum : null;
+  };
+
+  // Рассчитываем взвешенную оценку если ее нет
+  const calculatedWeightedRating = watchList.weightedRating || 
+    calculateWeightedRating(ratingHistory, watchList.watchCount);
+
   // Обогащаем историю оценок датами просмотра из WatchList
   // Используем watchedDate из WatchList для всех записей, так как это дата из датапикера
   const enrichedRatingHistory = ratingHistory.map(entry => ({
@@ -134,6 +170,7 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
         </Link>
 
         <div className="bg-[#0f1520] rounded-xl p-6 border border-blue-500/20 mb-6">
+          <h1 className="text-xl font-bold mb-4 text-white">{watchList.title}</h1>
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="font-bold text-white">
               Текущий статус: 
@@ -152,9 +189,15 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
               Количество повторных просмотров: <span className="font-bold text-purple-400">{watchList.watchCount}</span>
             </span>
             
-            {watchList.weightedRating && (
+            {calculatedWeightedRating && (
               <span className="text-gray-300">
-                Взвешенная оценка: <span className="font-bold text-green-400">{watchList.weightedRating.toFixed(1)}</span>
+                Взвешенная оценка: <span className="font-bold text-green-400">{calculatedWeightedRating.toFixed(1)}</span>
+              </span>
+            )}
+            
+            {!calculatedWeightedRating && watchList.userRating && (
+              <span className="text-gray-300">
+                Оценка: <span className="font-bold text-yellow-400">{watchList.userRating}</span>
               </span>
             )}
           </div>
