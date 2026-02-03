@@ -78,8 +78,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
       (entries) => {
         const sentinel = entries[0];
         if (sentinel.isIntersecting && hasNextPage && !isFetchingNextPage && !isFetchingRef.current) {
-          isFetchingRef.current = true;
-          actorsQuery.fetchNextPage();
+          handleFetchNextPage();
         }
       },
       {
@@ -98,7 +97,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         observer.unobserve(currentSentinel);
       }
     };
-  }, [hasNextPage, isFetchingNextPage, actorsQuery]);
+  }, [hasNextPage, isFetchingNextPage, handleFetchNextPage]);
 
   // Reset fetching ref when fetch completes
   useEffect(() => {

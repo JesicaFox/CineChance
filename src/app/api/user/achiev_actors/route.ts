@@ -242,11 +242,11 @@ export async function GET(request: Request) {
         : null,
     }));
 
-    // Применяем пагинацию к подготовленным данным
-    const paginatedActors = baseActorsData.slice(offset, offset + limit);
-
-    // Всегда загружаем полную фильмографию для корректного отображения прогресса
-    const achievementsPromises = paginatedActors.map(async (actor) => {
+    // Загружаем полную фильмографию для актеров в пределах пагинации + небольшой запас для корректной сортировки
+    // Берем actors с запасом, чтобы сортировка была точной
+    const actorsForProcessing = baseActorsData.slice(0, Math.min(offset + limit + 50, baseActorsData.length));
+    
+    const achievementsPromises = actorsForProcessing.map(async (actor) => {
       const credits = await fetchPersonCredits(actor.id);
       
       // Фильтруем мультфильмы и аниме из фильмографии актера
@@ -284,10 +284,10 @@ export async function GET(request: Request) {
       };
     });
 
-    const result = await Promise.all(achievementsPromises);
+    const actorsWithFullData = await Promise.all(achievementsPromises);
     
-    // Сортируем результат по тому же принципу
-    result.sort((a, b) => {
+    // Сортируем обработанных актеров по полным данным
+    actorsWithFullData.sort((a, b) => {
       if (a.average_rating !== null && b.average_rating !== null) {
         if (b.average_rating !== a.average_rating) {
           return b.average_rating - a.average_rating;
@@ -305,10 +305,13 @@ export async function GET(request: Request) {
       return a.name.localeCompare(b.name, 'ru');
     });
 
+    // Применяем пагинацию к отсортированным данным
+    const result = actorsWithFullData.slice(offset, Math.min(offset + limit, actorsWithFullData.length));
+
     return NextResponse.json({
       actors: result,
-      hasMore: offset + limit < baseActorsData.length,
-      total: baseActorsData.length,
+      hasMore: offset + limit < baseActorsData.length, // Используем общее количество для hasMore
+      total: baseActorsData.length, // Используем общее количество для total
     });
 
   } catch (error) {
