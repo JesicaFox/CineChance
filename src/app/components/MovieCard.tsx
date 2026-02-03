@@ -278,7 +278,7 @@ export default function MovieCard({
           
           if (pendingRewatch) {
             setStatus('rewatched');
-            setWatchCount(prev => prev + 1);
+            // НЕ увеличиваем watchCount здесь - API сам увеличивает счетчик при isRewatch
           } else if (pendingStatus === 'watched') {
             setStatus('watched');
           } else if (pendingStatus === 'dropped') {
@@ -534,7 +534,7 @@ export default function MovieCard({
         }}
         onRatingUpdate={(rating) => {
           setUserRating(rating);
-          setWatchCount(prev => prev + 1);
+          // НЕ увеличиваем watchCount здесь - API сам увеличивает счетчик при isRewatch
           // refreshRatings() можно добавить при необходимости
         }}
         onBlacklistToggle={handleBlacklistToggle}

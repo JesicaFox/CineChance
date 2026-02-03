@@ -123,12 +123,17 @@ export default function RatingInfoModal({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
   const [isCastExpanded, setIsCastExpanded] = useState(false);
+  
+  // Состояние для свежих данных
+  const [freshWatchCount, setFreshWatchCount] = useState<number | null>(null);
+  const [freshUserRating, setFreshUserRating] = useState<number | null>(null);
 
   // Загрузка тегов и заметки при открытии модального окна
   useEffect(() => {
     if (isOpen && tmdbId && mediaType) {
       loadMovieTags();
       loadMovieNote();
+      loadFreshData();
       // Сбрасываем состояние раскрытия при открытии
       setIsNoteExpanded(false);
     }
@@ -171,6 +176,22 @@ export default function RatingInfoModal({
       logger.error('Failed to load movie note', { tmdbId, mediaType, error });
     } finally {
       setIsLoadingNote(false);
+    }
+  };
+
+  // Загрузка свежих данных фильма
+  const loadFreshData = async () => {
+    if (!tmdbId || !mediaType) return;
+    
+    try {
+      const res = await fetch(`/api/watchlist?tmdbId=${tmdbId}&mediaType=${mediaType}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFreshWatchCount(data.watchCount || 0);
+        setFreshUserRating(data.userRating || null);
+      }
+    } catch (error) {
+      logger.error('Failed to load fresh movie data', { tmdbId, mediaType, error });
     }
   };
 
@@ -577,7 +598,7 @@ export default function RatingInfoModal({
                   </button>
                   
                   {/* Счётчик повторов - только для статуса Пересмотрено */}
-                  {currentStatus === 'rewatched' && watchCount !== undefined && watchCount >= 1 && (
+                  {currentStatus === 'rewatched' && (freshWatchCount ?? watchCount ?? 0) >= 1 && (
                     <Link
                       href={`/movie-history?tmdbId=${tmdbId}&mediaType=${mediaType}`}
                       className="mt-1 text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
@@ -588,7 +609,7 @@ export default function RatingInfoModal({
                         <path d="M7 23l-4-4 4-4"></path>
                         <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
                       </svg>
-                      <span>{watchCount} {formatRepeatWord(watchCount)}</span>
+                      <span>{freshWatchCount ?? watchCount ?? 0} {formatRepeatWord(freshWatchCount ?? watchCount ?? 0)}</span>
                     </Link>
                   )}
                   
