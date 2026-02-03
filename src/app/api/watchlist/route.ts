@@ -164,6 +164,8 @@ export async function POST(req: Request) {
             mediaType,
             rating: newRating,
             actionType: 'rating_change',
+            previousRating,
+            ratingChange: newRating - (previousRating || 0),
           },
         });
       }
@@ -251,6 +253,8 @@ export async function POST(req: Request) {
             mediaType,
             rating: newRating,
             actionType: 'rewatch',
+            previousRating,
+            ratingChange: newRating - (previousRating || 0),
           },
         });
       }
@@ -360,7 +364,9 @@ export async function POST(req: Request) {
           tmdbId,
           mediaType,
           rating: newRating,
-          actionType: isRewatch ? 'rewatch' : 'rating_change',
+          actionType: existingRecord ? 'rating_change' : 'initial',
+          previousRating,
+          ratingChange: newRating - (previousRating || 0),
         },
       });
     } else if (!existingRecord && newRating !== null) {
