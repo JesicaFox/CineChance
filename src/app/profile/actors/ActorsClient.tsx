@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Users } from 'lucide-react';
 import ImageWithProxy from '@/app/components/ImageWithProxy';
 import Loader from '@/app/components/Loader';
-import { useActors } from '@/hooks/useActors';
+import ProgressBar from '@/app/components/ProgressBar';
 import '@/app/profile/components/AchievementCards.css';
 
 interface ActorAchievement {
@@ -24,8 +24,7 @@ interface ActorsClientProps {
   userId: string;
 }
 
-const ITEMS_PER_PAGE = 12;
-const INITIAL_ITEMS = 24;
+const TOP_ACTORS_COUNT = 50;
 
 // Skeleton для карточки актера
 function ActorCardSkeleton() {
@@ -51,76 +50,106 @@ function PageSkeleton() {
 }
 
 export default function ActorsClient({ userId }: ActorsClientProps) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const isFetchingRef = useRef(false);
+  const [actors, setActors] = useState<ActorAchievement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Use our optimized hook for infinite query
-  const actorsQuery = useActors(userId);
-
-  // Loading states
-  const isLoading = actorsQuery.isLoading;
-  const isFetchingNextPage = actorsQuery.isFetchingNextPage;
-  const hasNextPage = actorsQuery.hasNextPage ?? false;
-  const actors = actorsQuery.actors;
-  const totalCount = actorsQuery.totalCount;
-
-  // Fetch next page handler with safeguards
-  const handleFetchNextPage = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage && !isFetchingRef.current) {
-      isFetchingRef.current = true;
-      actorsQuery.fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, actorsQuery]);
-
-  // Infinite scroll observer
+  // Загрузка актеров с прогресс-баром
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const sentinel = entries[0];
-        if (sentinel.isIntersecting && hasNextPage && !isFetchingNextPage && !isFetchingRef.current) {
-          handleFetchNextPage();
+    const fetchActors = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        setProgress(0);
+
+        // Запускаем анимацию прогресса
+        progressIntervalRef.current = setInterval(() => {
+          setProgress(prev => {
+            if (prev < 70) {
+              return Math.min(prev + Math.random() * 3 + 1, 70);
+            } else if (prev < 85) {
+              return Math.min(prev + Math.random() * 1 + 0.5, 85);
+            } else {
+              return prev;
+            }
+          });
+        }, 200);
+
+        const response = await fetch(`/api/user/achiev_actors?limit=${TOP_ACTORS_COUNT}&singleLoad=true`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch actors');
         }
-      },
-      {
-        threshold: 0.1,
-        rootMargin: '200px',
-      }
-    );
 
-    const currentSentinel = sentinelRef.current;
-    if (currentSentinel) {
-      observer.observe(currentSentinel);
-    }
+        const data = await response.json();
+        
+        // Останавливаем анимацию прогресса
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+        }
 
-    return () => {
-      if (currentSentinel) {
-        observer.unobserve(currentSentinel);
+        setActors(data.actors || []);
+        setProgress(100);
+        
+        // Небольшая задержка для визуала
+        setTimeout(() => setLoading(false), 300);
+        
+      } catch (err) {
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+        }
+        
+        console.error('Failed to fetch actors:', err);
+        setError('Не удалось загрузить актеров');
+        setProgress(100);
+        setLoading(false);
       }
     };
-  }, [hasNextPage, isFetchingNextPage, handleFetchNextPage]);
 
-  // Reset fetching ref when fetch completes
-  useEffect(() => {
-    if (!isFetchingNextPage) {
-      isFetchingRef.current = false;
-    }
-  }, [isFetchingNextPage]);
+    fetchActors();
 
-  if (isLoading) {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, [userId]);
+
+  // Обработчик загрузки изображения
+  const handleImageLoad = useCallback((actorId: number) => {
+    setLoadedImages(prev => new Set(prev).add(actorId));
+  }, []);
+
+  // Определяем приоритет загрузки
+  const getImagePriority = (index: number) => {
+    return index < 12; // Первые 12 изображений с приоритетом
+  };
+
+  if (loading) {
     return (
       <div className="space-y-4">
         {/* Skeleton заголовка */}
         <div className="h-6 w-48 bg-gray-800 rounded animate-pulse" />
-        {/* Skeleton сетки */}
-        <PageSkeleton />
+        
+        {/* Прогресс-бар */}
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <ProgressBar 
+            progress={progress} 
+            message="Подготовка списка актеров..." 
+            color="amber"
+          />
+        </div>
       </div>
     );
   }
 
-  if (actorsQuery.error) {
+  if (error) {
     return (
       <div className="bg-red-900/30 border border-red-700 rounded-lg p-6">
-        <p className="text-red-300">Не удалось загрузить актеров</p>
+        <p className="text-red-300">{error}</p>
       </div>
     );
   }
@@ -136,7 +165,15 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
   }
 
   return (
-    <>
+    <div className="space-y-4">
+      {/* Заголовок с количеством */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white">Любимые актеры</h2>
+        <p className="text-gray-400 text-sm">
+          Показано {actors.length} актеров
+        </p>
+      </div>
+
       {/* Сетка актеров */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {actors
@@ -161,15 +198,10 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
             return a.name.localeCompare(b.name, 'ru');
           })
           .map((actor, index) => {
-            // Более гибкая формула цветности с нелинейной прогрессией
+            // Гибкая формула цветности с нелинейной прогрессией
             const progress = actor.progress_percent || 0;
             
             // Нелинейная формула для лучшего UX распределения
-            // 0-10%: почти черно-белые (90-100% grayscale)
-            // 10-30%: начинают появляться цвета (70-90% grayscale) 
-            // 30-60%: заметная цветность (30-70% grayscale)
-            // 60-90%: почти цветные (10-30% grayscale)
-            // 90-100%: полностью цветные (0-10% grayscale)
             let grayscale, saturate;
             
             if (progress <= 10) {
@@ -193,6 +225,8 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
             grayscale = Math.max(0, Math.min(100, grayscale));
             saturate = Math.max(0.1, Math.min(2.5, saturate));
             
+            const isImageLoaded = loadedImages.has(actor.id);
+            
             return (
               <Link
                 key={actor.id}
@@ -208,13 +242,23 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
                           alt={actor.name}
                           fill
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
-                          className="object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster"
+                          className={`object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster ${
+                            isImageLoaded ? 'opacity-100' : 'opacity-0'
+                          }`}
                           style={{ 
                             filter: `grayscale(${grayscale}%) saturate(${saturate})`
                           }}
-                          priority={index < 12}
+                          priority={getImagePriority(index)}
                           quality={80}
+                          onLoad={() => handleImageLoad(actor.id)}
                         />
+                        
+                        {/* Placeholder пока изображение загружается */}
+                        {!isImageLoaded && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                            <Users className="w-10 h-10 text-gray-600" />
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-600">
@@ -269,40 +313,6 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
             );
           })}
       </div>
-
-      {/* Sentinel для infinite scroll */}
-      <div ref={sentinelRef} className="h-4" />
-
-      {/* Кнопка "Ещё" */}
-      {hasNextPage && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={handleFetchNextPage}
-            disabled={isFetchingNextPage}
-            className="px-6 py-2 rounded-lg bg-gray-800 text-white text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {isFetchingNextPage ? (
-              <>
-                <div className="w-4 h-4 border-2 border-gray-400 border-t-white rounded-full animate-spin"></div>
-                Загрузка...
-              </>
-            ) : (
-              'Ещё...'
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Индикатор загрузки в конце */}
-      {isFetchingNextPage && (
-        <div className="flex justify-center mt-6">
-          <Loader size="small" />
-        </div>
-      )}
-
-      <p className="text-gray-500 text-sm text-center pt-4">
-        Показано {actors.length} из {totalCount} актеров
-      </p>
-    </>
+    </div>
   );
 }
