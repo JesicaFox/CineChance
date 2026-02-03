@@ -610,10 +610,11 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 return a.name.localeCompare(b.name, 'ru');
               })
               .map((collection) => {
-                // Рассчитываем grayscale и saturate на основе прогресса
-                const filterStyle = {
-                  filter: `grayscale(${100 - collection.progress_percent}%) saturate(${collection.progress_percent}%)`
-                };
+                // Более гибкая формула для цветности с нелинейной прогрессией
+                const progress = collection.progress_percent;
+                const grayscale = 100 - progress;
+                // Используем кубическую функцию для более естественного восприятия
+                const saturate = Math.max(0.2, Math.pow(progress / 100, 1.5));
                 
                 return (
                   <Link
@@ -626,15 +627,16 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                       <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-800 border border-gray-700 group-hover:border-purple-500/50 transition-all relative">
                         {collection.poster_path ? (
                           <div className="relative w-full h-full">
-                            <div className="absolute inset-0 transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100" style={filterStyle}>
-                              <ImageWithProxy
-                                src={`https://image.tmdb.org/t/p/w300${collection.poster_path}`}
-                                alt={collection.name}
-                                fill
-                                className="object-cover achievement-poster"
-                                sizes="120px"
-                              />
-                            </div>
+                            <ImageWithProxy
+                              src={`https://image.tmdb.org/t/p/w300${collection.poster_path}`}
+                              alt={collection.name}
+                              fill
+                              className="object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster"
+                              sizes="120px"
+                              style={{ 
+                                filter: `grayscale(${grayscale}%) saturate(${saturate})`
+                              }}
+                            />
                           </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-600">
@@ -732,12 +734,11 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 return a.name.localeCompare(b.name, 'ru');
               })
               .map((actor) => {
-                // Используем progress_percent из API
-                const progressPercent = actor.progress_percent || 0;
-                // Рассчитываем grayscale и saturate на основе прогресса
-                const filterStyle = {
-                  filter: `grayscale(${100 - progressPercent}%) saturate(${progressPercent}%)`
-                };
+                // Более гибкая формула для цветности с нелинейной прогрессией
+                const progress = actor.progress_percent || 0;
+                const grayscale = 100 - progress;
+                // Используем кубическую функцию для более естественного восприятия
+                const saturate = Math.max(0.2, Math.pow(progress / 100, 1.5));
                 
                 return (
                   <Link
@@ -750,15 +751,16 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                       <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-800 border border-gray-700 group-hover:border-amber-500/50 transition-all relative">
                         {actor.profile_path ? (
                           <div className="w-full h-full relative">
-                            <div className="absolute inset-0 transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100" style={filterStyle}>
-                              <ImageWithProxy
-                                src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
-                                alt={actor.name}
-                                fill
-                                className="object-cover achievement-poster"
-                                sizes="(max-width: 640px) 112px, (max-width: 768px) 144px, 144px"
-                              />
-                            </div>
+                            <ImageWithProxy
+                              src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
+                              alt={actor.name}
+                              fill
+                              className="object-cover transition-all duration-300 group-hover:grayscale-0 group-hover:saturate-100 achievement-poster"
+                              sizes="(max-width: 640px) 112px, (max-width: 768px) 144px, 144px"
+                              style={{ 
+                                filter: `grayscale(${grayscale}%) saturate(${saturate})`
+                              }}
+                            />
                           </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-600">
