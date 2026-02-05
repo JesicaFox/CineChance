@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const statusesParam = searchParams.get('statuses');
+    const limitParam = searchParams.get('limit');
     
     // Определяем фильтр по статусам
     let whereClause: any = { userId: session.user.id };
@@ -81,10 +82,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Ограничиваем количество записей для анализа (по умолчанию 50)
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
     // Fetch movie entries from user's watch lists
     const watchListRecords = await prisma.watchList.findMany({
       where: whereClause,
       select: { tmdbId: true, mediaType: true },
+      take: limit,
     });
 
     if (watchListRecords.length === 0) {
@@ -95,7 +100,15 @@ export async function GET(request: NextRequest) {
     const genreCounts = new Map<number, number>();
     const genreNames = new Map<number, string>();
 
-    for (const record of watchListRecords) {
+    // Обрабатываем записи с задержкой между запросами к TMDB
+    for (let i = 0; i < watchListRecords.length; i++) {
+      const record = watchListRecords[i];
+      
+      // Добавляем небольшую задержку между запросами (50ms) чтобы не перегружать TMDB API
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
       const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
       if (tmdbData?.genres) {
         for (const genre of tmdbData.genres) {

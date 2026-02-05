@@ -385,7 +385,7 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
 
         // Этап 5: Загружаем жанры просмотренного
         setWatchedGenresLoading(true);
-        const genresRes = await fetch('/api/user/genres?statuses=watched,rewatched');
+        const genresRes = await fetch('/api/user/genres?statuses=watched,rewatched&limit=50');
         
         if (genresRes.ok) {
           const data = await genresRes.json();
