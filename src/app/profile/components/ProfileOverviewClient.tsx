@@ -619,7 +619,7 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 
                 return (
                   <div className="mt-4 pt-4 border-t border-gray-800">
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((rating) => {
                         const count = distribution[rating] || 0;
                         if (count === 0) return null;
@@ -627,15 +627,39 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                         const barWidth = maxValue > 0 ? (count / maxValue) * 100 : 0;
                         
                         return (
-                          <div key={rating} className="flex items-center gap-2">
-                            <span className="text-gray-400 text-xs w-4 text-right">{rating}</span>
-                            <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-yellow-400 rounded-full transition-all duration-500"
-                                style={{ width: `${barWidth}%` }}
-                              />
+                          <div key={rating} className="flex items-center gap-3">
+                            {/* Звезда с цифрой оценки */}
+                            <div className="relative w-6 h-6 flex-shrink-0">
+                              <svg 
+                                width="24" 
+                                height="24" 
+                                viewBox="0 0 32 32" 
+                                fill="none" 
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="absolute inset-0 w-full h-full"
+                              >
+                                <path 
+                                  d="M16 2L21 10L29 12L24 18L24 27L16 24L8 27L8 18L3 12L11 10L16 2Z" 
+                                  stroke="#FFD700" 
+                                  strokeWidth="1.5" 
+                                  fill="none"
+                                />
+                              </svg>
+                              <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold z-10" style={{ transform: 'translateY(0.5px)' }}>
+                                {rating}
+                              </span>
                             </div>
-                            <span className="text-gray-300 text-xs w-6">{count}</span>
+                            
+                            <div className="flex-1">
+                              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-yellow-400 rounded-full transition-all duration-500"
+                                  style={{ width: `${barWidth}%` }}
+                                />
+                              </div>
+                            </div>
+                            
+                            <span className="text-gray-300 text-xs w-6 text-right">{count}</span>
                           </div>
                         );
                       })}
