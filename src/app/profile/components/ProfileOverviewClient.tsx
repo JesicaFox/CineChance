@@ -618,7 +618,7 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 const maxValue = Math.max(...Object.values(distribution), 0);
                 
                 return (
-                  <div className="mt-4 pt-4 border-t border-gray-800">
+                  <div className="mt-2 pt-4 border-t border-gray-800">
                     <div className="space-y-3">
                       {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((rating) => {
                         const count = distribution[rating] || 0;
@@ -629,10 +629,10 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                         return (
                           <div key={rating} className="flex items-center gap-3">
                             {/* Звезда с цифрой оценки */}
-                            <div className="relative w-6 h-6 flex-shrink-0">
+                            <div className="relative w-7 h-7 flex-shrink-0">
                               <svg 
-                                width="24" 
-                                height="24" 
+                                width="28" 
+                                height="28" 
                                 viewBox="0 0 32 32" 
                                 fill="none" 
                                 xmlns="http://www.w3.org/2000/svg"
