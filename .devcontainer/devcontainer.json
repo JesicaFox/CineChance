@@ -1,29 +1,4 @@
 {
-  "name": "CineChance Project",
-  "image": "://mcr.microsoft.com",
-  "runArgs": [
-    "--env-file",
-    ".env"
-  ],
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "github.copilot-chat"
-      ],
-      "mcp": {
-        "servers": {
-          "context7": {
-            "command": "npx",
-            "args": [
-              "-y",
-              "@upstash/context7-mcp@latest"
-            ],
-            "env": {
-              "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}"
-            }
-          }
-        }
-      }
-    }
-  }
+  "name": "CineChance",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20"
 }

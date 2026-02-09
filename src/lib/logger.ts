@@ -1,3 +1,13 @@
+// Simple project logger used only for network/retry flows
+// This file is intentionally the only place in `src/` that uses raw `console`.
+export const networkLogger = {
+  debug: (...args: unknown[]) => console.debug('[NETWORK_RETRY]', ...args),
+  info: (...args: unknown[]) => console.info('[NETWORK_RETRY]', ...args),
+  warn: (...args: unknown[]) => console.warn('[NETWORK_RETRY]', ...args),
+  error: (...args: unknown[]) => console.error('[NETWORK_RETRY]', ...args),
+};
+
+export default networkLogger;
 // src/lib/logger.ts
 
 /**

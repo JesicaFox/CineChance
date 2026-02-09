@@ -1,0 +1,9 @@
+2025-12-18 — Major schema reset and initial tables created (base models, watchlist).
+2025-12-21 — Added `MovieStatus` table and basic status mapping used across watchlist.
+2026-01-04 — Added tags system, note fields, rewatch and rating history (enables `RatingHistory`).
+2026-01-05 — Recommendations tables and initial RecommendationLog added (v2/v3 groundwork).
+2026-01-10 — Added user indexes, `birthDate`, `agreedToTerms` and invitation model; infra tweaks for auth.
+2026-01-XX — Implemented `weightedRating` migration and calculation functions; rolled out `weightedRating ?? userRating` fallback.
+2026-01-XX — Query optimization work: deferred tag loading, replaced heavy `include` with `select` and batched TMDB calls.
+2026-02-01 — Poster performance: server-side Image Proxy, Redis caching, timeouts and retry logic to fix mobile poster loading.
+2026-02-08 — Docs consolidation pass: consolidate overlapping reports, extract key learnings into `docs/bugs/README.md`.

@@ -8,6 +8,8 @@
     "build:analyze": "ANALYZE=true next build --webpack && mkdir -p public/analyze && cp -f .next/analyze/client.html public/analyze/client.html",
     "start": "next start",
     "lint": "eslint",
+    "lint:strict": "eslint . --max-warnings 0",
+    "test:ci": "vitest run",
     "postinstall": "prisma generate",
     "seed": "ts-node prisma/seed.ts"
   },
@@ -33,6 +35,8 @@
     "tailwind-scrollbar": "^4.0.2"
   },
   "devDependencies": {
+    "vitest": "^1.0.0",
+    "msw": "^2.0.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
     "@types/bcryptjs": "^2.4.6",
