@@ -331,7 +331,16 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
 
         if (actorsRes.ok) {
           const data = await actorsRes.json();
-          setActors(data.actors ? data.actors.slice(0, 5) : []);
+          console.log('Profile actors API response:', data);
+          const actorsData = data.actors ? data.actors.slice(0, 5) : [];
+          console.log('Profile actors data received:', actorsData.length);
+          
+          // Выводим информацию о прогрессе для отладки
+          actorsData.forEach((actor: any, index: number) => {
+            console.log(`Profile Actor ${index + 1}: ${actor.name} - watched: ${actor.watched_movies}, total: ${actor.total_movies}, progress: ${actor.progress_percent}%`);
+          });
+          
+          setActors(actorsData);
         }
         setActorsLoading(false);
 

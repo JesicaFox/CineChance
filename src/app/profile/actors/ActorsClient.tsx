@@ -97,12 +97,22 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
 
         const data = await response.json();
         
+        console.log('Actors API response:', data);
+        
         // Останавливаем анимацию прогресса
         if (progressIntervalRef.current) {
           clearInterval(progressIntervalRef.current);
         }
 
-        setActors(data.actors ? data.actors.slice(0, DISPLAY_COUNT) : []);
+        const actorsData = data.actors || [];
+        console.log('Actors data received:', actorsData.length);
+        
+        // Выводим информацию о прогрессе для отладки
+        actorsData.forEach((actor: any, index: number) => {
+          console.log(`Actor ${index + 1}: ${actor.name} - watched: ${actor.watched_movies}, total: ${actor.total_movies}, progress: ${actor.progress_percent}%`);
+        });
+
+        setActors(actorsData.slice(0, DISPLAY_COUNT));
         setProgress(100);
         
         // Небольшая задержка для визуала
