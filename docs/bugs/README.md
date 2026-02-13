@@ -19,6 +19,7 @@
 
 ## Extracted short lessons (из удалённых/консолидированных файлов)
 
+- **2026-02-13 — Actor photo slow loading:** фото актеров загружались медленно из-за отсутствия кеширования (шли напрямую с TMDB). Исправлено: добавлено проксирование всех TMDB изображений через `/api/image-proxy` с Redis кешированием на 6 часов.
 - **2026-02-13 — Profile average rating fix:** исправлен неверный расчёт средней оценки в профиле после внедрения Redis-кэширования. Добавлена корректная фильтрация по статусам (WATCHED, REWATCHED, DROPPED) с оценкой.
 - **2026-02-09 — Vercel Image Optimization sinking quota:** критическая проблема — Image Optimization включена везде, что сжигает 5000/month лимит за день! Исправлено: `unoptimized: true` в next.config.ts и всех Image компонентах; все внешние изображения загружаются через наш `/api/image-proxy`.
 - **2026-02-09 — Image-Proxy: aggressive HTTP caching + FANART_TV fallback:** исправлены критические ошибки кеширования ошибок на клиенте; добавлена поддержка FANART_TV как резервного источника постеров; rate limit 300 req/min.

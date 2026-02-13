@@ -277,7 +277,7 @@ export async function GET(request: NextRequest) {
         statusId: true,
         tags: { select: { id: true, name: true } },
       },
-      orderBy: { addedAt: 'desc' },
+      orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
       skip,
       take,
     });

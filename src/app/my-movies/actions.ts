@@ -106,7 +106,7 @@ export async function fetchMoviesByStatus(
 
   // 1. Сначала считаем общее количество (быстрый запрос)
   const totalCount = await prisma.watchList.count({ where: whereClause });
-  const hasMore = skip + ITEMS_PER_PAGE < totalCount;
+  const hasMore = skip + limit < totalCount;
 
   // 2. Загружаем ТОЛЬКО нужную страницу из БД
   const watchListRecords = await prisma.watchList.findMany({
@@ -122,7 +122,7 @@ export async function fetchMoviesByStatus(
       statusId: true,
       tags: { select: { id: true, name: true } },
     },
-    orderBy: { addedAt: 'desc' },
+    orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
     skip: skip,
     take: take,
   });
@@ -186,8 +186,8 @@ export async function fetchMoviesByStatus(
     // Загружаем только нужную страницу
     const blacklistRecords = await prisma.blacklist.findMany({
       where: { userId },
-      select: { tmdbId: true, mediaType: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
+      select: { id: true, tmdbId: true, mediaType: true, createdAt: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       skip: skip,
       take: take,
     });
