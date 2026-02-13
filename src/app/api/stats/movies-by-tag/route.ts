@@ -58,10 +58,9 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(pageParam, 10));
     const limit = Math.min(100, Math.max(1, parseInt(limitParam, 10)));
     
-    // Load with buffer to account for TMDB-based filtering (genres, year, rating)
-    const recordsNeeded = Math.ceil(page * limit * 1.5) + 1; // 50% buffer + 1
-    const skip = 0; // Load from beginning for deterministic results
-    const take = Math.min(recordsNeeded, 500); // Cap at 500
+    // Simple pagination
+    const skip = (page - 1) * limit;
+    const take = limit;
 
     // Проверяем что тег принадлежит пользователю
     const tag = await prisma.tag.findFirst({
@@ -233,8 +232,8 @@ export async function GET(request: NextRequest) {
     const pageEndIndex = pageStartIndex + limit;
     const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
     
-    // hasMore: true if more filtered movies exist, or if we loaded full batch (might be more in DB)
-    const hasMore = sortedMovies.length > pageEndIndex || watchListRecords.length === take;
+    // hasMore: true if more filtered movies exist
+    const hasMore = sortedMovies.length > pageEndIndex;
 
     const response = NextResponse.json({
       tag: {
@@ -263,18 +262,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function getBenefitsOrder(sortBy: string, sortOrder: string) {
+function getBenefitsOrder(sortBy: string, sortOrder: string): any[] {
   const order = sortOrder === 'asc' ? 'asc' : 'desc';
   
   switch (sortBy) {
     case 'title':
-      return { title: order };
+      return [{ title: order }, { id: 'desc' }];
     case 'addedAt':
-      return { addedAt: order };
+      return [{ addedAt: order }, { id: 'desc' }];
     case 'userRating':
-      return { userRating: order };
+      return [{ userRating: order }, { id: 'desc' }];
     case 'rating':
     default:
-      return { addedAt: order };
+      return [{ addedAt: order }, { id: 'desc' }];
   }
 }

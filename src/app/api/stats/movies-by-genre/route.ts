@@ -63,10 +63,9 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(pageParam, 10));
     const limit = Math.min(100, Math.max(1, parseInt(limitParam, 10)));
     
-    // Load with buffer to account for TMDB-based filtering (genres, year, rating)
-    const recordsNeeded = Math.ceil(page * limit * 1.5) + 1; // 50% buffer + 1
-    const skip = 0; // Load from beginning for deterministic results
-    const take = Math.min(recordsNeeded, 500); // Cap at 500
+    // Simple pagination
+    const skip = (page - 1) * limit;
+    const take = limit;
 
     // Строим фильтр по медиа типам
     const mediaTypeFilter: string[] = [];
@@ -112,7 +111,7 @@ export async function GET(request: NextRequest) {
         userRating: true,
         addedAt: true,
       },
-      orderBy: { addedAt: 'desc' },
+      orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
       skip,
       take,
     });
@@ -150,8 +149,8 @@ export async function GET(request: NextRequest) {
     const pageEndIndex = pageStartIndex + limit;
     const paginatedMovies = sorted.slice(pageStartIndex, pageEndIndex);
     
-    // hasMore: true if more filtered movies exist, or if we loaded full batch (might be more in DB)
-    const hasMore = sorted.length > pageEndIndex || watchListRecords.length === take;
+    // hasMore: true if more filtered movies exist
+    const hasMore = sorted.length > pageEndIndex;
 
     // Загружаем теги только для записей, которые попадут в ответ
     const recordIdsForTags = paginatedMovies.map(m => m.record.id);

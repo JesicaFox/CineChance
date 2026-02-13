@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         userRating: true,
       },
       take: 5, // максимум 5 записей для примера
-      orderBy: { addedAt: 'desc' }
+      orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
     });
 
     debugInfo.sampleRecords = droppedRecords.map(record => ({

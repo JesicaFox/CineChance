@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
             addedAt: true
           },
           take: 3,
-          orderBy: { addedAt: 'desc' }
+          orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
         });
         return {
           statusId: status.id,

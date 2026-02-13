@@ -303,7 +303,7 @@ export async function getMoviesByTags(
         status: { select: { name: true } },
         tags: { select: { id: true, name: true } },
       },
-      orderBy: { addedAt: 'desc' },
+      orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
     });
 
     return { success: true, data: movies };

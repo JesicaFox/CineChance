@@ -94,25 +94,25 @@ export async function GET(request: NextRequest) {
         where: { userId, statusId: MOVIE_STATUS_IDS.WATCHED },
         select: { id: true, tmdbId: true, mediaType: true, title: true, statusId: true },
         take: 2,
-        orderBy: { addedAt: 'desc' }
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
       }),
       prisma.watchList.findMany({
         where: { userId, statusId: MOVIE_STATUS_IDS.REWATCHED },
         select: { id: true, tmdbId: true, mediaType: true, title: true, statusId: true },
         take: 2,
-        orderBy: { addedAt: 'desc' }
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
       }),
       prisma.watchList.findMany({
         where: { userId, statusId: MOVIE_STATUS_IDS.WANT_TO_WATCH },
         select: { id: true, tmdbId: true, mediaType: true, title: true, statusId: true },
         take: 2,
-        orderBy: { addedAt: 'desc' }
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
       }),
       prisma.watchList.findMany({
         where: { userId, statusId: MOVIE_STATUS_IDS.DROPPED },
         select: { id: true, tmdbId: true, mediaType: true, title: true, statusId: true },
         take: 2,
-        orderBy: { addedAt: 'desc' }
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
       }),
     ]);
 
