@@ -19,18 +19,35 @@ orderBy: { addedAt: 'desc' }
 orderBy: [{ addedAt: 'desc' }, { id: 'desc' }]
 ```
 
+Также добавлен secondary sort в JavaScript функции сортировки:
+```typescript
+if (comparison === 0) {
+  comparison = a.id - b.id;
+}
+```
+
 ## Исправленные файлы
 
 1. **`src/app/my-movies/actions.ts`**
-   - WatchList query (строка 125)
-   - Blacklist query (строка 190)
-   - Исправлен `hasMore` calculation (строка 109) - использовался `ITEMS_PER_PAGE` вместо переданного `limit`
+   - WatchList query (строка 125): добавлен `id` в orderBy
+   - Blacklist query (строка 190): добавлен `id` в orderBy
+   - Исправлен `hasMore` calculation (строка 109): использовался `ITEMS_PER_PAGE` вместо переданного `limit`
+   - `sortMoviesOnServer` (строки 275-277): добавлен secondary sort по id
 
 2. **`src/app/api/my-movies/route.ts`**
-   - WatchList query (строка 280)
+   - WatchList query (строка 280): добавлен `id` в orderBy
+   - Blacklist query (строка 145): добавлен `id` в orderBy
+   - `sortMovies` (строки 440-442): добавлен secondary sort по id
 
 ## Prevention
 Все future запросы с пагинацией должны использовать множественный `orderBy`:
 ```typescript
 orderBy: [{ field1: 'desc' }, { id: 'desc' }]
+```
+
+При JavaScript сортировке всегда добавлять:
+```typescript
+if (comparison === 0) {
+  comparison = a.id - b.id;
+}
 ```

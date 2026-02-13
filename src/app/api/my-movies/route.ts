@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       const blacklistRecords = await prisma.blacklist.findMany({
         where: { userId },
         select: { tmdbId: true, mediaType: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take,
       });
@@ -437,6 +437,11 @@ function sortMovies(
         break;
       default:
         comparison = 0;
+    }
+
+    // Secondary sort by id to ensure stable ordering
+    if (comparison === 0) {
+      comparison = (a.id || 0) - (b.id || 0);
     }
 
     return sortOrder === 'desc' ? comparison : -comparison;

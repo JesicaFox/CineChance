@@ -272,6 +272,11 @@ function sortMoviesOnServer(
         break;
     }
     
+    // Secondary sort by id to ensure stable ordering
+    if (comparison === 0) {
+      comparison = a.id - b.id;
+    }
+    
     return sortOrder === 'desc' ? comparison : -comparison;
   });
 }
