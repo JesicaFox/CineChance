@@ -58,9 +58,9 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(pageParam, 10));
     const limit = Math.min(100, Math.max(1, parseInt(limitParam, 10)));
     
-    // Simple pagination
+    // Pagination - запрос на 1 больше для проверки hasMore
     const skip = (page - 1) * limit;
-    const take = limit;
+    const take = limit + 1;
 
     // Проверяем что тег принадлежит пользователю
     const tag = await prisma.tag.findFirst({
@@ -202,6 +202,11 @@ export async function GET(request: NextRequest) {
           comparison = 0;
       }
 
+      // Secondary sort by id for stable ordering
+      if (comparison === 0) {
+        comparison = a.id - b.id;
+      }
+
       return sortOrderParam === 'desc' ? comparison : -comparison;
     });
 
@@ -228,12 +233,10 @@ export async function GET(request: NextRequest) {
       }));
 
     // Paginate filtered results
-    const pageStartIndex = (page - 1) * limit;
-    const pageEndIndex = pageStartIndex + limit;
-    const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
+    const paginatedMovies = sortedMovies.slice(0, limit);
     
-    // hasMore: true if more filtered movies exist
-    const hasMore = sortedMovies.length > pageEndIndex;
+    // hasMore: true if we got more than limit (meaning there's more data)
+    const hasMore = watchListRecords.length > limit;
 
     const response = NextResponse.json({
       tag: {

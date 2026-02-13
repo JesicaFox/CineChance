@@ -63,9 +63,9 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(pageParam, 10));
     const limit = Math.min(100, Math.max(1, parseInt(limitParam, 10)));
     
-    // Simple pagination
+    // Simple pagination - запрос на 1 больше для проверки hasMore
     const skip = (page - 1) * limit;
-    const take = limit;
+    const take = limit + 1;
 
     // Строим фильтр по медиа типам
     const mediaTypeFilter: string[] = [];
@@ -145,12 +145,10 @@ export async function GET(request: NextRequest) {
     const totalCount = sorted.length;
     
     // Paginate filtered results
-    const pageStartIndex = (page - 1) * limit;
-    const pageEndIndex = pageStartIndex + limit;
-    const paginatedMovies = sorted.slice(pageStartIndex, pageEndIndex);
+    const paginatedMovies = sorted.slice(0, limit);
     
-    // hasMore: true if more filtered movies exist
-    const hasMore = sorted.length > pageEndIndex;
+    // hasMore: true if we got more than limit (meaning there's more data)
+    const hasMore = watchListRecords.length > limit;
 
     // Загружаем теги только для записей, которые попадут в ответ
     const recordIdsForTags = paginatedMovies.map(m => m.record.id);
@@ -268,6 +266,11 @@ function applySorting(
         break;
       default:
         comparison = new Date(b.record.addedAt || 0).getTime() - new Date(a.record.addedAt || 0).getTime();
+    }
+
+    // Secondary sort by id for stable ordering
+    if (comparison === 0) {
+      comparison = a.record.id - b.record.id;
     }
 
     return comparison * order;
