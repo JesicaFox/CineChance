@@ -256,7 +256,7 @@ export async function GET(request: NextRequest) {
     // First count total
     const totalCount = await prisma.watchList.count({ where: whereClause });
 
-    // Calculate pagination - use proper skip
+    // Simple pagination: load exactly 'limit' records
     const skip = (page - 1) * limit;
     
     // Check if we've reached the end
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
       skip,
-      take: recordsToLoadPerPage,
+      take: limit,
     });
 
     // Early exit if no records
@@ -394,18 +394,13 @@ export async function GET(request: NextRequest) {
     // Sort movies
     const sortedMovies = sortMovies(movies, sortBy, sortOrder);
 
-    // Paginate the filtered and sorted results
-    const pageStartIndex = (page - 1) * limit;
-    const pageEndIndex = pageStartIndex + limit;
-    const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
-    
-    // hasMore: true if there are more items in the filtered results
-    const hasMore = sortedMovies.length > pageEndIndex;
+    // hasMore: check if there are more records in the database
+    const hasMore = totalCount > (page * limit);
 
     return NextResponse.json({
-      movies: paginatedMovies,
+      movies: sortedMovies,
       hasMore,
-      totalCount: sortedMovies.length,
+      totalCount,
     });
   } catch (error) {
     console.error('Error fetching my movies:', error);
