@@ -268,9 +268,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Use the pre-calculated recordsToLoadPerPage
-    const take = Math.min(recordsToLoadPerPage, 500);
-    
     const watchListRecords = await prisma.watchList.findMany({
       where: whereClause,
       select: {
@@ -402,8 +399,8 @@ export async function GET(request: NextRequest) {
     const pageEndIndex = pageStartIndex + limit;
     const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
     
-    // hasMore: true if we have more movies than current page end, or if we loaded exactly 'recordsToLoadPerPage' records (might be more in DB)
-    const hasMore = sortedMovies.length > pageEndIndex || watchListRecords.length === recordsToLoadPerPage;
+    // hasMore: true if there are more items in the filtered results
+    const hasMore = sortedMovies.length > pageEndIndex;
 
     return NextResponse.json({
       movies: paginatedMovies,
