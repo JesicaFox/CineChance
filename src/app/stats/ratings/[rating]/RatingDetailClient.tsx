@@ -80,11 +80,7 @@ export default function RatingDetailClient({ userId, rating }: RatingDetailClien
         }
 
         const response = await fetch(`/api/stats/movies-by-rating?${params.toString()}`);
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Failed to fetch movies:', response.status, errorText);
-          throw new Error(`Failed to fetch movies: ${response.status}`);
-        }
+        if (!response.ok) throw new Error('Failed to fetch movies');
 
         const data = await response.json();
         

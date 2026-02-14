@@ -125,28 +125,37 @@ export async function GET(request: NextRequest) {
       take,
     });
 
-    // Фильтруем по жанру и применяем доп. фильтры
-    const moviesWithGenre = [];
-    for (const record of watchListRecords) {
-      const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+    // Параллельная загрузка TMDB данных с батчингом
+    const BATCH_SIZE = 5;
+    const moviesWithGenre: Array<{ record: any; tmdbData: any }> = [];
+    
+    for (let i = 0; i < watchListRecords.length; i += BATCH_SIZE) {
+      const batch = watchListRecords.slice(i, i + BATCH_SIZE);
       
-      // Проверяем основной жанр
-      if (!tmdbData?.genres?.some((g: any) => g.id === genreId)) continue;
+      const batchResults = await Promise.all(
+        batch.map(record => fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv'))
+      );
       
-      // Применяем доп. фильтры
-      const tmdbRating = tmdbData?.vote_average || 0;
-      const releaseYear = new Date(tmdbData?.release_date || tmdbData?.first_air_date || '').getFullYear();
-      const genres = tmdbData?.genres?.map((g: any) => g.id) || [];
+      for (let j = 0; j < batch.length; j++) {
+        const record = batch[j];
+        const tmdbData = batchResults[j];
+        
+        if (!tmdbData?.genres?.some((g: any) => g.id === genreId)) continue;
+        
+        const tmdbRating = tmdbData?.vote_average || 0;
+        const releaseYear = new Date(tmdbData?.release_date || tmdbData?.first_air_date || '').getFullYear();
+        const genres = tmdbData?.genres?.map((g: any) => g.id) || [];
 
-      if (tmdbRating < minRatingParam || tmdbRating > maxRatingParam) continue;
-      if (yearFromParam && releaseYear < parseInt(yearFromParam, 10)) continue;
-      if (yearToParam && releaseYear > parseInt(yearToParam, 10)) continue;
-      if (genresArray.length > 0 && !genres.some((g: number) => genresArray.includes(g))) continue;
+        if (tmdbRating < minRatingParam || tmdbRating > maxRatingParam) continue;
+        if (yearFromParam && releaseYear < parseInt(yearFromParam, 10)) continue;
+        if (yearToParam && releaseYear > parseInt(yearToParam, 10)) continue;
+        if (genresArray.length > 0 && !genres.some((g: number) => genresArray.includes(g))) continue;
 
-      moviesWithGenre.push({
-        record,
-        tmdbData,
-      });
+        moviesWithGenre.push({
+          record,
+          tmdbData,
+        });
+      }
     }
 
     // Применяем сортировку
