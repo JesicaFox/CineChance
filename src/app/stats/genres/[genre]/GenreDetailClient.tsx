@@ -81,7 +81,11 @@ export default function GenreDetailClient({ userId, genreId, genreName }: GenreD
         }
 
         const response = await fetch(`/api/stats/movies-by-genre?${params.toString()}`);
-        if (!response.ok) throw new Error('Failed to fetch movies');
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('movies-by-genre fetch error:', response.status, errorText, params.toString());
+          throw new Error('Failed to fetch movies');
+        }
 
         const data = await response.json();
         
