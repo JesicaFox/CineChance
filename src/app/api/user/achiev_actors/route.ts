@@ -302,7 +302,7 @@ export async function GET(request: Request) {
         const results = await Promise.all(
           batch.map(async (movie) => {
             const rating = movie.userRating;
-            const credits = await fetchPersonCredits(movie.tmdbId);
+            const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
             
             if (credits?.cast) {
               const topActors = credits.cast.slice(0, 5);
@@ -331,7 +331,7 @@ export async function GET(request: Request) {
         
         const results = await Promise.all(
           batch.map(async (movie) => {
-            const credits = await fetchPersonCredits(movie.tmdbId);
+            const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
             
             if (credits?.cast) {
               const topActors = credits.cast.slice(0, 5);

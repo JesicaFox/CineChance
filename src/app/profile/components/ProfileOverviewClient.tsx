@@ -287,7 +287,10 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 </p>
               </Link>
 
-              <div className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800">
+              <Link
+                href="/my-movies?tab=hidden"
+                className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-gray-500/50 hover:bg-gray-800/80 transition cursor-pointer block"
+              >
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-7 h-7 bg-gray-400/20 rounded-full flex items-center justify-center flex-shrink-0">
                     <EyeOffIcon className="w-4 h-4 text-gray-400" />
@@ -297,7 +300,7 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
                 <p className="text-2xl md:text-3xl font-bold text-white pl-10">
                   {stats.total.hidden}
                 </p>
-              </div>
+              </Link>
             </>
           ) : null}
         </div>

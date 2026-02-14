@@ -124,10 +124,11 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         }
         
         // Детальная обработка ошибок
-        let errorMessage = 'Не удалось загрузить актеров';
+        let errorMessage = 'Не удалось загрузить актеров. Попробуйте позже.';
         if (err instanceof Error) {
+          console.error('Actors loading error:', err);
           if (err.name === 'AbortError') {
-            errorMessage = 'Превышено время ожидания загрузки. Попробуйте обновить страницу.';
+            errorMessage = 'Загрузка занимает слишком много времени. У вас много просмотренных фильмов, поэтому требуется больше времени. Попробуйте обновить страницу.';
           } else if (err.message.includes('API Error')) {
             errorMessage = 'Ошибка сервера при загрузке актеров. Попробуйте позже.';
           } else if (err.message.includes('Failed to fetch')) {
