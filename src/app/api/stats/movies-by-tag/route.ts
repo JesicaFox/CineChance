@@ -22,17 +22,18 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
 
 export async function GET(request: NextRequest) {
   try {
-    const { success } = await rateLimit(request, '/api/stats/movies-by-tag');
-    if (!success) {
-      return NextResponse.json({ error: 'Rate limited' }, { status: 429 });
-    }
-
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userId = session.user.id;
+    
+    const { success } = await rateLimit(request, '/api/stats', userId);
+    if (!success) {
+      return NextResponse.json({ error: 'Rate limited' }, { status: 429 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const tagIdParam = searchParams.get('tagId');
     const pageParam = searchParams.get('page') || '1';
