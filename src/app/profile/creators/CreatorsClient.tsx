@@ -11,7 +11,7 @@ interface CreatorAchievement {
   id: number;
   name: string;
   profile_path: string | null;
-  job_type: 'director' | 'producer' | 'writer';
+  job_types: ('director' | 'producer' | 'writer')[];
   watched_movies: number;
   rewatched_movies: number;
   dropped_movies: number;

@@ -202,7 +202,7 @@ export async function GET(request: Request) {
       const creatorMap = new Map<number, {
         name: string;
         profile_path: string | null;
-        job_type: CreatorJobType;
+        job_types: Set<CreatorJobType>;
         watchedIds: Set<number>;
         rewatchedIds: Set<number>;
         droppedIds: Set<number>;
@@ -231,23 +231,23 @@ export async function GET(request: Request) {
               const jobType = getJobType(member.job, member.department);
               if (!jobType) continue;
 
-              const key = member.id * 10 + (jobType === 'director' ? 1 : jobType === 'producer' ? 2 : 3);
-              
-              if (!creatorMap.has(key)) {
-                creatorMap.set(key, {
+              if (!creatorMap.has(member.id)) {
+                creatorMap.set(member.id, {
                   name: member.name,
                   profile_path: member.profile_path,
-                  job_type: jobType,
+                  job_types: new Set([jobType]),
                   watchedIds: new Set(),
                   rewatchedIds: new Set(),
                   droppedIds: new Set(),
                   ratings: [],
                 });
+              } else {
+                creatorMap.get(member.id)!.job_types.add(jobType);
               }
               
-              creatorMap.get(key)!.watchedIds.add(credits.id);
+              creatorMap.get(member.id)!.watchedIds.add(credits.id);
               if (rating !== null && rating !== undefined) {
-                creatorMap.get(key)!.ratings.push(rating);
+                creatorMap.get(member.id)!.ratings.push(rating);
               }
             }
           }
@@ -271,12 +271,11 @@ export async function GET(request: Request) {
                 const jobType = getJobType(member.job, member.department);
                 if (!jobType) continue;
 
-                const key = member.id * 10 + (jobType === 'director' ? 1 : jobType === 'producer' ? 2 : 3);
-                
-                if (creatorMap.has(key)) {
-                  creatorMap.get(key)!.rewatchedIds.add(credits.id);
+                if (creatorMap.has(member.id)) {
+                  creatorMap.get(member.id)!.rewatchedIds.add(credits.id);
+                  creatorMap.get(member.id)!.job_types.add(jobType);
                   if (rating !== null && rating !== undefined) {
-                    creatorMap.get(key)!.ratings.push(rating);
+                    creatorMap.get(member.id)!.ratings.push(rating);
                   }
                 }
               }
@@ -302,10 +301,9 @@ export async function GET(request: Request) {
                 const jobType = getJobType(member.job, member.department);
                 if (!jobType) continue;
 
-                const key = member.id * 10 + (jobType === 'director' ? 1 : jobType === 'producer' ? 2 : 3);
-                
-                if (creatorMap.has(key)) {
-                  creatorMap.get(key)!.droppedIds.add(credits.id);
+                if (creatorMap.has(member.id)) {
+                  creatorMap.get(member.id)!.droppedIds.add(credits.id);
+                  creatorMap.get(member.id)!.job_types.add(jobType);
                 }
               }
             }
@@ -321,11 +319,11 @@ export async function GET(request: Request) {
       const allCreators = Array.from(creatorMap.entries())
         .sort((a, b) => b[1].watchedIds.size - a[1].watchedIds.size);
       
-      const baseCreatorsData = allCreators.map(([key, creatorData]) => ({
-        id: Math.floor(key / 10),
+      const baseCreatorsData = allCreators.map(([creatorId, creatorData]) => ({
+        id: creatorId,
         name: creatorData.name,
         profile_path: creatorData.profile_path,
-        job_type: creatorData.job_type,
+        job_types: Array.from(creatorData.job_types),
         watched_movies: creatorData.watchedIds.size + creatorData.rewatchedIds.size,
         rewatched_movies: creatorData.rewatchedIds.size,
         dropped_movies: creatorData.droppedIds.size,
@@ -385,9 +383,10 @@ export async function GET(request: Request) {
                   .map(({ movie }) => movie);
               }
               
-              const relevantCrew = filteredCrew.filter((m: any) => 
-                getJobType(m.job, m.department) === creator.job_type
-              );
+              const relevantCrew = filteredCrew.filter((m: any) => {
+                const jobType = getJobType(m.job, m.department);
+                return jobType && creator.job_types.includes(jobType);
+              });
               
               const totalMovies = relevantCrew.length;
               const watchedMovies = creator.watched_movies;

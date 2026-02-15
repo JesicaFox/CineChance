@@ -148,24 +148,21 @@ export default function MovieCard({
       try {
         if (initialStatus === undefined) {
           const statusRes = await fetch(`/api/watchlist?tmdbId=${movie.id}&mediaType=${movie.media_type}`);
-          if (statusRes.ok) {
-            const data = await statusRes.json();
-            setStatus(data.status);
-            setUserRating(data.userRating);
-            setWatchCount(data.watchCount || 0);
+          
+          if (!statusRes.ok) {
+            return;
           }
+          
+          const text = await statusRes.text();
+          if (!text) return;
+          
+          const data = JSON.parse(text);
+          setStatus(data.status);
+          setUserRating(data.userRating);
+          setWatchCount(data.watchCount || 0);
         }
-
-        // Blacklist data is now fetched via context - no individual API call needed
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        logger.error('Failed to fetch watchlist data', { 
-          tmdbId: movie.id, 
-          mediaType: movie.media_type, 
-          error: errorMessage,
-          stack: errorStack 
-        });
+      } catch {
+        // Silently ignore watchlist fetch errors - user may not be authenticated
       }
     };
 
