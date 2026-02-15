@@ -200,8 +200,8 @@ export default function RecommendationInfoModal({
       if (result.success && result.data) {
         setCurrentTags(result.data);
       }
-    } catch (error) {
-      logger.error('Failed to load movie tags', { tmdbId, mediaType, error });
+    } catch {
+      // Silently ignore - session may have expired or transient DB error
     } finally {
       setIsLoadingTags(false);
     }
@@ -217,8 +217,8 @@ export default function RecommendationInfoModal({
       if (result.success && result.data !== undefined) {
         setNote(result.data || '');
       }
-    } catch (error) {
-      logger.error('Failed to load movie note', { tmdbId, mediaType, error });
+    } catch {
+      // Silently ignore - session may have expired or transient DB error
     } finally {
       setIsLoadingNote(false);
     }

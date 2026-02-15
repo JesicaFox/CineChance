@@ -153,8 +153,8 @@ export default function RatingInfoModal({
       if (result.success && result.data) {
         setCurrentTags(result.data);
       }
-    } catch (error) {
-      logger.error('Failed to load movie tags', { tmdbId, mediaType, error });
+    } catch {
+      // Silently ignore errors - user may not be authenticated
     } finally {
       setIsLoadingTags(false);
     }
@@ -176,8 +176,8 @@ export default function RatingInfoModal({
           setIsNoteExpanded(true);
         }
       }
-    } catch (error) {
-      logger.error('Failed to load movie note', { tmdbId, mediaType, error });
+    } catch {
+      // Silently ignore - session may have expired or transient DB error
     } finally {
       setIsLoadingNote(false);
     }
