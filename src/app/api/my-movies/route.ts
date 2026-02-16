@@ -68,6 +68,19 @@ function isAnime(movie: any): boolean {
   return hasAnimeGenre && movie.original_language === 'ja';
 }
 
+// Helper function to check if movie is cartoon (animation but not Japanese)
+function isCartoon(movie: any): boolean {
+  let hasAnimationGenre = false;
+  
+  if (Array.isArray(movie.genre_ids)) {
+    hasAnimationGenre = movie.genre_ids.includes(16);
+  } else if (Array.isArray(movie.genres)) {
+    hasAnimationGenre = movie.genres.some((g: any) => g.id === 16);
+  }
+  
+  return hasAnimationGenre && movie.original_language !== 'ja';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -172,12 +185,13 @@ export async function GET(request: NextRequest) {
             tmdbData,
             cineChanceData,
             isAnime: tmdbData ? isAnime(tmdbData) : false,
+            isCartoon: tmdbData ? isCartoon(tmdbData) : false,
           };
         })
       );
 
       // Filter movies
-      const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime }) => {
+      const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
         if (!tmdbData) return false;
 
         // Type filter
@@ -185,6 +199,8 @@ export async function GET(request: NextRequest) {
           const types = typesParam.split(',');
           if (isAnime) {
             if (!types.includes('anime')) return false;
+          } else if (isCartoon) {
+            if (!types.includes('cartoon')) return false;
           } else if (record.mediaType === 'movie') {
             if (!types.includes('movie')) return false;
           } else if (record.mediaType === 'tv') {
@@ -311,12 +327,13 @@ export async function GET(request: NextRequest) {
           tmdbData,
           cineChanceData,
           isAnime: tmdbData ? isAnime(tmdbData) : false,
+          isCartoon: tmdbData ? isCartoon(tmdbData) : false,
         };
       })
     );
 
     // Filter movies
-    const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime }) => {
+    const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
       if (!tmdbData) return false;
 
       // Type filter
@@ -324,6 +341,8 @@ export async function GET(request: NextRequest) {
         const types = typesParam.split(',');
         if (isAnime) {
           if (!types.includes('anime')) return false;
+        } else if (isCartoon) {
+          if (!types.includes('cartoon')) return false;
         } else if (record.mediaType === 'movie') {
           if (!types.includes('movie')) return false;
         } else if (record.mediaType === 'tv') {

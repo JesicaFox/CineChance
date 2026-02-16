@@ -19,6 +19,7 @@ export interface FilmFilterState {
   showMovies: boolean;
   showTv: boolean;
   showAnime: boolean;
+  showCartoon: boolean;
 }
 
 export interface SortState {
@@ -38,6 +39,7 @@ const defaultFilters: FilmFilterState = {
   showMovies: true,
   showTv: true,
   showAnime: true,
+  showCartoon: true,
 };
 
 const defaultSort: SortState = {
@@ -182,6 +184,29 @@ export default function FilmFilters({
             <span className="relative z-10">Аниме</span>
             {filters.showAnime && (
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-transparent"></div>
+            )}
+          </button>
+
+          {/* Кнопка Мульты */}
+          <button
+            onClick={() => toggleFilter('showCartoon')}
+            className={`
+              px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200
+              relative overflow-hidden border whitespace-nowrap min-w-[70px] text-center flex-1 sm:flex-none
+              ${filters.showCartoon
+                ? 'text-white shadow-lg shadow-orange-900/30 border-transparent'
+                : 'text-gray-400 hover:text-gray-300 bg-gray-900/50 border-gray-700 hover:border-gray-600'
+              }
+            `}
+            style={{
+              background: filters.showCartoon
+                ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.95) 0%, rgba(234, 88, 12, 0.95) 100%)'
+                : ''
+            }}
+          >
+            <span className="relative z-10">Мульты</span>
+            {filters.showCartoon && (
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-transparent"></div>
             )}
           </button>
         </div>

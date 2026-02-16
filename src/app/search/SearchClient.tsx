@@ -61,6 +61,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
       if (filters.showMovies) types.push('movie');
       if (filters.showTv) types.push('tv');
       if (filters.showAnime) types.push('anime');
+      if (filters.showCartoon) types.push('cartoon');
       typeValue = types.length > 0 ? types.join(',') : 'all';
     }
 

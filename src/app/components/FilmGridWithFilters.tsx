@@ -62,6 +62,7 @@ export interface FilmGridFilters {
   showMovies: boolean;
   showTv: boolean;
   showAnime: boolean;
+  showCartoon: boolean;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   minRating: number;
@@ -102,6 +103,7 @@ export default function FilmGridWithFilters({
     showMovies: true,
     showTv: true,
     showAnime: true,
+    showCartoon: true,
   });
   const [sort, setSort] = useState<SortState>({
     sortBy: 'rating',
@@ -129,6 +131,7 @@ export default function FilmGridWithFilters({
           showMovies: filmFilters.showMovies,
           showTv: filmFilters.showTv,
           showAnime: filmFilters.showAnime,
+          showCartoon: filmFilters.showCartoon,
           sortBy: sort.sortBy,
           sortOrder: sort.sortOrder,
           minRating: additionalFilters.minRating,
@@ -176,6 +179,7 @@ export default function FilmGridWithFilters({
       showMovies: filmFilters.showMovies,
       showTv: filmFilters.showTv,
       showAnime: filmFilters.showAnime,
+      showCartoon: filmFilters.showCartoon,
       sortBy: sort.sortBy,
       sortOrder: sort.sortOrder,
       minRating: additionalFilters.minRating,

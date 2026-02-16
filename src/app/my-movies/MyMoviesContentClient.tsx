@@ -174,7 +174,8 @@ export default function MyMoviesContentClient({
         if (filters.showMovies) types.push('movie');
         if (filters.showTv) types.push('tv');
         if (filters.showAnime) types.push('anime');
-        if (types.length > 0 && types.length < 3) {
+        if (filters.showCartoon) types.push('cartoon');
+        if (types.length > 0 && types.length < 4) {
           params.append('types', types.join(','));
         }
         

@@ -382,7 +382,7 @@ export async function GET(request: Request) {
               let filteredCrew = credits?.crew || [];
               
               if (filteredCrew.length > 0) {
-                const moviesToProcess = filteredCrew.slice(0, 100);
+                const moviesToProcess = filteredCrew.slice(0, 500);
                 
                 const FETCH_BATCH_SIZE = 5;
                 const filteredCrewDetails = [];
