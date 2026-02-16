@@ -48,13 +48,13 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
   const [debouncedFilters, setDebouncedFilters] = useState<FilterState | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   
-  // Debounce фильтров - задержка 300ms перед отправкой
+  // Debounce фильтров - задержка 500ms перед отправкой
   useEffect(() => {
     if (!currentFilters) return;
     
     const timer = setTimeout(() => {
       setDebouncedFilters(currentFilters);
-    }, 300);
+    }, 500);
     
     return () => clearTimeout(timer);
   }, [currentFilters]);
@@ -141,7 +141,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
     <>
       <SearchFilters 
         onFiltersChange={setCurrentFilters}
-        initialFilters={currentFilters}
+        initialFilters={currentFilters ?? undefined}
         totalResults={searchQuery.totalResults} 
       />
 
