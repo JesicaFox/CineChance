@@ -56,7 +56,6 @@ async function fetchCineChanceRatings(tmdbIds: number[]) {
 
 // Helper function to check if movie is anime
 function isAnime(movie: any): boolean {
-  // Может быть genre_ids (массив чисел) или genres (массив объектов)
   let hasAnimeGenre = false;
   
   if (Array.isArray(movie.genre_ids)) {
@@ -194,22 +193,28 @@ export async function GET(request: NextRequest) {
       const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
         if (!tmdbData) return false;
 
-        // Type filter - пропускаем если typesParam равен 'all' или null
-        if (typesParam && typesParam !== 'all') {
-          const types = typesParam.split(',');
+        // Type filter - пропускаем если typesParam равен 'all' или null/undefined
+        if (typesParam && typesParam !== 'all' && typesParam.trim() !== '') {
+          const types = typesParam.split(',').filter(t => t.trim() !== '');
           const isAnimeItem = isAnime;
           const isCartoonItem = isCartoon;
           const isMovieItem = record.mediaType === 'movie';
           const isTvItem = record.mediaType === 'tv';
 
-          // Если это аниме - показываем только если аниме в типах
-          if (isAnimeItem && !types.includes('anime')) return false;
-          // Если это мульт - показываем только если мульт в типах
-          if (isCartoonItem && !types.includes('cartoon')) return false;
-          // Если это обычный фильм - показываем только если movie в типах
-          if (isMovieItem && !types.includes('movie')) return false;
-          // Если это обычный сериал - показываем только если tv в типах
-          if (isTvItem && !types.includes('tv')) return false;
+          // Определяем тип контента
+          if (isAnimeItem) {
+            // Это аниме - показываем только если 'anime' в списке типов
+            if (!types.includes('anime')) return false;
+          } else if (isCartoonItem) {
+            // Это мульт - показываем только если 'cartoon' в списке типов
+            if (!types.includes('cartoon')) return false;
+          } else if (isMovieItem) {
+            // Это фильм - показываем только если 'movie' в списке типов
+            if (!types.includes('movie')) return false;
+          } else if (isTvItem) {
+            // Это сериал - показываем только если 'tv' в списке типов
+            if (!types.includes('tv')) return false;
+          }
         }
 
         // Year filter
@@ -340,22 +345,28 @@ export async function GET(request: NextRequest) {
     const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
       if (!tmdbData) return false;
 
-      // Type filter - пропускаем если typesParam равен 'all' или null
-      if (typesParam && typesParam !== 'all') {
-        const types = typesParam.split(',');
+      // Type filter - пропускаем если typesParam равен 'all' или null/undefined
+      if (typesParam && typesParam !== 'all' && typesParam.trim() !== '') {
+        const types = typesParam.split(',').filter(t => t.trim() !== '');
         const isAnimeItem = isAnime;
         const isCartoonItem = isCartoon;
         const isMovieItem = record.mediaType === 'movie';
         const isTvItem = record.mediaType === 'tv';
 
-        // Если это аниме - показываем только если аниме в типах
-        if (isAnimeItem && !types.includes('anime')) return false;
-        // Если это мульт - показываем только если мульт в типах
-        if (isCartoonItem && !types.includes('cartoon')) return false;
-        // Если это обычный фильм - показываем только если movie в типах
-        if (isMovieItem && !types.includes('movie')) return false;
-        // Если это обычный сериал - показываем только если tv в типах
-        if (isTvItem && !types.includes('tv')) return false;
+        // Определяем тип контента
+        if (isAnimeItem) {
+          // Это аниме - показываем только если 'anime' в списке типов
+          if (!types.includes('anime')) return false;
+        } else if (isCartoonItem) {
+          // Это мульт - показываем только если 'cartoon' в списке типов
+          if (!types.includes('cartoon')) return false;
+        } else if (isMovieItem) {
+          // Это фильм - показываем только если 'movie' в списке типов
+          if (!types.includes('movie')) return false;
+        } else if (isTvItem) {
+          // Это сериал - показываем только если 'tv' в списке типов
+          if (!types.includes('tv')) return false;
+        }
       }
 
       // Year filter
