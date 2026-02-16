@@ -432,13 +432,18 @@ export async function GET(request: NextRequest) {
     // Sort movies
     const sortedMovies = sortMovies(movies, sortBy, sortOrder);
 
-    // hasMore: check if there are more records in the database
-    const hasMore = totalCount > (page * limit);
+    // Paginate: use limit (not recordsToLoadPerPage) for slicing
+    const pageStartIndex = (page - 1) * limit;
+    const pageEndIndex = pageStartIndex + limit;
+    const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
+    
+    // hasMore: true if there are more filtered movies
+    const hasMore = sortedMovies.length > pageEndIndex;
 
     return NextResponse.json({
-      movies: sortedMovies,
+      movies: paginatedMovies,
       hasMore,
-      totalCount,
+      totalCount: sortedMovies.length,
     });
   } catch (error) {
     console.error('Error fetching my movies:', error);
