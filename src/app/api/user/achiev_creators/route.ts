@@ -10,8 +10,6 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 const DIRECTOR_JOBS = ['Director'];
-const PRODUCER_JOBS = ['Producer', 'Executive Producer', 'Co-Producer', 'Line Producer'];
-const WRITER_JOBS = ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Adaptation', 'Original Writer'];
 
 function calculateCreatorScore(creator: {
   average_rating: number | null;
@@ -92,14 +90,10 @@ interface TMDBPersonCredits {
   }>;
 }
 
-type CreatorJobType = 'director' | 'producer' | 'writer';
+type CreatorJobType = 'director';
 
 function getJobType(job: string, department: string): CreatorJobType | null {
   if (DIRECTOR_JOBS.includes(job)) return 'director';
-  if (PRODUCER_JOBS.includes(job)) return 'producer';
-  if (WRITER_JOBS.includes(job)) return 'writer';
-  if (department === 'Writing') return 'writer';
-  if (department === 'Production' && job === 'Producer') return 'producer';
   return null;
 }
 

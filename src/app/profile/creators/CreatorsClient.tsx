@@ -11,7 +11,6 @@ interface CreatorAchievement {
   id: number;
   name: string;
   profile_path: string | null;
-  job_types: ('director' | 'producer' | 'writer')[];
   watched_movies: number;
   rewatched_movies: number;
   dropped_movies: number;
@@ -213,7 +212,7 @@ export default function CreatorsClient({ userId }: CreatorsClientProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white">Любимые создатели</h2>
+        <h2 className="text-xl font-semibold text-white">Любимые режиссеры</h2>
         <p className="text-gray-400 text-sm">
           Показано {creators.length} создателей
         </p>
