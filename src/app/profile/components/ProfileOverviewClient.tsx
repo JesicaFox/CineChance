@@ -444,8 +444,8 @@ export default function ProfileOverviewClient({ userId }: ProfileOverviewClientP
             <Clapperboard className="w-5 h-5 text-blue-400" />
           </div>
           <div className="flex-1">
-            <p className="text-white font-medium text-sm md:text-base">Любимые создатели</p>
-            <p className="text-gray-500 text-xs md:text-sm">Режиссеры, продюсеры, сценаристы</p>
+            <p className="text-white font-medium text-sm md:text-base">Любимые режиссеры</p>
+            <p className="text-gray-500 text-xs md:text-sm">Ваши любимые режиссеры</p>
           </div>
           <ArrowRight className="w-5 h-5 text-gray-500 flex-shrink-0" />
         </Link>

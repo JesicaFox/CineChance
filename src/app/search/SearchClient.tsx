@@ -8,6 +8,7 @@ import { useSearch, useBatchData } from '@/hooks';
 import { Media } from '@/lib/tmdb';
 import { useSession } from 'next-auth/react';
 import LoaderSkeleton from '@/app/components/LoaderSkeleton';
+import { AppErrorBoundary } from '@/app/components/ErrorBoundary';
 
 interface SearchClientProps {
   initialQuery: string;
@@ -45,15 +46,27 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
 
   // Filter state
   const [currentFilters, setCurrentFilters] = useState<FilterState | null>(null);
+  const [debouncedFilters, setDebouncedFilters] = useState<FilterState | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   
+  // Debounce фильтров - задержка 500ms перед отправкой
+  useEffect(() => {
+    if (!currentFilters) return;
+    
+    const timer = setTimeout(() => {
+      setDebouncedFilters(currentFilters);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [currentFilters]);
+
   // Scroll tracking
   const scrollYRef = useRef(0);
   const batchDataRef = useRef<Record<string, any>>({});
 
   // Build search params
   const buildSearchParams = () => {
-    const filters = currentFilters;
+    const filters = debouncedFilters;
     
     let typeValue = 'all';
     if (filters) {
@@ -61,9 +74,10 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
       if (filters.showMovies) types.push('movie');
       if (filters.showTv) types.push('tv');
       if (filters.showAnime) types.push('anime');
+      if (filters.showCartoon) types.push('cartoon');
       typeValue = types.length > 0 ? types.join(',') : 'all';
     }
-
+    
     const genresString = filters?.genres && filters.genres.length > 0 
       ? filters.genres.join(',') 
       : '';
@@ -125,9 +139,22 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
   }
 
   return (
-    <>
+    <AppErrorBoundary
+      fallback={
+        <div className="border-2 border-red-500/50 rounded-lg p-8 text-center">
+          <p className="text-red-400 text-lg mb-4">Не удалось загрузить результаты поиска</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
+          >
+            Обновить страницу
+          </button>
+        </div>
+      }
+    >
       <SearchFilters 
-        onFiltersChange={setCurrentFilters} 
+        onFiltersChange={setCurrentFilters}
+        initialFilters={currentFilters ?? undefined}
         totalResults={searchQuery.totalResults} 
       />
 
@@ -182,6 +209,6 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
           <p className="text-gray-500 text-xs">Попробуйте другой запрос</p>
         </div>
       )}
-    </>
+    </AppErrorBoundary>
   );
 }

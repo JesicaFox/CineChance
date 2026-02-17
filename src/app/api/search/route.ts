@@ -149,12 +149,14 @@ export async function GET(request: Request) {
         allResults = allResults.filter((item: any) => {
           const itemType = item.media_type;
           const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
+          const isCartoon = (item.genre_ids?.includes(16) ?? false) && item.original_language !== 'ja';
           
           // Check if this item matches any selected type
           for (const t of selectedTypes) {
             if (t === 'anime' && isAnime) return true;
-            if (t === 'movie' && itemType === 'movie' && !isAnime) return true;
-            if (t === 'tv' && itemType === 'tv' && !isAnime) return true;
+            if (t === 'cartoon' && isCartoon) return true;
+            if (t === 'movie' && itemType === 'movie' && !isAnime && !isCartoon) return true;
+            if (t === 'tv' && itemType === 'tv' && !isAnime && !isCartoon) return true;
           }
           return false;
         });
@@ -345,6 +347,7 @@ export async function GET(request: Request) {
       
       // Track what we need
       const includeAnime = selectedTypes.includes('anime');
+      const includeCartoon = selectedTypes.includes('cartoon');
       const includeMovies = selectedTypes.length === 0 || selectedTypes.includes('movie');
       const includeTv = selectedTypes.length === 0 || selectedTypes.includes('tv');
 
@@ -439,10 +442,11 @@ export async function GET(request: Request) {
           }
 
           if (data.results && data.results.length > 0) {
-            // Filter out anime from movie results
+            // Filter out anime and cartoon from movie results
             const filteredResults = data.results.filter((item: any) => {
               const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
-              return !isAnime || includeAnime;
+              const isCartoon = (item.genre_ids?.includes(16) ?? false) && item.original_language !== 'ja';
+              return (!isAnime || includeAnime) && (!isCartoon || includeCartoon);
             });
             discoverResults = discoverResults.concat(filteredResults);
           } else {
@@ -485,7 +489,7 @@ export async function GET(request: Request) {
           }
 
           // Add anime language filter if anime is selected
-          if (includeAnime) {
+          if (includeAnime && !includeCartoon) {
             discoverUrl.searchParams.set('with_original_language', 'ja');
           }
 
@@ -532,16 +536,18 @@ export async function GET(request: Request) {
         discoverResults = discoverResults.filter((item: any) => !item.adult);
       }
 
-      // Filter by media type (movies, tv, anime) if specific types are selected
+      // Filter by media type (movies, tv, anime, cartoon) if specific types are selected
       if (selectedTypes.length > 0 && !selectedTypes.includes('all')) {
         discoverResults = discoverResults.filter((item: any) => {
           const itemType = item.media_type;
           const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
+          const isCartoon = (item.genre_ids?.includes(16) ?? false) && item.original_language !== 'ja';
           
           for (const t of selectedTypes) {
             if (t === 'anime' && isAnime) return true;
-            if (t === 'movie' && itemType === 'movie' && !isAnime) return true;
-            if (t === 'tv' && itemType === 'tv' && !isAnime) return true;
+            if (t === 'cartoon' && isCartoon) return true;
+            if (t === 'movie' && itemType === 'movie' && !isAnime && !isCartoon) return true;
+            if (t === 'tv' && itemType === 'tv' && !isAnime && !isCartoon) return true;
           }
           return false;
         });

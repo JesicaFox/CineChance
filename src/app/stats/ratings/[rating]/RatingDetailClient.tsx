@@ -59,6 +59,7 @@ export default function RatingDetailClient({ userId, rating }: RatingDetailClien
         params.append('showMovies', String(filters.showMovies));
         params.append('showTv', String(filters.showTv));
         params.append('showAnime', String(filters.showAnime));
+        params.append('showCartoon', String(filters.showCartoon));
         params.append('sortBy', filters.sortBy);
         params.append('sortOrder', filters.sortOrder);
         params.append('minRating', String(filters.minRating));

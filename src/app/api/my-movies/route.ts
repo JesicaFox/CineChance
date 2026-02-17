@@ -56,7 +56,6 @@ async function fetchCineChanceRatings(tmdbIds: number[]) {
 
 // Helper function to check if movie is anime
 function isAnime(movie: any): boolean {
-  // Может быть genre_ids (массив чисел) или genres (массив объектов)
   let hasAnimeGenre = false;
   
   if (Array.isArray(movie.genre_ids)) {
@@ -66,6 +65,19 @@ function isAnime(movie: any): boolean {
   }
   
   return hasAnimeGenre && movie.original_language === 'ja';
+}
+
+// Helper function to check if movie is cartoon (animation but not Japanese)
+function isCartoon(movie: any): boolean {
+  let hasAnimationGenre = false;
+  
+  if (Array.isArray(movie.genre_ids)) {
+    hasAnimationGenre = movie.genre_ids.includes(16);
+  } else if (Array.isArray(movie.genres)) {
+    hasAnimationGenre = movie.genres.some((g: any) => g.id === 16);
+  }
+  
+  return hasAnimationGenre && movie.original_language !== 'ja';
 }
 
 export async function GET(request: NextRequest) {
@@ -116,7 +128,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate records to load based on filters
-    const hasTypeFilters = typesParam && typesParam.split(',').length < 3;
+    const hasTypeFilters = typesParam && typesParam !== 'all' && typesParam.split(',').length < 4;
     const hasOtherFilters = genresParam || yearFrom || yearTo || (minRating > 0 || maxRating < 10);
     
     // Load enough records to handle in-memory filtering, but at least 50 for efficiency
@@ -172,22 +184,35 @@ export async function GET(request: NextRequest) {
             tmdbData,
             cineChanceData,
             isAnime: tmdbData ? isAnime(tmdbData) : false,
+            isCartoon: tmdbData ? isCartoon(tmdbData) : false,
           };
         })
       );
 
       // Filter movies
-      const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime }) => {
+      const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
         if (!tmdbData) return false;
 
-        // Type filter
-        if (typesParam) {
-          const types = typesParam.split(',');
-          if (isAnime) {
+        // Type filter - пропускаем если typesParam равен 'all' или null/undefined
+        if (typesParam && typesParam !== 'all' && typesParam.trim() !== '') {
+          const types = typesParam.split(',').filter(t => t.trim() !== '');
+          const isAnimeItem = isAnime;
+          const isCartoonItem = isCartoon;
+          const isMovieItem = record.mediaType === 'movie';
+          const isTvItem = record.mediaType === 'tv';
+
+          // Определяем тип контента
+          if (isAnimeItem) {
+            // Это аниме - показываем только если 'anime' в списке типов
             if (!types.includes('anime')) return false;
-          } else if (record.mediaType === 'movie') {
+          } else if (isCartoonItem) {
+            // Это мульт - показываем только если 'cartoon' в списке типов
+            if (!types.includes('cartoon')) return false;
+          } else if (isMovieItem) {
+            // Это фильм - показываем только если 'movie' в списке типов
             if (!types.includes('movie')) return false;
-          } else if (record.mediaType === 'tv') {
+          } else if (isTvItem) {
+            // Это сериал - показываем только если 'tv' в списке типов
             if (!types.includes('tv')) return false;
           }
         }
@@ -284,7 +309,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
       skip,
-      take: limit,
+      take: recordsToLoadPerPage,
     });
 
     // Early exit if no records
@@ -311,22 +336,35 @@ export async function GET(request: NextRequest) {
           tmdbData,
           cineChanceData,
           isAnime: tmdbData ? isAnime(tmdbData) : false,
+          isCartoon: tmdbData ? isCartoon(tmdbData) : false,
         };
       })
     );
 
     // Filter movies
-    const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime }) => {
+    const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
       if (!tmdbData) return false;
 
-      // Type filter
-      if (typesParam) {
-        const types = typesParam.split(',');
-        if (isAnime) {
+      // Type filter - пропускаем если typesParam равен 'all' или null/undefined
+      if (typesParam && typesParam !== 'all' && typesParam.trim() !== '') {
+        const types = typesParam.split(',').filter(t => t.trim() !== '');
+        const isAnimeItem = isAnime;
+        const isCartoonItem = isCartoon;
+        const isMovieItem = record.mediaType === 'movie';
+        const isTvItem = record.mediaType === 'tv';
+
+        // Определяем тип контента
+        if (isAnimeItem) {
+          // Это аниме - показываем только если 'anime' в списке типов
           if (!types.includes('anime')) return false;
-        } else if (record.mediaType === 'movie') {
+        } else if (isCartoonItem) {
+          // Это мульт - показываем только если 'cartoon' в списке типов
+          if (!types.includes('cartoon')) return false;
+        } else if (isMovieItem) {
+          // Это фильм - показываем только если 'movie' в списке типов
           if (!types.includes('movie')) return false;
-        } else if (record.mediaType === 'tv') {
+        } else if (isTvItem) {
+          // Это сериал - показываем только если 'tv' в списке типов
           if (!types.includes('tv')) return false;
         }
       }
@@ -394,13 +432,18 @@ export async function GET(request: NextRequest) {
     // Sort movies
     const sortedMovies = sortMovies(movies, sortBy, sortOrder);
 
-    // hasMore: check if there are more records in the database
-    const hasMore = totalCount > (page * limit);
+    // Paginate: use limit (not recordsToLoadPerPage) for slicing
+    const pageStartIndex = (page - 1) * limit;
+    const pageEndIndex = pageStartIndex + limit;
+    const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
+    
+    // hasMore: true if there are more filtered movies
+    const hasMore = sortedMovies.length > pageEndIndex;
 
     return NextResponse.json({
-      movies: sortedMovies,
+      movies: paginatedMovies,
       hasMore,
-      totalCount,
+      totalCount: sortedMovies.length,
     });
   } catch (error) {
     console.error('Error fetching my movies:', error);

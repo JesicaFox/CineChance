@@ -20,6 +20,18 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
   }
 }
 
+function isAnime(movie: any): boolean {
+  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+  const isJapanese = movie.original_language === 'ja';
+  return hasAnimeGenre && isJapanese;
+}
+
+function isCartoon(movie: any): boolean {
+  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+  const isNotJapanese = movie.original_language !== 'ja';
+  return hasAnimationGenre && isNotJapanese;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -43,6 +55,7 @@ export async function GET(request: NextRequest) {
     const showMoviesParam = searchParams.get('showMovies') === 'true';
     const showTvParam = searchParams.get('showTv') === 'true';
     const showAnimeParam = searchParams.get('showAnime') === 'true';
+    const showCartoonParam = searchParams.get('showCartoon') === 'true';
     const sortByParam = searchParams.get('sortBy') || 'addedAt';
     const sortOrderParam = searchParams.get('sortOrder') || 'desc';
     const minRatingParam = parseFloat(searchParams.get('minRating') || '0');
@@ -72,10 +85,9 @@ export async function GET(request: NextRequest) {
     const mediaTypeFilter: string[] = [];
     if (showMoviesParam) mediaTypeFilter.push('movie');
     if (showTvParam) mediaTypeFilter.push('tv');
-    if (showAnimeParam) mediaTypeFilter.push('anime');
     
-    // Если ничего не выбрано, показываем всё
-    const mediaTypes = mediaTypeFilter.length > 0 ? mediaTypeFilter : ['movie', 'tv', 'anime'];
+    // Если ничего не выбрано, показываем всё (movie и tv - анимация фильтруется через TMDB)
+    const mediaTypes = mediaTypeFilter.length > 0 ? mediaTypeFilter : ['movie', 'tv'];
 
     // Парсим жанры если переданы (для фильтрации по дополнительным жанрам)
     const genresArray = genresParam ? genresParam.split(',').map(g => parseInt(g, 10)).filter(g => !isNaN(g)) : [];
@@ -147,6 +159,19 @@ export async function GET(request: NextRequest) {
         const tmdbRating = tmdbData?.vote_average || 0;
         const releaseYear = new Date(tmdbData?.release_date || tmdbData?.first_air_date || '').getFullYear();
         const genres = tmdbData?.genres?.map((g: any) => g.id) || [];
+
+        // Фильтрация по типу контента на основе TMDB данных
+        const isAnimeItem = isAnime(tmdbData);
+        const isCartoonItem = isCartoon(tmdbData);
+        const isRegularContent = !isAnimeItem && !isCartoonItem;
+        
+        // Показываем аниме только если включен showAnime
+        if (isAnimeItem && !showAnimeParam) continue;
+        // Показываем мульты только если включен showCartoon  
+        if (isCartoonItem && !showCartoonParam) continue;
+        // Показываем обычные фильмы/сериалы только если включены showMovies или showTv
+        if (isRegularContent && !showMoviesParam && record.mediaType === 'movie') continue;
+        if (isRegularContent && !showTvParam && record.mediaType === 'tv') continue;
 
         if (tmdbRating < minRatingParam || tmdbRating > maxRatingParam) continue;
         if (yearFromParam && releaseYear < parseInt(yearFromParam, 10)) continue;

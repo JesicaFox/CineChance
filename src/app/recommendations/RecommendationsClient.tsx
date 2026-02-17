@@ -13,6 +13,7 @@ import { validateFilters, areFiltersValid, getFirstValidationError } from './fil
 import { logger } from '@/lib/logger';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { ContentType, ListType } from '@/lib/recommendation-types';
+import { AppErrorBoundary } from '@/app/components/ErrorBoundary';
 import { getUserTags } from '@/app/actions/tagsActions';
 
 // Типы данных
@@ -512,29 +513,50 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
   };
 
   return (
-    <SessionTracker userId={userId} logId={logId}>
-      {(tracking) => {
-        // Возврат к фильтрам
-        const handleBackToFilters = () => {
-          // Записываем событие возврата к фильтрам
-          if (logId) {
-            tracking.trackEvent('action_click', {
-              action: 'back_to_filters',
-              timeSinceShownMs: fetchStartTime.current ? Date.now() - fetchStartTime.current : 0,
-            });
-          }
+    <AppErrorBoundary
+      fallback={
+        <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+          <div className="text-center max-w-md w-full">
+            <div className="text-5xl mb-4">😕</div>
+            <h2 className="text-xl font-bold text-white mb-2">
+              Рекомендации временно недоступны
+            </h2>
+            <p className="text-gray-400 mb-4">
+              Что-то пошло не так при загрузке рекомендаций.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors font-medium"
+            >
+              Обновить страницу
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <SessionTracker userId={userId} logId={logId}>
+        {(tracking) => {
+          // Возврат к фильтрам
+          const handleBackToFilters = () => {
+            // Записываем событие возврата к фильтрам
+            if (logId) {
+              tracking.trackEvent('action_click', {
+                action: 'back_to_filters',
+                timeSinceShownMs: fetchStartTime.current ? Date.now() - fetchStartTime.current : 0,
+              });
+            }
 
-          fetchStartTime.current = 0;
-          setViewState('filters');
-          setMovie(null);
-          setLogId(null);
-          setUserStatus(null);
-          setIsAnime(false);
-          setCineChanceRating(null);
-          setCineChanceVoteCount(0);
-          setUserRating(null);
-          setWatchCount(0);
-        };
+            fetchStartTime.current = 0;
+            setViewState('filters');
+            setMovie(null);
+            setLogId(null);
+            setUserStatus(null);
+            setIsAnime(false);
+            setCineChanceRating(null);
+            setCineChanceVoteCount(0);
+            setUserRating(null);
+            setWatchCount(0);
+          };
 
         // Обработчик "Пропустить"
         const handleSkip = async () => {
@@ -988,5 +1010,6 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
         );
       }}
     </SessionTracker>
+    </AppErrorBoundary>
   );
 }

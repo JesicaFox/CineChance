@@ -1,10 +1,11 @@
 // src/app/search/SearchFilters.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SearchFiltersProps {
   onFiltersChange: (filters: FilterState) => void;
+  initialFilters?: FilterState;
   totalResults: number;
 }
 
@@ -13,6 +14,7 @@ export interface FilterState {
   showMovies: boolean;
   showTv: boolean;
   showAnime: boolean;
+  showCartoon: boolean;
   yearFrom: string;
   yearTo: string;
   quickYear: string;
@@ -60,13 +62,14 @@ const YEAR_QUICK_FILTERS = [
   { value: '1960s', label: '60-е' },
 ];
 
-export default function SearchFilters({ onFiltersChange, totalResults }: SearchFiltersProps) {
+export default function SearchFilters({ onFiltersChange, initialFilters, totalResults }: SearchFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({
+  const [filters, setFilters] = useState<FilterState>(initialFilters || {
     type: 'all',
     showMovies: true,
     showTv: true,
     showAnime: true,
+    showCartoon: true,
     yearFrom: '',
     yearTo: '',
     quickYear: '',
@@ -77,6 +80,13 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
     sortOrder: 'desc',
     listStatus: 'all',
   });
+
+  // Sync with initialFilters when they change
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(initialFilters);
+    }
+  }, [initialFilters]);
 
   const handleFilterChange = (key: keyof FilterState, value: any) => {
     const newFilters = { ...filters, [key]: value };
@@ -93,7 +103,7 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
     onFiltersChange(newFilters);
   };
 
-  const toggleTypeFilter = (key: 'showMovies' | 'showTv' | 'showAnime') => {
+  const toggleTypeFilter = (key: 'showMovies' | 'showTv' | 'showAnime' | 'showCartoon') => {
     const newFilters = { ...filters, [key]: !filters[key] };
     setFilters(newFilters);
     onFiltersChange(newFilters);
@@ -112,6 +122,7 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
       showMovies: true,
       showTv: true,
       showAnime: true,
+      showCartoon: true,
       yearFrom: '',
       yearTo: '',
       quickYear: '',
@@ -126,7 +137,7 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
     onFiltersChange(defaultFilters);
   };
 
-  const hasActiveFilters = !filters.showMovies || !filters.showTv || !filters.showAnime ||
+  const hasActiveFilters = !filters.showMovies || !filters.showTv || !filters.showAnime || !filters.showCartoon ||
     filters.yearFrom || filters.yearTo || filters.quickYear ||
     filters.genres.length > 0 ||
     filters.ratingFrom > 0 || filters.ratingTo < 10 ||
@@ -183,6 +194,17 @@ export default function SearchFilters({ onFiltersChange, totalResults }: SearchF
         >
           <span className="relative z-10">Аниме</span>
           {filters.showAnime && (
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+          )}
+        </button>
+
+        <button
+          onClick={() => toggleTypeFilter('showCartoon')}
+          className={getTypeButtonClass(filters.showCartoon, 'bg-gradient-to-r from-orange-500 to-orange-700 shadow-orange-900/30')}
+          style={filters.showCartoon ? { background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.95) 0%, rgba(234, 88, 12, 0.95) 100%)' } : {}}
+        >
+          <span className="relative z-10">Мульты</span>
+          {filters.showCartoon && (
             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
           )}
         </button>

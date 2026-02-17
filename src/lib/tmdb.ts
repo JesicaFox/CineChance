@@ -1,6 +1,7 @@
 // src/lib/tmdb.ts
 import { logger } from '@/lib/logger';
 import { fetchTrendingMoviesMock, fetchPopularMoviesMock, searchMediaMock } from './tmdb-mock';
+import { getTMDB, setTMDB } from './tmdbCache';
 
 export interface Media {
   id: number;
@@ -42,13 +43,21 @@ if (HAS_NETWORK_ISSUES) {
 }
 
 export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): Promise<Media[]> => {
-  // Если есть проблемы с сетью, сразу возвращаем mock данные
+  const cacheKey = `trending:${timeWindow}`;
+  
+  // Check cache first (silent fallback)
+  const cached = getTMDB<Media[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
+  // If there are network issues, return mock data without caching
   if (HAS_NETWORK_ISSUES) {
     return await fetchTrendingMoviesMock(timeWindow);
   }
 
   try {
-    // Формируем URL с API ключом как параметр запроса
+    // Form URL with API key as query parameter
     const url = new URL(`${BASE_URL}/trending/movie/${timeWindow}`);
     url.searchParams.append('api_key', TMDB_API_KEY || '');
     url.searchParams.append('language', 'ru-RU');
@@ -59,10 +68,6 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
     const response = await fetch(url.toString(), {
       headers: {
         'accept': 'application/json',
-      },
-      next: { 
-        revalidate: 3600, // ISR: обновление раз в час
-        tags: ['trending-movies', 'home-page'] 
       },
       signal: controller.signal,
     });
@@ -76,7 +81,7 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
     }
     
     const data = await response.json();
-    // Преобразуем фильмы в общий формат Media
+    // Transform movies to common Media format
     const movies: Media[] = (data.results || []).map((item: any) => ({
       id: item.id,
       media_type: 'movie',
@@ -91,15 +96,26 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
       adult: item.adult || false,
     }));
     
+    // Cache successful response for 24 hours
+    setTMDB(cacheKey, movies);
+    
     return movies;
   } catch (error) {
-    logger.error('Сетевая ошибка при запросе к TMDB (trending), используем mock данные', { error, context: 'TMDB' });
-    // Возвращаем mock данные при ошибке сети
+    logger.error('Сетевая ошибка при запросе к TMDB (trending)', { error, context: 'TMDB' });
+    // Silent fallback: no error shown to user, try mock data
     return await fetchTrendingMoviesMock(timeWindow);
   }
 };
 
 export const fetchPopularMovies = async (page: number = 1): Promise<Media[]> => {
+  const cacheKey = `popular:${page}`;
+  
+  // Check cache first (silent fallback)
+  const cached = getTMDB<Media[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   // Если есть проблемы с сетью, сразу возвращаем mock данные
   if (HAS_NETWORK_ISSUES) {
     return await fetchPopularMoviesMock(page);
@@ -116,7 +132,6 @@ export const fetchPopularMovies = async (page: number = 1): Promise<Media[]> => 
     
     const response = await fetch(url.toString(), {
       headers: { 'accept': 'application/json' },
-      cache: 'no-store',
       signal: controller.signal,
     });
     
@@ -144,15 +159,27 @@ export const fetchPopularMovies = async (page: number = 1): Promise<Media[]> => 
       adult: item.adult || false,
     }));
     
+    // Cache successful response for 24 hours
+    setTMDB(cacheKey, movies);
+    
     return movies;
   } catch (error) {
-    logger.error('Ошибка при запросе популярных фильмов, используем mock данные', { error, context: 'TMDB' });
+    logger.error('Ошибка при запросе популярных фильмов', { error, context: 'TMDB' });
+    // Silent fallback: no error shown to user
     return await fetchPopularMoviesMock(page);
   }
 };
 
 export const searchMedia = async (query: string, page: number = 1): Promise<Media[]> => {
   if (!query.trim()) return [];
+
+  const cacheKey = `search:${query.trim().toLowerCase()}:${page}`;
+  
+  // Check cache first (silent fallback)
+  const cached = getTMDB<Media[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
   // Если есть проблемы с сетью, сразу возвращаем mock данные
   if (HAS_NETWORK_ISSUES) {
@@ -171,7 +198,6 @@ export const searchMedia = async (query: string, page: number = 1): Promise<Medi
 
     const response = await fetch(url.toString(), {
       headers: { 'accept': 'application/json' },
-      next: { revalidate: 3600 },
       signal: controller.signal,
     });
 
@@ -206,9 +232,15 @@ export const searchMedia = async (query: string, page: number = 1): Promise<Medi
       adult: item.adult || false,
     }));
 
-    return media.slice(0, 100); // Ограничиваем 100 результатами
+    const result = media.slice(0, 100); // Ограничиваем 100 результатами
+    
+    // Cache successful response for 24 hours
+    setTMDB(cacheKey, result);
+    
+    return result;
   } catch (error) {
-    logger.error('Ошибка при поиске медиа, используем mock данные', { error, context: 'TMDB' });
+    logger.error('Ошибка при поиске медиа', { error, context: 'TMDB' });
+    // Silent fallback: no error shown to user
     return await searchMediaMock(query, page);
   }
 };
@@ -236,6 +268,14 @@ export const fetchMediaDetails = async (
   tmdbId: number,
   mediaType: 'movie' | 'tv'
 ): Promise<MovieDetails | null> => {
+  const cacheKey = `details:${mediaType}:${tmdbId}`;
+  
+  // Check cache first (silent fallback)
+  const cached = getTMDB<MovieDetails>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   try {
     const url = new URL(`${BASE_URL}/${mediaType}/${tmdbId}`);
     url.searchParams.append('api_key', TMDB_API_KEY || '');
@@ -247,7 +287,6 @@ export const fetchMediaDetails = async (
 
     const response = await fetch(url.toString(), {
       headers: { 'accept': 'application/json' },
-      next: { revalidate: 86400 }, // Кэшируем на 24 часа
       signal: controller.signal,
     });
 
@@ -260,7 +299,7 @@ export const fetchMediaDetails = async (
 
     const data = await response.json();
 
-    return {
+    const result = {
       id: data.id,
       title: data.title,
       name: data.name,
@@ -276,8 +315,14 @@ export const fetchMediaDetails = async (
       original_language: data.original_language,
       adult: data.adult || false,
     };
+    
+    // Cache successful response for 24 hours
+    setTMDB(cacheKey, result);
+    
+    return result;
   } catch (error) {
     logger.error('Ошибка при получении деталей медиа', { error, context: 'TMDB' });
+    // Silent fallback: return null without showing error to user
     return null;
   }
 };
