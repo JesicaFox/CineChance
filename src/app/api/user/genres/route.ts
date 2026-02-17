@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     const cacheKey = `user:${userId}:genres:all:${statusesParam || 'default'}`;
 
     const fetchGenres = async () => {
-      let whereClause: any = { userId };
+      const whereClause: any = { userId };
       
       // По умолчанию включаем все значимые статусы для статистики
       if (!statusesParam) {

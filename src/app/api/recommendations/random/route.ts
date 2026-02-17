@@ -341,7 +341,7 @@ export async function GET(req: Request) {
     sendProgress('sampling', 10, { totalItems: watchListItems.length });
     
     // Сначала применяем базовые фильтры, которые не требуют TMDB данных
-    let preFilteredItems = watchListItems.filter(item => {
+    const preFilteredItems = watchListItems.filter(item => {
       // Базовая фильтрация по статусам (уже применена в запросе)
       return true; // Пока все элементы проходят базовую фильтрацию
     });
@@ -513,7 +513,7 @@ export async function GET(req: Request) {
     // 6. Фильтруем по типам контента
     sendProgress('filtering_start', 75, { itemsToFilter: sampledItems.length });
     
-    let filteredItems = sampledItems.filter(item => {
+    const filteredItems = sampledItems.filter(item => {
       const details = detailsMap.get(item.tmdbId);
       if (!details) return false;
 

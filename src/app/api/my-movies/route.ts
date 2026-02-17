@@ -5,6 +5,7 @@ import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
+import { logger } from '@/lib/logger';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -446,7 +447,7 @@ export async function GET(request: NextRequest) {
       totalCount: sortedMovies.length,
     });
   } catch (error) {
-    console.error('Error fetching my movies:', error);
+    logger.error('Error fetching my movies', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -607,7 +608,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
-    console.error('Error in my-movies POST:', error);
+    logger.error('Error in my-movies POST', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

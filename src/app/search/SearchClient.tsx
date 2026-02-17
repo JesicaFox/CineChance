@@ -8,6 +8,7 @@ import { useSearch, useBatchData } from '@/hooks';
 import { Media } from '@/lib/tmdb';
 import { useSession } from 'next-auth/react';
 import LoaderSkeleton from '@/app/components/LoaderSkeleton';
+import { logger } from '@/lib/logger';
 import { AppErrorBoundary } from '@/app/components/ErrorBoundary';
 
 interface SearchClientProps {
@@ -36,7 +37,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
           setBlacklistedIds(blacklist.map((b: { tmdbId: number }) => b.tmdbId));
         }
       } catch (err) {
-        console.error('Failed to fetch blacklist', err);
+        logger.error('Failed to fetch blacklist', { error: err instanceof Error ? err.message : String(err) });
         setBlacklistedIds([]);
       }
     };

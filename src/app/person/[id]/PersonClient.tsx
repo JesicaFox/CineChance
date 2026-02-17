@@ -9,6 +9,7 @@ import { MovieCardErrorBoundary } from '@/app/components/ErrorBoundary';
 import Loader from '@/app/components/Loader';
 import { Media } from '@/lib/tmdb';
 import { BlacklistProvider } from '@/app/components/BlacklistContext';
+import { logger } from '@/lib/logger';
 
 interface PersonCredit {
   id: number;
@@ -76,7 +77,7 @@ export default function PersonClient({ personId }: PersonClientProps) {
         setPerson(data);
       } catch (err) {
         setError('Failed to load person');
-        console.error(err);
+        logger.error('Person data error', { error: err instanceof Error ? err.message : String(err) });
       } finally {
         setLoading(false);
       }
@@ -123,7 +124,7 @@ export default function PersonClient({ personId }: PersonClientProps) {
           setWatchlistStatuses(statuses);
         }
       } catch (err) {
-        console.error('Failed to fetch watchlist statuses', err);
+        logger.error('Failed to fetch watchlist statuses', { error: err instanceof Error ? err.message : String(err) });
       }
     };
 
@@ -197,7 +198,7 @@ export default function PersonClient({ personId }: PersonClientProps) {
       setDisplayedItems((prev) => [...prev, ...nextItems]);
       setHasMore(currentLength + nextItems.length < sortedFilmography.length);
     } catch (error) {
-      console.error('Load more error:', error);
+      logger.error('Load more error', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setLoadingMore(false);
     }

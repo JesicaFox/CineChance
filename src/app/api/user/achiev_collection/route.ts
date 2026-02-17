@@ -197,11 +197,11 @@ export async function GET(request: Request) {
           const watchedMovies = collection.watched_movies || 0;
           const progress = collection.progress_percent || 0;
           
-          let qualityScore = avgRating;
+          const qualityScore = avgRating;
           const volumeBonus = Math.log10(Math.max(1, watchedMovies)) * 0.05;
           const progressBonus = (progress / 100) * 0.15;
           
-          let finalScore = qualityScore + volumeBonus + progressBonus;
+          const finalScore = qualityScore + volumeBonus + progressBonus;
           
           return Math.max(0, Math.min(10, finalScore));
         };

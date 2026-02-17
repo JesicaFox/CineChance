@@ -26,7 +26,7 @@ const eslintConfig = defineConfig([
     }
   },
   {
-    files: ['**/*.config.*', 'scripts/**', 'prisma/**'],
+    files: ['**/*.config.*', 'scripts/**', 'src/scripts/**', 'prisma/**'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-require-imports': 'off'

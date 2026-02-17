@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { calculateWeightedRating } from '@/lib/calculateWeightedRating';
+import { logger } from '@/lib/logger';
 
 // Кэш для хранения результатов на 1 час
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Weighted Rating API Error:', error);
+    logger.error('Weighted Rating API Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Cache Clear Error:', error);
+    logger.error('Cache Clear Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'

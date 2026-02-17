@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 
 interface SessionFlow {
   recommendationsShown: number;
@@ -76,7 +77,7 @@ class BatchSender {
     try {
       await this.onSend(toSend);
     } catch (err) {
-      console.error('Error sending batch:', err);
+      logger.error('Error sending batch', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 }
@@ -171,7 +172,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
           setIsInitialized(true);
         }
       } catch (err) {
-        console.error('Error initializing session:', err);
+        logger.error('Error initializing session', { error: err instanceof Error ? err.message : String(err) });
       }
     };
 
@@ -200,7 +201,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
               }),
             });
           } catch (err) {
-            console.error('Error ending session:', err);
+            logger.error('Error ending session', { error: err instanceof Error ? err.message : String(err) });
           }
         };
         endSessionAsync();
@@ -280,7 +281,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
         filterChanges.current = [];
       }
     } catch (err) {
-      console.error('Error starting filter session:', err);
+      logger.error('Error starting filter session', { error: err instanceof Error ? err.message : String(err) });
     }
   }, [userId, sessionId, filterSessionId]);
 
@@ -319,7 +320,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
             }),
           });
         } catch (err) {
-          console.error('Error updating filter session:', err);
+          logger.error('Error updating filter session', { error: err instanceof Error ? err.message : String(err) });
         }
       };
       

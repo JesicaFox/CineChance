@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
 
 interface CollectionAchievement {
   id: number;
@@ -38,7 +39,7 @@ export default function ProfileCollections() {
           setCollections((data.collections || []).slice(0, 5));
         }
       } catch (error) {
-        console.error('Error loading collections:', error);
+        logger.error('Error loading collections', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoading(false);
       }

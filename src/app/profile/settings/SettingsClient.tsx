@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Settings, Sliders, Trash2, X, AlertTriangle, Loader2, CheckCircle, AlertCircle, Save } from 'lucide-react';
 import { deleteAccount } from '@/app/actions/deleteAccount';
 import { signOut } from 'next-auth/react';
+import { logger } from '@/lib/logger';
 
 export default function SettingsClient() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function SettingsClient() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch settings:', error);
+      logger.error('Failed to fetch settings', { error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -109,7 +110,7 @@ export default function SettingsClient() {
         setSaveMessage({ type: 'error', text: data.error || 'Ошибка сохранения' });
       }
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      logger.error('Failed to save settings', { error: error instanceof Error ? error.message : String(error) });
       setSaveMessage({ type: 'error', text: 'Ошибка соединения' });
     } finally {
       setIsSaving(false);
@@ -166,7 +167,7 @@ export default function SettingsClient() {
         setResetMessage({ type: 'error', text: data.error || 'Ошибка при очистке истории' });
       }
     } catch (error) {
-      console.error('Reset history error:', error);
+      logger.error('Reset history error', { error: error instanceof Error ? error.message : String(error) });
       setResetMessage({ type: 'error', text: 'Ошибка соединения' });
     } finally {
       setIsResetting(false);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, Film, Monitor, Tv } from 'lucide-react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
 
 interface UserStats {
   total: {
@@ -62,7 +63,7 @@ export default function ProfileStats() {
           });
         }
       } catch (error) {
-        console.error('Error loading stats:', error);
+        logger.error('Error loading stats', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoading(false);
       }

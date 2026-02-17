@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       ORDER BY id
     `;
 
-    console.log('Реальные статусы в базе:', statuses);
+    logger.debug('Real statuses in database', { statuses });
 
     // Считаем количество записей по каждому реальному статусу
     const counts = await Promise.all(
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Error checking real status IDs:', error);
+    logger.error('Error checking real status IDs', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to check status IDs', details: error.message }, 
       { status: 500 }

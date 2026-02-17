@@ -8,9 +8,9 @@ import FilterForm from './FilterForm';
 import SessionTracker from './SessionTracker';
 import FilterStateManager from './FilterStateManager';
 import { useSessionTracking } from './useSessionTracking';
+import { logger } from '@/lib/logger';
 import { useDebounce } from './useDebounce';
 import { validateFilters, areFiltersValid, getFirstValidationError } from './filterValidation';
-import { logger } from '@/lib/logger';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { ContentType, ListType } from '@/lib/recommendation-types';
 import { AppErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -193,7 +193,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
           });
         }
       } catch (error) {
-        console.error('Failed to fetch user settings:', error);
+        logger.error('Failed to fetch user settings', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoadingSettings(false);
       }
@@ -213,7 +213,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
           }
         }
       } catch (error) {
-        console.error('Failed to fetch user genres:', error);
+        logger.error('Failed to fetch user genres', { error: error instanceof Error ? error.message : String(error) });
       }
     };
     fetchGenres();
@@ -232,7 +232,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
         })));
       }
     } catch (error) {
-      console.error('Error fetching user tags:', error);
+      logger.error('Error fetching user tags', { error: error instanceof Error ? error.message : String(error) });
     }
   };
 

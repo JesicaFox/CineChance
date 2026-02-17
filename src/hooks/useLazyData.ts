@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 /**
  * Хук для поочередной (lazy) загрузки данных
@@ -101,7 +102,7 @@ export function useSequentialLoad<T>(
     const processItems = async () => {
       setLoading(true);
       
-      let delayBetween = 0;
+      const delayBetween = 0;
       let loadedInBatch = 0;
 
       for (let i = 0; i < items.length; i++) {
@@ -122,7 +123,7 @@ export function useSequentialLoad<T>(
           });
           loadedInBatch++;
         } catch (error) {
-          console.error('Failed to load item:', i, error);
+          logger.error('Failed to load item', { index: i, error: error instanceof Error ? error.message : String(error) });
         }
       }
 

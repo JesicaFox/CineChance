@@ -8,6 +8,7 @@ import LoaderSkeleton from './LoaderSkeleton';
 import Loader from './Loader';
 import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from '@/app/my-movies/FilmFilters';
 import { Media } from '@/lib/tmdb';
+import { logger } from '@/lib/logger';
 
 export interface FilmGridWithFiltersProps {
   /** Функция для загрузки фильмов. Должна вернуть {movies, hasMore} */
@@ -201,7 +202,7 @@ export default function FilmGridWithFilters({
         setIsLoading(false);
         setHasInitialLoaded(true);
       } catch (err) {
-        console.error('Failed to fetch movies:', err);
+        logger.error('Failed to fetch movies', { error: err instanceof Error ? err.message : String(err) });
         setError(err instanceof Error ? err.message : 'An error occurred');
         setMovies([]);
         setIsLoading(false);

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import MovieCard from '@/app/components/MovieCard';
 import { MovieCardErrorBoundary } from '@/app/components/ErrorBoundary';
 import Loader from '@/app/components/Loader';
+import { logger } from '@/lib/logger';
 import { BlacklistProvider } from '@/app/components/BlacklistContext';
 
 interface CollectionMovie {
@@ -58,7 +59,7 @@ export default function CollectionClient({ collectionId }: { collectionId: strin
         setCollection(data);
       } catch (err) {
         setError('Failed to load collection');
-        console.error(err);
+        logger.error('Collection fetch error', { error: err instanceof Error ? err.message : String(err) });
       } finally {
         setLoading(false);
       }
@@ -104,7 +105,7 @@ export default function CollectionClient({ collectionId }: { collectionId: strin
           setWatchlistStatuses(statuses);
         }
       } catch (err) {
-        console.error('Failed to fetch watchlist statuses', err);
+        logger.error('Failed to fetch watchlist statuses', { error: err instanceof Error ? err.message : String(err) });
       }
     };
 

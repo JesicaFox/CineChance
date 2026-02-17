@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
+import { logger } from '@/lib/logger';
 
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -224,7 +225,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(debugInfo);
 
   } catch (error: any) {
-    console.error('Debug endpoint error:', error);
+    logger.error('Debug endpoint error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Debug endpoint failed', details: error.message }, 
       { status: 500 }

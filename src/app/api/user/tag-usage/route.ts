@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
       const tagIds = tags.map(t => t.id);
       
-      let tagUsageCounts: Record<string, number> = {};
+      const tagUsageCounts: Record<string, number> = {};
       
       if (tagIds.length > 0) {
         const watchListsWithTags = await prisma.watchList.findMany({

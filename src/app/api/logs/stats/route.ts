@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
+import { logger } from '@/lib/logger';
 
 interface LogsData {
   timestamp: string;
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(logs);
 
   } catch (error: any) {
-    console.error('Logs endpoint error:', error);
+    logger.error('Logs endpoint error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch logs', details: error.message }, 
       { status: 500 }

@@ -76,7 +76,7 @@ export class Logger {
   private _log(level: LogLevel, msg: string, ...args: any[]) {
     const formatted = format(level, msg, this.context);
     if (this.output === 'console') {
-      // eslint-disable-next-line no-console
+       
       if (level === 'error') console.error(formatted, ...args);
       else if (level === 'warn') console.warn(formatted, ...args);
       else if (level === 'info') console.info(formatted, ...args);

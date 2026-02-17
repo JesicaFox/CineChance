@@ -5,6 +5,7 @@ import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusNameById } from '@/lib/movieStatusConstants';
 import { rateLimit } from '@/middleware/rateLimit';
+import { logger } from '@/lib/logger';
 
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -287,7 +288,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error fetching movies by tag:', error);
+    logger.error('Error fetching movies by tag', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Failed to fetch movies' }, { status: 500 });
   }
 }

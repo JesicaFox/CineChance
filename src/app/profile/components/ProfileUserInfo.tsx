@@ -6,6 +6,7 @@ import { ru } from 'date-fns/locale';
 import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import NicknameEditor from './NicknameEditor';
+import { logger } from '@/lib/logger';
 
 interface UserData {
   id: string;
@@ -63,7 +64,7 @@ export default function ProfileUserInfo() {
           }
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        logger.error('Error loading user data', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoading(false);
       }

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 /**
  * Весовая функция для оценки в зависимости от порядка и типа
@@ -133,7 +134,7 @@ export async function calculateWeightedRating(
     };
 
   } catch (error) {
-    console.error('Error calculating weighted rating:', error);
+    logger.error('Error calculating weighted rating', { error: error instanceof Error ? error.message : String(error) });
     return {
       weightedRating: null,
       totalReviews: 0,

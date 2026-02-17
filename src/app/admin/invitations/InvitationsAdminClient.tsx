@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 
 interface Invitation {
   id: string;
@@ -41,7 +42,7 @@ export default function InvitationsAdminClient({ userId }: InvitationsAdminClien
         setInvitations(data.invitations);
       }
     } catch (error) {
-      console.error('Ошибка загрузки приглашений:', error);
+      logger.error('Error loading invitations', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsLoadingList(false);
     }

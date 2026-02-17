@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Tag as TagIcon, Music } from 'lucide-react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
 
 interface TagUsage {
   id: string;
@@ -63,7 +64,7 @@ export default function ProfileTagsGenres() {
           setGenres(data.genres || []);
         }
       } catch (error) {
-        console.error('Error loading tags and genres:', error);
+        logger.error('Error loading tags and genres', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoading(false);
       }
