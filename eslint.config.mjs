@@ -5,37 +5,32 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "*.js",
   ]),
   {
-    // Project-wide stricter rules
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       'no-unused-vars': ['error', { 'argsIgnorePattern': '^_' }],
       'no-console': 'error'
     },
-    overrides: [
-      // Allow console only in our logger file
-      {
-        files: ['src/lib/logger.ts'],
-        rules: {
-          'no-console': 'off'
-        }
-      },
-      // Relax rules for config and scripts
-      {
-        files: ['**/*.config.*', 'scripts/**', 'prisma/**'],
-        rules: {
-          'no-console': 'off'
-        }
-      }
-    ]
+  },
+  {
+    files: ['*.js', 'src/lib/logger.ts'],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
+    files: ['**/*.config.*', 'scripts/**', 'prisma/**'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-require-imports': 'off'
+    }
   }
 ]);
 
