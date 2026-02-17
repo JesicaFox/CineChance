@@ -9,6 +9,7 @@ import { rateLimit } from '@/middleware/rateLimit';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 import { shouldFilterAdult } from '@/lib/ageFilter';
 import { getRecommendationStatusIds, getStatusNameById } from '@/lib/movieStatusConstants';
+import { randomUUID } from 'crypto';
 import {
   FiltersSnapshot,
   CandidatePoolMetrics,
@@ -18,6 +19,24 @@ import {
   ContentType,
   ListType,
 } from '@/lib/recommendation-types';
+
+// Helper to get or generate request ID
+function getRequestId(headers: Headers): string {
+  const existingId = headers.get('x-request-id');
+  return existingId || randomUUID();
+}
+
+// Helper for consistent log format
+function formatRecLog(requestId: string, endpoint: string, userId: string, action?: string, extra?: string): string {
+  const parts = [
+    `[${requestId}]`,
+    endpoint,
+    `user: ${userId}`,
+    action || '-',
+    extra || ''
+  ].filter(Boolean);
+  return parts.join(' - ');
+}
 
 // Константы алгоритма
 const RECOMMENDATION_COOLDOWN_DAYS = 7;
@@ -228,12 +247,15 @@ function createFiltersSnapshot(
  * Пример: /api/recommendations/random?types=movie,anime&lists=want,watched,dropped&genres=28,12&tags=action,comedy
  */
 export async function GET(req: Request) {
+  const requestId = getRequestId(req.headers);
+  const endpoint = 'GET /api/recommendations/random';
   const startTime = Date.now();
   const ADMIN_USER_ID = 'cmkbc7sn2000104k3xd3zyf2a';
   
   // Apply rate limiting
   const { success } = await rateLimit(req, '/api/recommendations');
   if (!success) {
+    logger.warn(formatRecLog(requestId, endpoint, '-', 'rate_limit'));
     return NextResponse.json({ success: false, message: 'Too many requests' }, { status: 429 });
   }
   
@@ -241,6 +263,7 @@ export async function GET(req: Request) {
     // Проверка аутентификации
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
+      logger.warn(formatRecLog(requestId, endpoint, '-', 'unauthorized'));
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -248,18 +271,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const { types, lists, minRating, yearFrom, yearTo, genres, tags } = parseFilterParams(url);
     
-    // Логируем входящие фильтры для отладки
-    logger.info('Recommendation request filters', {
-      userId,
-      types,
-      lists,
-      minRating,
-      yearFrom,
-      yearTo,
-      genres,
-      tags,
-      url: req.url
-    });
+    logger.info(formatRecLog(requestId, endpoint, userId, 'request', `types: ${types.join(',')}, lists: ${lists.join(',')}`));
     
     // Проверяем права администратора для debug информации
     const isAdmin = userId === ADMIN_USER_ID && process.env.NODE_ENV === 'development';
@@ -887,6 +899,9 @@ export async function GET(req: Request) {
       totalDuration: Date.now() - startTime
     });
 
+    const duration = Date.now() - startTime;
+    logger.info(formatRecLog(requestId, endpoint, userId, 'success', `movie: ${movie.id}, duration: ${duration}ms`));
+
     return NextResponse.json({
       success: true,
       movie,
@@ -931,10 +946,7 @@ export async function GET(req: Request) {
       })
     });
   } catch (error) {
-    logger.error('Recommendations API error', { 
-      error: error instanceof Error ? error.message : String(error),
-      context: 'Recommendations'
-    });
+    logger.error(formatRecLog(requestId, endpoint, '-', 'error', `Error: ${error instanceof Error ? error.message : String(error)}`));
     return NextResponse.json(
       { success: false, message: 'Ошибка при получении рекомендации', movie: null },
       { status: 500 }

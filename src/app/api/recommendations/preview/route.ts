@@ -5,14 +5,37 @@ import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/middleware/rateLimit';
 import { getRecommendationStatusIds } from '@/lib/movieStatusConstants';
 import { logger } from '@/lib/logger';
+import { randomUUID } from 'crypto';
+
+// Helper to get or generate request ID
+function getRequestId(headers: Headers): string {
+  const existingId = headers.get('x-request-id');
+  return existingId || randomUUID();
+}
+
+// Helper for consistent log format
+function formatRecLog(requestId: string, endpoint: string, userId: string, action?: string, extra?: string): string {
+  const parts = [
+    `[${requestId}]`,
+    endpoint,
+    `user: ${userId}`,
+    action || '-',
+    extra || ''
+  ].filter(Boolean);
+  return parts.join(' - ');
+}
 
 /**
  * API endpoint для предварительного подсчета доступных рекомендаций
  * Возвращает статистику без выполнения TMDB запросов
  */
 export async function GET(req: Request) {
+  const requestId = getRequestId(req.headers);
+  const endpoint = 'GET /api/recommendations/preview';
+  
   const { success } = await rateLimit(req, '/api/recommendations');
   if (!success) {
+    logger.warn(formatRecLog(requestId, endpoint, '-', 'rate_limit'));
     return NextResponse.json({ success: false, message: 'Too many requests' }, { status: 429 });
   }
 
@@ -20,6 +43,7 @@ export async function GET(req: Request) {
     // Проверка аутентификации
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
+      logger.warn(formatRecLog(requestId, endpoint, '-', 'unauthorized'));
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -45,7 +69,10 @@ export async function GET(req: Request) {
     // Получаем ID статусов
     const statusIds = getRecommendationStatusIds(lists);
     
+    logger.info(formatRecLog(requestId, endpoint, userId, 'request', `types: ${types.join(',')}, lists: ${lists.join(',')}`));
+
     if (statusIds.length === 0) {
+      logger.warn(formatRecLog(requestId, endpoint, userId, 'no_status'));
       return NextResponse.json({
         success: false,
         message: 'Выберите хотя бы один список',
@@ -62,6 +89,7 @@ export async function GET(req: Request) {
     });
 
     if (totalItems === 0) {
+      logger.info(formatRecLog(requestId, endpoint, userId, 'empty_list'));
       return NextResponse.json({
         success: true,
         stats: {
@@ -93,6 +121,8 @@ export async function GET(req: Request) {
       }
     }
 
+    logger.info(formatRecLog(requestId, endpoint, userId, 'success', `total: ${totalItems}, estimated: ${estimatedAvailable}`));
+
     // Формируем предложения
     const suggestions = {
       addMoreMovies: totalItems <= 5,
@@ -122,7 +152,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
-    logger.error('Preview recommendation failed', { error });
+    logger.error(formatRecLog(requestId, endpoint, '-', 'error', `Error: ${error instanceof Error ? error.message : String(error)}`));
     return NextResponse.json({
       success: false,
       message: 'Ошибка при получении статистики',
