@@ -40,7 +40,7 @@ export async function processInChunks<T, R>(
  * Используется для определения типа callback в транзакциях
  */
 export type PrismaTransaction<T = unknown> = (
-  tx: Omit<
+  _tx: Omit<
     PrismaClient,
     '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
   >
