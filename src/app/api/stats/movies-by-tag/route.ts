@@ -128,8 +128,8 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Считаем всего
-    const totalCount = await prisma.watchList.count({
+    // Считаем всего (для будущего использования)
+    const _totalCount = await prisma.watchList.count({
       where: whereClause,
     });
 

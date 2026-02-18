@@ -109,7 +109,7 @@ interface TMDBPersonCredits {
   }>;
 }
 
-interface ActorProgress {
+interface _ActorProgress {
   id: number;
   name: string;
   profile_path: string | null;
@@ -300,7 +300,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < rewatchedMoviesData.length; i += BATCH_SIZE) {
         const batch = rewatchedMoviesData.slice(i, i + BATCH_SIZE);
         
-        const results = await Promise.all(
+        const _results = await Promise.all(
           batch.map(async (movie) => {
             const rating = movie.userRating;
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
@@ -330,7 +330,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < droppedMoviesData.length; i += BATCH_SIZE) {
         const batch = droppedMoviesData.slice(i, i + BATCH_SIZE);
         
-        const results = await Promise.all(
+        const _results = await Promise.all(
           batch.map(async (movie) => {
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
             

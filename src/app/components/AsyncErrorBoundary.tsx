@@ -8,7 +8,7 @@ interface AsyncErrorBoundaryProps {
   componentName?: string;
 }
 
-interface CacheEntry<T> {
+interface _CacheEntry<T> {
   data: T;
   timestamp: number;
 }

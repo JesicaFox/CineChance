@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       predictedScore,
       actualAction,
       featureVector,
-      inferenceTimeMs
+      inferenceTimeMs: _inferenceTimeMs
     } = body as {
       userId: string;
       recommendationLogId: string;
@@ -267,7 +267,7 @@ export async function PUT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const modelVersion = searchParams.get('modelVersion');
-    const modelName = searchParams.get('modelName');
+    const _modelName = searchParams.get('modelName');
 
     // Построение фильтра
     const where: Record<string, unknown> = {

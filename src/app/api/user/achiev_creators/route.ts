@@ -12,7 +12,7 @@ const BASE_URL = 'https://api.themoviedb.org/3';
 
 const DIRECTOR_JOBS = ['Director'];
 
-function calculateCreatorScore(creator: {
+function _calculateCreatorScore(creator: {
   average_rating: number | null;
   watched_movies: number;
   rewatched_movies: number;
@@ -93,7 +93,7 @@ interface TMDBPersonCredits {
 
 type CreatorJobType = 'director';
 
-function getJobType(job: string, department: string): CreatorJobType | null {
+function getJobType(job: string, _department: string): CreatorJobType | null {
   if (DIRECTOR_JOBS.includes(job)) return 'director';
   return null;
 }
@@ -266,7 +266,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < rewatchedMoviesData.length; i += BATCH_SIZE) {
         const batch = rewatchedMoviesData.slice(i, i + BATCH_SIZE);
         
-        const results = await Promise.all(
+        const _results = await Promise.all(
           batch.map(async (movie) => {
             const rating = movie.userRating;
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
@@ -306,7 +306,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < droppedMoviesData.length; i += BATCH_SIZE) {
         const batch = droppedMoviesData.slice(i, i + BATCH_SIZE);
         
-        const results = await Promise.all(
+        const _results = await Promise.all(
           batch.map(async (movie) => {
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
             

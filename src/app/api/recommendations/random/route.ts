@@ -40,7 +40,7 @@ function formatRecLog(requestId: string, endpoint: string, userId: string, actio
 
 // Константы алгоритма
 const RECOMMENDATION_COOLDOWN_DAYS = 7;
-const MIN_RATING_THRESHOLD = 6.5;
+const _MIN_RATING_THRESHOLD = 6.5;
 
 // Функция для отправки прогресса (если доступно)
 function sendProgress(stage: string, progress: number, details?: unknown) {
@@ -60,7 +60,7 @@ interface FilterParams {
   tags?: string[];
 }
 
-interface AdditionalFilters {
+interface _AdditionalFilters {
   minRating: number;
   yearFrom: string;
   yearTo: string;
@@ -281,7 +281,7 @@ export async function GET(req: Request) {
       where: { userId },
     });
 
-    const preferHighRating = settings?.preferHighRating ?? true;
+    const _preferHighRating = settings?.preferHighRating ?? true;
 
     // 2. Получаем дату рождения пользователя для фильтрации контента
     const user = await prisma.user.findUnique({
@@ -341,7 +341,7 @@ export async function GET(req: Request) {
     sendProgress('sampling', 10, { totalItems: watchListItems.length });
     
     // Сначала применяем базовые фильтры, которые не требуют TMDB данных
-    const preFilteredItems = watchListItems.filter(item => {
+    const preFilteredItems = watchListItems.filter(_item => {
       // Базовая фильтрация по статусам (уже применена в запросе)
       return true; // Пока все элементы проходят базовую фильтрацию
     });

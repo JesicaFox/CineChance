@@ -21,7 +21,7 @@ interface TMDBMovieDetails {
   release_date: string;
 }
 
-interface CollectionProgress {
+interface _CollectionProgress {
   id: number;
   name: string;
   poster_path: string | null;

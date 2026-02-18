@@ -148,8 +148,8 @@ export async function GET(request: NextRequest) {
       const skip = 0;
       const take = Math.min(recordsNeeded, 500);
 
-      // Count total
-      const totalCount = await prisma.blacklist.count({ where: { userId } });
+      // Count total (for hidden tab - we don't use this but Prisma requires the query)
+      const _totalCount = await prisma.blacklist.count({ where: { userId } });
 
       // Get records
       const blacklistRecords = await prisma.blacklist.findMany({

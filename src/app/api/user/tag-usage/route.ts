@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get('limit');
     const statusesParam = searchParams.get('statuses');
     
-    const limit = limitParam ? parseInt(limitParam, 10) : 10;
+    const _limit = limitParam ? parseInt(limitParam, 10) : 10;
     
     const cacheKey = `user:${userId}:tag_usage:all:${statusesParam || 'default'}`;
 

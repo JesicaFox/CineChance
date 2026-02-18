@@ -131,8 +131,8 @@ export async function GET(request: NextRequest) {
       })
     };
 
-    // Считаем всего
-    const totalCount = await prisma.watchList.count({ where: whereClause });
+    // Считаем всего (для будущего использования)
+    const _totalCount = await prisma.watchList.count({ where: whereClause });
 
     // Получаем записи
     const watchListRecords = await prisma.watchList.findMany({
