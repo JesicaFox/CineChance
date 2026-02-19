@@ -87,7 +87,7 @@ export default function MovieCard({
     }[];
   } | null>(null);
 
-  const { checkBlacklist, isLoading: isBlacklistLoading } = useBlacklist();
+  const { checkBlacklist, isLoading: isBlacklistLoading, addToBlacklist, removeFromBlacklist } = useBlacklist();
 
   // Initialize isBlacklisted from context when it loads
   useEffect(() => {
@@ -376,8 +376,14 @@ export default function MovieCard({
       if (res.ok) {
         if (restoreView) {
           setIsRemoved(true);
+          removeFromBlacklist(movie.id);
         } else {
           setIsBlacklisted(targetState);
+          if (targetState) {
+            addToBlacklist(movie.id);
+          } else {
+            removeFromBlacklist(movie.id);
+          }
           setShowOverlay(false);
         }
       }

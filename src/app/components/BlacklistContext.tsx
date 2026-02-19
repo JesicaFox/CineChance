@@ -9,12 +9,16 @@ interface BlacklistContextType {
   blacklistedIds: Set<number>;
   isLoading: boolean;
   checkBlacklist: (tmdbId: number) => boolean;
+  addToBlacklist: (tmdbId: number) => void;
+  removeFromBlacklist: (tmdbId: number) => void;
 }
 
 const BlacklistContext = createContext<BlacklistContextType>({
   blacklistedIds: new Set(),
   isLoading: true,
   checkBlacklist: () => false,
+  addToBlacklist: () => {},
+  removeFromBlacklist: () => {},
 });
 
 export function BlacklistProvider({ children }: { children: ReactNode }) {
@@ -44,8 +48,24 @@ export function BlacklistProvider({ children }: { children: ReactNode }) {
     return blacklistedIds.has(tmdbId);
   };
 
+  const addToBlacklist = (tmdbId: number) => {
+    setBlacklistedIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(tmdbId);
+      return newSet;
+    });
+  };
+
+  const removeFromBlacklist = (tmdbId: number) => {
+    setBlacklistedIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(tmdbId);
+      return newSet;
+    });
+  };
+
   return (
-    <BlacklistContext.Provider value={{ blacklistedIds, isLoading, checkBlacklist }}>
+    <BlacklistContext.Provider value={{ blacklistedIds, isLoading, checkBlacklist, addToBlacklist, removeFromBlacklist }}>
       {children}
     </BlacklistContext.Provider>
   );
