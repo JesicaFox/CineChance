@@ -107,6 +107,18 @@ export async function GET(request: NextRequest) {
     const genresParam = searchParams.get('genres');
     const tagsParam = searchParams.get('tags');
 
+    console.log('[API DEBUG] Request params:', {
+      page,
+      limit,
+      typesParam,
+      yearFrom,
+      yearTo,
+      minRating,
+      maxRating,
+      genresParam: genresParam ? 'yes' : 'no',
+      tagsParam: tagsParam ? 'yes' : 'no'
+    });
+
     // Build where clause
     const whereClause: Record<string, unknown> = { userId };
 
@@ -319,6 +331,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Filter movies
+    console.log('[API DEBUG] Before filter:', moviesWithDetails.length, 'movies');
     const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
       if (!tmdbData) return false;
 
@@ -371,6 +384,8 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
+    console.log('[API DEBUG] After filter:', filteredMovies.length, 'movies');
+
     // Transform to output format
     const movies = filteredMovies.map(({ record, tmdbData, cineChanceData }) => {
       const cineChanceRating = cineChanceData?.averageRating || null;
@@ -417,6 +432,17 @@ export async function GET(request: NextRequest) {
     // hasMore: simple and reliable logic
     // If we fetched take=limit+1 and got limit+1 records, there's more data
     const hasMore = watchListRecords.length > limit;
+
+    console.log('[API DEBUG]', {
+      page,
+      limit,
+      watchListRecordsLength: watchListRecords.length,
+      sortedMoviesLength: sortedMovies.length,
+      paginatedMoviesLength: paginatedMovies.length,
+      hasMore,
+      pageStartIndex,
+      pageEndIndex
+    });
 
     return NextResponse.json({
       movies: paginatedMovies,
