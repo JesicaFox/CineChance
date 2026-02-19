@@ -120,6 +120,10 @@ model RecommendationSettings {
   includeWant        Boolean  @default(true)   // Включать список "Хочу посмотреть"
   includeWatched     Boolean  @default(true)   // Включать список "Уже просмотрено"
   includeDropped     Boolean  @default(false)  // Включать список "Брошено"
+  includeMovie       Boolean  @default(true)   // Включать фильмы
+  includeTv          Boolean  @default(true)   // Включать сериалы
+  includeAnime       Boolean  @default(true)   // Включать аниме
+  includeCartoon    Boolean  @default(true)   // Включать мультфильмы
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
