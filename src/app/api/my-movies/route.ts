@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
     // For filtered queries, fetch ALL records up to a reasonable limit
     // This ensures pagination works correctly after client-side filtering
     // When filters are applied, we need to fetch more because filtering happens client-side
-    const recordsNeeded = hasFilters ? 5000 : Math.min(Math.ceil(page * limit * 1.5) + 1, 500);
+    const recordsNeeded = hasFilters ? 1000 : Math.min(Math.ceil(page * limit * 1.5) + 1, 500);
     const skip = 0;
     const take = recordsNeeded;
 
