@@ -710,7 +710,12 @@ export async function GET(req: Request) {
           totalItems: initialCount,
           afterTypeFilter,
           afterAdditionalFilters: 0,
-          isSmallLibrary: initialCount <= 10
+          isSmallLibrary: initialCount <= 10,
+          suggestions: {
+            addMoreMovies: initialCount <= 5,
+            expandTypes: types.length > 0 && types.length < 3,
+            includeOtherLists: lists.length > 0 && lists.length < 3
+          }
         }
       });
     }

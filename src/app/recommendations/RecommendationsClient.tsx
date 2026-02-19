@@ -791,7 +791,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                   )}
 
                   {/* Состояние: Предложения */}
-                  {viewState === 'suggestions' && stats && (
+                  {viewState === 'suggestions' && stats && stats.suggestions && (
                     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center max-w-md mx-auto">
                       <div className="text-5xl mb-3">💡</div>
                       <h2 className="text-lg font-bold text-white mb-2">
@@ -868,7 +868,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                       
 
                       {/* Быстрые действия на основе статистики */}
-                      {stats && (
+                      {stats && stats.suggestions && (
                         <div className="bg-gray-800 rounded-lg p-4 mb-6 w-full">
                           <h3 className="text-sm font-semibold text-gray-300 mb-3">Быстрые действия:</h3>
                           <div className="flex gap-2 flex-wrap justify-center">
@@ -937,7 +937,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                           >
                             Изменить фильтры
                           </button>
-                          {stats?.suggestions.addMoreMovies && (
+                          {stats?.suggestions?.addMoreMovies && (
                             <button
                               onClick={() => router.push('/my-movies')}
                               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors text-sm font-medium"
