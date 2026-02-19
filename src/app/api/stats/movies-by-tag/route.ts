@@ -1,10 +1,12 @@
 // src/app/api/stats/movies-by-tag/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusNameById } from '@/lib/movieStatusConstants';
 import { rateLimit } from '@/middleware/rateLimit';
+import { logger } from '@/lib/logger';
 
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -15,7 +17,7 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
     return await res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -103,7 +105,7 @@ export async function GET(request: NextRequest) {
     const tagsArray = tagsParam ? tagsParam.split(',').filter(t => t.length > 0) : [];
 
     // Получаем фильмы с данным тегом
-    const whereClause: any = {
+    const whereClause: Record<string, unknown> = {
       tags: {
         some: {
           id: tagIdParam,
@@ -126,8 +128,8 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Считаем всего
-    const totalCount = await prisma.watchList.count({
+    // Считаем всего (для будущего использования)
+    const _totalCount = await prisma.watchList.count({
       where: whereClause,
     });
 
@@ -287,7 +289,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error fetching movies by tag:', error);
+    logger.error('Error fetching movies by tag', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Failed to fetch movies' }, { status: 500 });
   }
 }

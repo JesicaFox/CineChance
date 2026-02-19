@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Film } from 'lucide-react';
 import Loader from '@/app/components/Loader';
 import '@/app/profile/components/AchievementCards.css';
+import { logger } from '@/lib/logger';
 
 interface CollectionAchievement {
   id: number;
@@ -79,7 +80,7 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('API Error:', response.status, errorText);
+          logger.error('API Error', { status: response.status, errorText });
           throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
 
@@ -101,7 +102,7 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
           clearInterval(progressIntervalRef.current);
         }
         
-        console.error('Failed to fetch collections:', err);
+        logger.error('Failed to fetch collections', { error: err instanceof Error ? err.message : String(err) });
         
         // Детальная обработка ошибок
         let errorMessage = 'Не удалось загрузить коллекции';
@@ -236,7 +237,7 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
               const progress = collection.progress_percent || 0;
               
               // Базовый рейтинг качества (0-10) - главный фактор
-              let qualityScore = avgRating;
+              const qualityScore = avgRating;
               
               // Минимальный бонус за объем (только для разрешения ничьих)
               // 1 фильм = +0.03, 5 фильмов = +0.08, 10 фильмов = +0.1, 20 фильмов = +0.13
@@ -247,7 +248,7 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
               const progressBonus = (progress / 100) * 0.15;
               
               // Итоговый рейтинг - качество главное!
-              let finalScore = qualityScore + volumeBonus + progressBonus;
+              const finalScore = qualityScore + volumeBonus + progressBonus;
               
               // Ограничиваем диапазон 0-10
               return Math.max(0, Math.min(10, finalScore));
@@ -316,7 +317,7 @@ export default function CollectionsClient({ userId }: CollectionsClientProps) {
           saturate = Math.max(0.1, Math.min(2.5, saturate));
           
           // Отладочная информация
-          console.log(`Collection ${collection.name}: progress=${progress}%, grayscale=${grayscale}%, saturate=${saturate}`);
+          logger.debug('Collection progress', { name: collection.name, progress, grayscale, saturate });
           
           const isImageLoaded = loadedImages.has(collection.id);
           

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -20,7 +21,7 @@ interface TMDBMovieDetails {
   release_date: string;
 }
 
-interface CollectionProgress {
+interface _CollectionProgress {
   id: number;
   name: string;
   poster_path: string | null;
@@ -48,7 +49,7 @@ async function fetchMovieWithCollection(tmdbId: number): Promise<TMDBMovieDetail
     }
 
     return await response.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -71,7 +72,7 @@ async function fetchCollectionMovies(collectionId: number): Promise<number[]> {
 
     const data = await response.json();
     return (data.parts || []).map((movie: { id: number }) => movie.id);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -197,11 +198,11 @@ export async function GET(request: Request) {
           const watchedMovies = collection.watched_movies || 0;
           const progress = collection.progress_percent || 0;
           
-          let qualityScore = avgRating;
+          const qualityScore = avgRating;
           const volumeBonus = Math.log10(Math.max(1, watchedMovies)) * 0.05;
           const progressBonus = (progress / 100) * 0.15;
           
-          let finalScore = qualityScore + volumeBonus + progressBonus;
+          const finalScore = qualityScore + volumeBonus + progressBonus;
           
           return Math.max(0, Math.min(10, finalScore));
         };

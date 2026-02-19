@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
 
 interface ActorAchievement {
   id: number;
@@ -44,7 +45,7 @@ export default function ProfileActors() {
           setActors((data.actors || []).slice(0, 5));
         }
       } catch (error) {
-        console.error('Error loading actors:', error);
+        logger.error('Error loading actors', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoading(false);
       }

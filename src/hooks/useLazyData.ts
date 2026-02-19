@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 /**
  * Хук для поочередной (lazy) загрузки данных
@@ -10,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  */
 export function useLazyData<T>(
   fetcher: () => Promise<T>,
-  dependencies: unknown[] = [],
+  _dependencies: any[] = [],
   options: IntersectionObserverInit = { rootMargin: '200px', threshold: 0.01 }
 ) {
   const [data, setData] = useState<T | null>(null);
@@ -86,7 +87,7 @@ export function useLazyData<T>(
  */
 export function useSequentialLoad<T>(
   items: T[],
-  fetcher: (item: T, index: number) => Promise<T>,
+  fetcher: (_item: T, _index: number) => Promise<T>,
   options: { delay?: number; batchSize?: number } = { delay: 100, batchSize: 2 }
 ) {
   const { delay = 100, batchSize = 2 } = options;
@@ -101,7 +102,6 @@ export function useSequentialLoad<T>(
     const processItems = async () => {
       setLoading(true);
       
-      let delayBetween = 0;
       let loadedInBatch = 0;
 
       for (let i = 0; i < items.length; i++) {
@@ -122,7 +122,7 @@ export function useSequentialLoad<T>(
           });
           loadedInBatch++;
         } catch (error) {
-          console.error('Failed to load item:', i, error);
+          logger.error('Failed to load item', { index: i, error: error instanceof Error ? error.message : String(error) });
         }
       }
 

@@ -1,10 +1,12 @@
 // src/app/api/collection/[id]/route.ts
+
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import type { TMDbCollectionPart } from '@/lib/tmdb';
 
 export async function GET(
   req: Request,
@@ -63,7 +65,7 @@ export async function GET(
 
     // Получаем все watchlist статусы пользователя одним запросом
     // Оптимизировано: используем select вместо include
-    let watchlistMap: Map<string, { status: string | null; userRating: number | null }> = new Map();
+    const watchlistMap: Map<string, { status: string | null; userRating: number | null }> = new Map();
     if (userId) {
       const watchlist = await prisma.watchList.findMany({
         where: { userId },
@@ -84,12 +86,12 @@ export async function GET(
     }
 
     // Формируем данные о фильмах
-    const moviesWithStatus = (data.parts || []).map((movie: any) => {
+    const moviesWithStatus = (data.parts || []).map((movie: TMDbCollectionPart) => {
       const watchlistKey = `movie_${movie.id}`;
       const watchlistData = watchlistMap.get(watchlistKey);
       const isBlacklisted = blacklistedIds.has(movie.id);
 
-      const movieData: any = {
+      const movieData: Record<string, unknown> = {
         id: movie.id,
         media_type: 'movie',
         title: movie.title,

@@ -56,7 +56,7 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     const res = await fetch(url, { next: { revalidate: 86400 } });
     if (!res.ok) return null;
     return await res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     const cacheKey = `user:${userId}:genres:all:${statusesParam || 'default'}`;
 
     const fetchGenres = async () => {
-      let whereClause: any = { userId };
+      const whereClause: Record<string, unknown> = { userId };
       
       // По умолчанию включаем все значимые статусы для статистики
       if (!statusesParam) {

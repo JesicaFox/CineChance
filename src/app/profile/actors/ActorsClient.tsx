@@ -8,6 +8,7 @@ import { Users } from 'lucide-react';
 import ImageWithProxy from '@/app/components/ImageWithProxy';
 import Loader from '@/app/components/Loader';
 import '@/app/profile/components/AchievementCards.css';
+import { logger } from '@/lib/logger';
 
 interface ActorAchievement {
   id: number;
@@ -97,7 +98,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
 
         const data = await response.json();
         
-        console.log('Actors API response:', data);
+        logger.debug('Actors API response', { data });
         
         // Останавливаем анимацию прогресса
         if (progressIntervalRef.current) {
@@ -105,11 +106,11 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         }
 
         const actorsData = data.actors || [];
-        console.log('Actors data received:', actorsData.length);
+        logger.debug('Actors data received', { count: actorsData.length });
         
         // Выводим информацию о прогрессе для отладки
         actorsData.forEach((actor: any, index: number) => {
-          console.log(`Actor ${index + 1}: ${actor.name} - watched: ${actor.watched_movies}, total: ${actor.total_movies}, progress: ${actor.progress_percent}%`);
+          logger.debug('Actor progress', { index: index + 1, name: actor.name, watched: actor.watched_movies, total: actor.total_movies, progress: actor.progress_percent });
         });
 
         setActors(actorsData.slice(0, DISPLAY_COUNT));
@@ -126,7 +127,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         // Детальная обработка ошибок
         let errorMessage = 'Не удалось загрузить актеров. Попробуйте позже.';
         if (err instanceof Error) {
-          console.error('Actors loading error:', err);
+          logger.error('Actors loading error', { error: err instanceof Error ? err.message : String(err) });
           if (err.name === 'AbortError') {
             errorMessage = 'Загрузка занимает слишком много времени. У вас много просмотренных фильмов, поэтому требуется больше времени. Попробуйте обновить страницу.';
           } else if (err.message.includes('API Error')) {

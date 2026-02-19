@@ -1,4 +1,5 @@
 // src/app/components/MovieGridServer.tsx
+ 
 import LazyMovieCard from './LazyMovieCard';
 import { fetchTrendingMovies } from '@/lib/tmdb';
 import { getServerSession } from 'next-auth';

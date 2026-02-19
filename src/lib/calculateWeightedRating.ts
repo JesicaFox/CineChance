@@ -1,4 +1,25 @@
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+
+/**
+ * Calculation detail interface for weighted rating details
+ */
+interface CalculationDetail {
+  index: number;
+  rating: number;
+  actionType: string;
+  weight: number;
+  weightedValue: number;
+}
+
+/**
+ * Type for calculation details returned from weighted rating
+ */
+type CalculationDetails = 
+  | { error: string; hasRecord?: boolean; userRating?: number | null }
+  | { method: 'no_history'; finalRating: number; historyLength: number }
+  | { method: 'weighted_average'; weightedSum: number; totalWeight: number; finalRating: number; originalRating: number; calculations: CalculationDetail[]; historyLength: number }
+  | { method: 'fallback_zero_weight'; finalRating: number; totalWeight: number };
 
 /**
  * Весовая функция для оценки в зависимости от порядка и типа
@@ -19,7 +40,7 @@ export async function calculateWeightedRating(
   userId: string,
   tmdbId: number,
   mediaType: string
-): Promise<{ weightedRating: number | null; totalReviews: number; calculationDetails: any }> {
+): Promise<{ weightedRating: number | null; totalReviews: number; calculationDetails: CalculationDetails }> {
   try {
     // Получаем текущую запись
     const currentRecord = await prisma.watchList.findUnique({
@@ -80,13 +101,6 @@ export async function calculateWeightedRating(
     // Расчет взвешенной оценки
     let weightedSum = 0;
     let totalWeight = 0;
-    interface CalculationDetail {
-      index: number;
-      rating: number;
-      actionType: string;
-      weight: number;
-      weightedValue: number;
-    }
     const calculations: CalculationDetail[] = [];
 
     ratingHistory.forEach((review, index) => {
@@ -133,7 +147,7 @@ export async function calculateWeightedRating(
     };
 
   } catch (error) {
-    console.error('Error calculating weighted rating:', error);
+    logger.error('Error calculating weighted rating', { error: error instanceof Error ? error.message : String(error) });
     return {
       weightedRating: null,
       totalReviews: 0,

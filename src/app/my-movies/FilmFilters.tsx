@@ -78,7 +78,7 @@ export default function FilmFilters({
   };
 
   const handleSortChange = (key: keyof SortState, value: string) => {
-    const newSort = { ...sort, [key]: value as any };
+    const newSort = { ...sort, [key]: value as unknown };
     setSort(newSort);
     if (onSortChange) {
       onSortChange(newSort);

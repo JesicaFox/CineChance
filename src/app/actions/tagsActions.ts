@@ -1,6 +1,7 @@
 // src/app/actions/tagsActions.ts
 'use server';
 
+
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
@@ -272,7 +273,7 @@ export async function searchUserTags(
 export async function getMoviesByTags(
   tagIds: string[],
   statusId?: number
-): Promise<{ success: boolean; data?: any[]; error?: string }> {
+): Promise<{ success: boolean; data?: Record<string, unknown>[]; error?: string }> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -281,7 +282,7 @@ export async function getMoviesByTags(
 
     const userId = session.user.id as string;
 
-    const whereClause: any = {
+    const whereClause: Record<string, unknown> = {
       userId,
       tags: { some: { id: { in: tagIds } } },
     };

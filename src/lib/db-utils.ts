@@ -20,7 +20,7 @@ export function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 export async function processInChunks<T, R>(
   items: T[],
   chunkSize: number,
-  processor: (chunk: T[]) => Promise<R>,
+  processor: (_chunk: T[]) => Promise<R>,
   parallelChunks: number = 1
 ): Promise<R[]> {
   const chunks = chunkArray(items, chunkSize);
@@ -40,7 +40,7 @@ export async function processInChunks<T, R>(
  * Используется для определения типа callback в транзакциях
  */
 export type PrismaTransaction<T = unknown> = (
-  tx: Omit<
+  _tx: Omit<
     PrismaClient,
     '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
   >

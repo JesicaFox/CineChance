@@ -59,11 +59,7 @@ const MoviePosterProxy = memo(({
 
       // Проверяем если изображение уже полностью загружено (в браузерном кэше)
       if (img.complete && img.naturalHeight > 0) {
-        console.log('Image fully loaded from browser cache:', movie.id, {
-          complete: img.complete,
-          naturalHeight: img.naturalHeight,
-          currentSrc: img.currentSrc?.substring(0, 50)
-        });
+        logger.debug('Image loaded from browser cache', { movieId: movie.id, complete: img.complete, naturalHeight: img.naturalHeight });
         
         // Принудительно устанавливаем loaded state для кэшированных изображений
         handleImageLoad();
@@ -82,7 +78,7 @@ const MoviePosterProxy = memo(({
     
     const timer = setTimeout(() => {
       if (isLoading && !imageLoaded) {
-        console.log('Slow loading warning for:', movie.id, 'retryCount:', retryCount);
+        logger.warn('Slow loading warning', { movieId: movie.id, retryCount });
         setShowSlowLoadingWarning(true);
       }
     }, 3000);
@@ -111,11 +107,10 @@ const MoviePosterProxy = memo(({
   };
 
   const handleImageLoad = () => {
-    console.log('Image onLoad fired:', movie.id, { retryCount });
+    logger.debug('Image onLoad fired', { movieId: movie.id, retryCount });
     setImageLoaded(true);
     setIsLoading(false);
     setShowSlowLoadingWarning(false);
-    logger.info('Poster loaded successfully (proxy)', { tmdbId: movie.id, retryCount });
   };
 
   // Генерируем URL через наш прокси

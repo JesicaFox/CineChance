@@ -8,6 +8,7 @@ import LoaderSkeleton from './LoaderSkeleton';
 import Loader from './Loader';
 import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from '@/app/my-movies/FilmFilters';
 import { Media } from '@/lib/tmdb';
+import { logger } from '@/lib/logger';
 
 export interface FilmGridWithFiltersProps {
   /** Функция для загрузки фильмов. Должна вернуть {movies, hasMore} */
@@ -145,10 +146,25 @@ export default function FilmGridWithFilters({
         const data = await fetchMovies(page, filters);
         const newMovies = data.movies || [];
 
+        console.log('[FilmGrid DEBUG]', {
+          page,
+          newMoviesCount: newMovies.length,
+          hasMore: data.hasMore,
+          sampleMovie: newMovies[0] ? { id: newMovies[0].id, title: newMovies[0].title } : null
+        });
+
         if (page === 1) {
           setMovies(newMovies);
         } else {
-          setMovies((prev) => [...prev, ...newMovies]);
+          setMovies((prev) => {
+            const combined = [...prev, ...newMovies];
+            console.log('[FilmGrid SETMOVIES]', {
+              prevCount: prev.length,
+              newCount: newMovies.length,
+              combinedCount: combined.length
+            });
+            return combined;
+          });
         }
 
         setHasMore(data.hasMore || false);
@@ -201,7 +217,7 @@ export default function FilmGridWithFilters({
         setIsLoading(false);
         setHasInitialLoaded(true);
       } catch (err) {
-        console.error('Failed to fetch movies:', err);
+        logger.error('Failed to fetch movies', { error: err instanceof Error ? err.message : String(err) });
         setError(err instanceof Error ? err.message : 'An error occurred');
         setMovies([]);
         setIsLoading(false);
@@ -280,7 +296,7 @@ export default function FilmGridWithFilters({
           {/* Сетка фильмов */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
             {movies.map((movie, index) => (
-              <div key={`${movie.id}-${movie.media_type}-${index}`} className="p-1">
+              <div key={`${movie.id || 'unknown'}-${movie.media_type || 'unknown'}-${index}`} className="p-1">
                 <MovieCardErrorBoundary>
                   <MovieCard
                     movie={movie}

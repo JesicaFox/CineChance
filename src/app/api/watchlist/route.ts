@@ -1,4 +1,5 @@
 // src/app/api/watchlist/route.ts
+ 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from "@/auth";
@@ -175,7 +176,7 @@ export async function POST(req: Request) {
         weightedValue = weightedResult.weightedRating;
         
         // Debug логирование для понимания проблемы
-        console.log('Weighted Rating Debug:', {
+        logger.debug('Weighted Rating Debug', {
           userId: session.user.id,
           tmdbId,
           mediaType,
@@ -253,7 +254,7 @@ export async function POST(req: Request) {
         weightedValue = weightedResult.weightedRating;
         
         // Debug логирование для понимания проблемы
-        console.log('Weighted Rating Debug (REWATCH):', {
+        logger.debug('Weighted Rating Debug (REWATCH)', {
           userId: session.user.id,
           tmdbId,
           mediaType,
@@ -379,7 +380,7 @@ export async function POST(req: Request) {
       weightedValue = weightedResult.weightedRating;
       
       // Debug логирование для понимания проблемы
-      console.log('Weighted Rating Debug (POST):', {
+      logger.debug('Weighted Rating Debug (POST)', {
         userId: session.user.id,
         tmdbId,
         mediaType,

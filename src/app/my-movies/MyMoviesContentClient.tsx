@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 const RatingModal = dynamic(() => import('../components/RatingModal'), { ssr: false });
 import FilmGridWithFilters, { FilmGridFilters } from '@/app/components/FilmGridWithFilters';
 import { Media } from '@/lib/tmdb';
+import { logger } from '@/lib/logger';
+import { BlacklistProvider } from '../components/BlacklistContext';
 
 interface MyMoviesContentClientProps {
   userId: string;
@@ -59,7 +61,7 @@ export default function MyMoviesContentClient({
           setAvailableGenres(genresData.genres || []);
         }
       } catch (error) {
-        console.error('Error fetching genres:', error);
+        logger.error('Error fetching genres', { error: error instanceof Error ? error.message : String(error) });
       }
 
       try {
@@ -73,7 +75,7 @@ export default function MyMoviesContentClient({
           })));
         }
       } catch (error) {
-        console.error('Error fetching tags:', error);
+        logger.error('Error fetching tags', { error: error instanceof Error ? error.message : String(error) });
       }
     };
 
@@ -90,7 +92,7 @@ export default function MyMoviesContentClient({
         setShowWatchedPopup(true);
         sessionStorage.removeItem('recommendationAccepted');
       } catch (e) {
-        console.error('Error parsing recommendation data:', e);
+        logger.error('Error parsing recommendation data', { error: e instanceof Error ? e.message : String(e) });
       }
     }
   }, []);
@@ -106,7 +108,7 @@ export default function MyMoviesContentClient({
         body: JSON.stringify({ action }),
       });
     } catch (err) {
-      console.error('Error logging recommendation action:', err);
+      logger.error('Error logging recommendation action', { error: err instanceof Error ? err.message : String(err) });
     }
   };
 
@@ -155,7 +157,7 @@ export default function MyMoviesContentClient({
       const newCounts = await countsRes.json();
       setCurrentCounts(newCounts);
     } catch (error) {
-      console.error('Error updating watch status:', error);
+        logger.error('Error updating watch status', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setShowRatingModal(false);
       setAcceptedRecommendation(null);
@@ -236,7 +238,7 @@ export default function MyMoviesContentClient({
           hasMore: data.hasMore || false,
         };
       } catch (error) {
-        console.error('Error fetching movies:', error);
+        logger.error('Error fetching movies', { error: error instanceof Error ? error.message : String(error) });
         return { movies: [], hasMore: false };
       }
     },
@@ -341,29 +343,31 @@ export default function MyMoviesContentClient({
           })}
         </div>
 
-        <FilmGridWithFilters
-          fetchMovies={fetchMovies}
-          availableGenres={availableGenres}
-          userTags={userTags}
-          showRatingBadge={true}
-          getInitialRating={(movie) => (movie as any).userRating}
-          getInitialStatus={(movie) => {
-            const statusName = (movie as any).statusName;
-            if (statusName === 'Пересмотрено') return 'rewatched';
-            if (statusName === 'Просмотрено') return 'watched';
-            if (statusName === 'Хочу посмотреть') return 'want';
-            if (statusName === 'Брошено') return 'dropped';
-            return initialStatus;
-          }}
-          getInitialIsBlacklisted={(movie) => (movie as any).isBlacklisted === true}
-          restoreView={isRestoreView}
-          initialStatus={initialStatus}
-          emptyMessage={
-            isRestoreView
-              ? 'Добавляйте фильмы в черный список на главной странице'
-              : 'В этом списке пока ничего нет'
-          }
-        />
+        <BlacklistProvider>
+          <FilmGridWithFilters
+            fetchMovies={fetchMovies}
+            availableGenres={availableGenres}
+            userTags={userTags}
+            showRatingBadge={true}
+            getInitialRating={(movie) => (movie as any).userRating}
+            getInitialStatus={(movie) => {
+              const statusName = (movie as any).statusName;
+              if (statusName === 'Пересмотрено') return 'rewatched';
+              if (statusName === 'Просмотрено') return 'watched';
+              if (statusName === 'Хочу посмотреть') return 'want';
+              if (statusName === 'Брошено') return 'dropped';
+              return initialStatus;
+            }}
+            getInitialIsBlacklisted={(movie) => (movie as any).isBlacklisted === true}
+            restoreView={isRestoreView}
+            initialStatus={initialStatus}
+            emptyMessage={
+              isRestoreView
+                ? 'Добавляйте фильмы в черный список на главной странице'
+                : 'В этом списке пока ничего нет'
+            }
+          />
+        </BlacklistProvider>
       </div>
     </div>
   );

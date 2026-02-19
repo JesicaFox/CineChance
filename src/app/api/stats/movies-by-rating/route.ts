@@ -1,10 +1,12 @@
 // src/app/api/stats/movies-by-rating/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusNameById } from '@/lib/movieStatusConstants';
 import { rateLimit } from '@/middleware/rateLimit';
+import { logger } from '@/lib/logger';
 
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -15,7 +17,7 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
     return await res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
     const genresParam = searchParams.get('genres');
     const tagsParam = searchParams.get('tags');
 
-    console.log('movies-by-rating params:', {
+    logger.debug('movies-by-rating params', {
       ratingParam,
       showMoviesParam,
       showTvParam,
@@ -129,8 +131,8 @@ export async function GET(request: NextRequest) {
       })
     };
 
-    // Считаем всего
-    const totalCount = await prisma.watchList.count({ where: whereClause });
+    // Считаем всего (для будущего использования)
+    const _totalCount = await prisma.watchList.count({ where: whereClause });
 
     // Получаем записи
     const watchListRecords = await prisma.watchList.findMany({
@@ -284,7 +286,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error fetching movies by rating:', error);
+    logger.error('Error fetching movies by rating', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Failed to fetch movies' }, { status: 500 });
   }
 }

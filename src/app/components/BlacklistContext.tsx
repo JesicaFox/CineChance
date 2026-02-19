@@ -1,7 +1,9 @@
 // src/app/components/BlacklistContext.tsx
 'use client';
+ 
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { logger } from '@/lib/logger';
 
 interface BlacklistContextType {
   blacklistedIds: Set<number>;
@@ -29,7 +31,7 @@ export function BlacklistProvider({ children }: { children: ReactNode }) {
           setBlacklistedIds(new Set(ids));
         }
       } catch (error) {
-        console.error('Failed to fetch blacklist', error);
+        logger.error('Failed to fetch blacklist', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoading(false);
       }

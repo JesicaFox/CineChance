@@ -1,4 +1,5 @@
 // src/app/api/watchlist/count/route.ts
+ 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ count });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ count: 0 });
   }
 }

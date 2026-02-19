@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import FilmGridWithFilters, { FilmGridFilters } from '@/app/components/FilmGridWithFilters';
+import { logger } from '@/lib/logger';
 
 interface RatingDetailClientProps {
   userId: string;
@@ -26,7 +27,7 @@ export default function RatingDetailClient({ userId, rating }: RatingDetailClien
           setAvailableGenres(genresData.genres || []);
         }
       } catch (error) {
-        console.error('Error fetching genres:', error);
+        logger.error('Error fetching genres', { error: error instanceof Error ? error.message : String(error) });
       }
 
       try {
@@ -40,7 +41,7 @@ export default function RatingDetailClient({ userId, rating }: RatingDetailClien
           })));
         }
       } catch (error) {
-        console.error('Error fetching tags:', error);
+        logger.error('Error fetching tags', { error: error instanceof Error ? error.message : String(error) });
       }
     };
 
@@ -95,7 +96,7 @@ export default function RatingDetailClient({ userId, rating }: RatingDetailClien
           hasMore: data.pagination?.hasMore || false,
         };
       } catch (error) {
-        console.error('Error fetching movies:', error);
+        logger.error('Error fetching movies', { error: error instanceof Error ? error.message : String(error) });
         return { movies: [], hasMore: false };
       }
     },

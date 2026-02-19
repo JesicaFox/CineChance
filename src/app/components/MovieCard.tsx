@@ -1,5 +1,6 @@
 // src/app/components/MovieCard.tsx
 'use client';
+ 
 
 import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
 import Image from 'next/image';

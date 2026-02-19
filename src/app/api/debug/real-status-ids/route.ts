@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -17,11 +19,11 @@ export async function GET(request: NextRequest) {
       ORDER BY id
     `;
 
-    console.log('Реальные статусы в базе:', statuses);
+    logger.debug('Real statuses in database', { statuses });
 
     // Считаем количество записей по каждому реальному статусу
     const counts = await Promise.all(
-      (statuses as any[]).map(async (status: any) => {
+      (statuses as unknown[]).map(async (status: any) => {
         const count = await prisma.watchList.count({
           where: {
             userId: session.user.id,
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     // Получаем несколько записей для каждого статуса
     const sampleRecords = await Promise.all(
-      (statuses as any[]).map(async (status: any) => {
+      (statuses as unknown[]).map(async (status: any) => {
         const records = await prisma.watchList.findMany({
           where: {
             userId: session.user.id,
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Error checking real status IDs:', error);
+    logger.error('Error checking real status IDs', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to check status IDs', details: error.message }, 
       { status: 500 }

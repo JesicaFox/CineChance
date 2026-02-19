@@ -5,6 +5,7 @@ import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
+import { logger } from '@/lib/logger';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -26,7 +27,7 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     
     if (!res.ok) return null;
     return await res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -106,8 +107,20 @@ export async function GET(request: NextRequest) {
     const genresParam = searchParams.get('genres');
     const tagsParam = searchParams.get('tags');
 
+    console.log('[API DEBUG] Request params:', {
+      page,
+      limit,
+      typesParam,
+      yearFrom,
+      yearTo,
+      minRating,
+      maxRating,
+      genresParam: genresParam ? 'yes' : 'no',
+      tagsParam: tagsParam ? 'yes' : 'no'
+    });
+
     // Build where clause
-    const whereClause: any = { userId };
+    const whereClause: Record<string, unknown> = { userId };
 
     if (statusNameParam) {
       const statusNames = statusNameParam.split(',');
@@ -127,19 +140,6 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Calculate records to load based on filters
-    const hasTypeFilters = typesParam && typesParam !== 'all' && typesParam.split(',').length < 4;
-    const hasOtherFilters = genresParam || yearFrom || yearTo || (minRating > 0 || maxRating < 10);
-    
-    // Load enough records to handle in-memory filtering, but at least 50 for efficiency
-    let recordsToLoadPerPage = limit;
-    if (hasTypeFilters) {
-      recordsToLoadPerPage = Math.max(limit * 5, 50); // 5x for type filters
-    } else if (hasOtherFilters) {
-      recordsToLoadPerPage = Math.max(limit * 2, 50); // 2x for other filters  
-    }
-    recordsToLoadPerPage = Math.min(recordsToLoadPerPage, 500);
-
     if (includeHidden) {
       // For hidden tab, we use blacklist
       // Load enough to fill current page with buffer
@@ -147,8 +147,8 @@ export async function GET(request: NextRequest) {
       const skip = 0;
       const take = Math.min(recordsNeeded, 500);
 
-      // Count total
-      const totalCount = await prisma.blacklist.count({ where: { userId } });
+      // Count total (for hidden tab - we don't use this but Prisma requires the query)
+      const _totalCount = await prisma.blacklist.count({ where: { userId } });
 
       // Get records
       const blacklistRecords = await prisma.blacklist.findMany({
@@ -278,20 +278,23 @@ export async function GET(request: NextRequest) {
     }
 
     // For regular tabs (watched, wantToWatch, dropped)
-    // First count total
-    const totalCount = await prisma.watchList.count({ where: whereClause });
-
-    // Simple pagination: load exactly 'limit' records
-    const skip = (page - 1) * limit;
+    // Load enough records to fill current page with buffer for filtering
+    // We need to fetch from start because filtering happens after getting TMDB data
+    const hasFilters = (
+      (typesParam && typesParam !== 'all' && typesParam.trim() !== '') ||
+      (yearFrom || yearTo) ||
+      (minRating > 0 || maxRating < 10) ||
+      (genresParam)
+    );
     
-    // Check if we've reached the end
-    if (skip >= totalCount) {
-      return NextResponse.json({
-        movies: [],
-        hasMore: false,
-        totalCount,
-      });
-    }
+    // For filtered queries, fetch ALL records up to a reasonable limit
+    // This ensures pagination works correctly after client-side filtering
+    // When filters are applied, we need to fetch more because filtering happens client-side
+    const recordsNeeded = hasFilters ? 1000 : Math.min(Math.ceil(page * limit * 1.5) + 1, 500);
+    const skip = 0;
+    const take = recordsNeeded;
+
+    console.log('[API DEBUG] Pagination strategy:', { page, limit, hasFilters, recordsNeeded, skip, take });
 
     const watchListRecords = await prisma.watchList.findMany({
       where: whereClause,
@@ -309,7 +312,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
       skip,
-      take: recordsToLoadPerPage,
+      take,
     });
 
     // Early exit if no records
@@ -342,6 +345,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Filter movies
+    console.log('[API DEBUG] Before filter:', moviesWithDetails.length, 'movies');
     const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
       if (!tmdbData) return false;
 
@@ -394,6 +398,8 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
+    console.log('[API DEBUG] After filter:', filteredMovies.length, 'movies');
+
     // Transform to output format
     const movies = filteredMovies.map(({ record, tmdbData, cineChanceData }) => {
       const cineChanceRating = cineChanceData?.averageRating || null;
@@ -437,8 +443,20 @@ export async function GET(request: NextRequest) {
     const pageEndIndex = pageStartIndex + limit;
     const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
     
-    // hasMore: true if there are more filtered movies
-    const hasMore = sortedMovies.length > pageEndIndex;
+    // hasMore: Check if more movies exist in filtered result OR if we loaded full batch from DB
+    const hasMore = sortedMovies.length > pageEndIndex || watchListRecords.length === recordsNeeded;
+
+    console.log('[API DEBUG]', {
+      page,
+      limit,
+      recordsNeeded,
+      watchListRecordsLength: watchListRecords.length,
+      sortedMoviesLength: sortedMovies.length,
+      paginatedMoviesLength: paginatedMovies.length,
+      hasMore,
+      pageStartIndex,
+      pageEndIndex
+    });
 
     return NextResponse.json({
       movies: paginatedMovies,
@@ -446,7 +464,7 @@ export async function GET(request: NextRequest) {
       totalCount: sortedMovies.length,
     });
   } catch (error) {
-    console.error('Error fetching my movies:', error);
+    logger.error('Error fetching my movies', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -607,7 +625,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
-    console.error('Error in my-movies POST:', error);
+    logger.error('Error in my-movies POST', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

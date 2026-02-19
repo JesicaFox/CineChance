@@ -1,10 +1,10 @@
 // Simple project logger used only for network/retry flows
 // This file is intentionally the only place in `src/` that uses raw `console`.
 export const networkLogger = {
-  debug: (...args: unknown[]) => console.debug('[NETWORK_RETRY]', ...args),
-  info: (...args: unknown[]) => console.info('[NETWORK_RETRY]', ...args),
-  warn: (...args: unknown[]) => console.warn('[NETWORK_RETRY]', ...args),
-  error: (...args: unknown[]) => console.error('[NETWORK_RETRY]', ...args),
+  debug: (...args: any[]) => console.debug('[NETWORK_RETRY]', ...args),
+  info: (...args: any[]) => console.info('[NETWORK_RETRY]', ...args),
+  warn: (...args: any[]) => console.warn('[NETWORK_RETRY]', ...args),
+  error: (...args: any[]) => console.error('[NETWORK_RETRY]', ...args),
 };
 
 export default networkLogger;
@@ -76,7 +76,7 @@ export class Logger {
   private _log(level: LogLevel, msg: string, ...args: any[]) {
     const formatted = format(level, msg, this.context);
     if (this.output === 'console') {
-      // eslint-disable-next-line no-console
+       
       if (level === 'error') console.error(formatted, ...args);
       else if (level === 'warn') console.warn(formatted, ...args);
       else if (level === 'info') console.info(formatted, ...args);
@@ -94,7 +94,7 @@ export const logger = new Logger();
  * Централизованный сбор ошибок для ErrorBoundary и асинхронных ошибок.
  * Можно расширить для отправки ошибок во внешний сервис.
  */
-export function logError(context: string, error: unknown, errorInfo?: unknown) {
+export function logError(context: string, error: any, errorInfo?: any) {
   if (error instanceof Error) {
     logger.error(`[${context}] ${error.message}`, error.stack, errorInfo);
   } else {

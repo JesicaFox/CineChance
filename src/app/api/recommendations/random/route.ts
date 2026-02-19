@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -40,7 +40,7 @@ function formatRecLog(requestId: string, endpoint: string, userId: string, actio
 
 // Константы алгоритма
 const RECOMMENDATION_COOLDOWN_DAYS = 7;
-const MIN_RATING_THRESHOLD = 6.5;
+const _MIN_RATING_THRESHOLD = 6.5;
 
 // Функция для отправки прогресса (если доступно)
 function sendProgress(stage: string, progress: number, details?: any) {
@@ -60,7 +60,7 @@ interface FilterParams {
   tags?: string[];
 }
 
-interface AdditionalFilters {
+interface _AdditionalFilters {
   minRating: number;
   yearFrom: string;
   yearTo: string;
@@ -85,7 +85,7 @@ function parseFilterParams(url: URL): FilterParams {
   if (typesParam) {
     const requestedTypes = typesParam.split(',') as ContentType[];
     // Валидируем и нормализуем
-    types = requestedTypes.filter(t => ['movie', 'tv', 'anime'].includes(t));
+    types = requestedTypes.filter(t => ['movie', 'tv', 'anime', 'cartoon'].includes(t));
   }
 
   // Парсим списки
@@ -117,6 +117,23 @@ function isAnime(tmdbData: any): boolean {
     tmdbData.genres?.some((g: any) => g.id === 16));
   const isJapanese = tmdbData.original_language === 'ja';
   return isAnimation && isJapanese;
+}
+
+/**
+ * Проверка является ли фильм мультфильмом (не аниме)
+ * Мультфильмы - это анимационные фильмы НЕ японского происхождения
+ */
+function isCartoon(tmdbData: any): boolean {
+  let hasAnimationGenre = false;
+  
+  if (Array.isArray(tmdbData.genre_ids)) {
+    hasAnimationGenre = tmdbData.genre_ids.includes(16);
+  } else if (Array.isArray(tmdbData.genres)) {
+    hasAnimationGenre = tmdbData.genres.some((g: any) => g.id === 16);
+  }
+  
+  // Мультфильмы: есть жанр анимации (16) И НЕ японский язык
+  return hasAnimationGenre && tmdbData.original_language !== 'ja';
 }
 
 /**
@@ -215,6 +232,7 @@ function createFiltersSnapshot(
       movie: types.includes('movie'),
       tv: types.includes('tv'),
       anime: types.includes('anime'),
+      cartoon: types.includes('cartoon'),
     },
     lists: {
       want: lists.includes('want'),
@@ -281,7 +299,7 @@ export async function GET(req: Request) {
       where: { userId },
     });
 
-    const preferHighRating = settings?.preferHighRating ?? true;
+    const _preferHighRating = settings?.preferHighRating ?? true;
 
     // 2. Получаем дату рождения пользователя для фильтрации контента
     const user = await prisma.user.findUnique({
@@ -341,7 +359,7 @@ export async function GET(req: Request) {
     sendProgress('sampling', 10, { totalItems: watchListItems.length });
     
     // Сначала применяем базовые фильтры, которые не требуют TMDB данных
-    let preFilteredItems = watchListItems.filter(item => {
+    const preFilteredItems = watchListItems.filter(_item => {
       // Базовая фильтрация по статусам (уже применена в запросе)
       return true; // Пока все элементы проходят базовую фильтрацию
     });
@@ -411,7 +429,7 @@ export async function GET(req: Request) {
             }
             
             // Сначала проверяем кэш
-            let details = getCachedMediaDetails(item.tmdbId, item.mediaType);
+            let details: any = getCachedMediaDetails(item.tmdbId, item.mediaType);
             
             if (!details) {
               // Если в кэше нет, запрашиваем из TMDB
@@ -423,11 +441,13 @@ export async function GET(req: Request) {
             }
             
             // Фильтруем взрослый контент
-            if (filterAdult && details?.adult) {
+            const detailsObj = details as Record<string, unknown> | null;
+            if (filterAdult && detailsObj?.adult) {
               return {
                 tmdbId: item.tmdbId,
                 mediaType: item.mediaType,
                 isAnime: false,
+                isCartoon: false,
                 originalLanguage: null,
                 genreIds: [] as number[],
                 release_date: null,
@@ -440,13 +460,14 @@ export async function GET(req: Request) {
             return {
               tmdbId: item.tmdbId,
               mediaType: item.mediaType,
-              isAnime: details ? isAnime(details) : false,
-              originalLanguage: details?.original_language,
-              genreIds: details?.genres?.map((g: any) => g.id) || [],
-              release_date: details?.release_date || null,
-              first_air_date: details?.first_air_date || null,
-              adult: details?.adult || false,
-              vote_count: details?.vote_count || 0,
+              isAnime: detailsObj ? isAnime(detailsObj) : false,
+              isCartoon: detailsObj ? isCartoon(detailsObj) : false,
+              originalLanguage: detailsObj?.original_language as string | undefined,
+              genreIds: (detailsObj?.genres as Array<{ id: number }>)?.map((g) => g.id) || [],
+              release_date: detailsObj?.release_date as string | null | undefined,
+              first_air_date: detailsObj?.first_air_date as string | null | undefined,
+              adult: (detailsObj?.adult as boolean) || false,
+              vote_count: (detailsObj?.vote_count as number) || 0,
             };
           } catch (error) {
             lastError = error instanceof Error ? error : new Error('Unknown error');
@@ -478,6 +499,7 @@ export async function GET(req: Request) {
           tmdbId: item.tmdbId,
           mediaType: item.mediaType,
           isAnime: false,
+          isCartoon: false,
           originalLanguage: null,
           genreIds: [] as number[],
           release_date: null,
@@ -513,7 +535,7 @@ export async function GET(req: Request) {
     // 6. Фильтруем по типам контента
     sendProgress('filtering_start', 75, { itemsToFilter: sampledItems.length });
     
-    let filteredItems = sampledItems.filter(item => {
+    const filteredItems = sampledItems.filter(item => {
       const details = detailsMap.get(item.tmdbId);
       if (!details) return false;
 
@@ -521,6 +543,7 @@ export async function GET(req: Request) {
       if (filterAdult && details.adult) return false;
 
       const isAnimeItem = details.isAnime;
+      const isCartoonItem = details.isCartoon;
       const isMovie = item.mediaType === 'movie';
       const isTv = item.mediaType === 'tv';
 
@@ -531,18 +554,23 @@ export async function GET(req: Request) {
 
       // Логика фильтрации:
       // - Если выбрано аниме, включаем все аниме (и movie, и tv)
-      // - Если выбрано movie, включаем не-аниме фильмы
-      // - Если выбрано tv, включаем не-аниме сериалы
+      // - Если выбрано мульт, включаем все мульты (и movie, и tv)
+      // - Если выбрано movie, включаем не-аниме и не-мульт фильмы
+      // - Если выбрано tv, включаем не-аниме и не-мульт сериалы
 
       if (types.includes('anime') && isAnimeItem) {
         return true;
       }
 
-      if (types.includes('movie') && isMovie && !isAnimeItem) {
+      if (types.includes('cartoon') && isCartoonItem) {
         return true;
       }
 
-      if (types.includes('tv') && isTv && !isAnimeItem) {
+      if (types.includes('movie') && isMovie && !isAnimeItem && !isCartoonItem) {
+        return true;
+      }
+
+      if (types.includes('tv') && isTv && !isAnimeItem && !isCartoonItem) {
         return true;
       }
 
@@ -708,7 +736,12 @@ export async function GET(req: Request) {
           totalItems: initialCount,
           afterTypeFilter,
           afterAdditionalFilters: 0,
-          isSmallLibrary: initialCount <= 10
+          isSmallLibrary: initialCount <= 10,
+          suggestions: {
+            addMoreMovies: initialCount <= 5,
+            expandTypes: types.length > 0 && types.length < 3,
+            includeOtherLists: lists.length > 0 && lists.length < 3
+          }
         }
       });
     }

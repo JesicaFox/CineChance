@@ -1,4 +1,5 @@
 // src/app/api/person/[id]/route.ts
+
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';

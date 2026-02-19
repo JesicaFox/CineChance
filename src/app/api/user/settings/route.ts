@@ -1,4 +1,5 @@
 // src/app/api/user/settings/route.ts
+ 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -36,6 +37,10 @@ export async function GET(req: Request) {
         includeWant: true,
         includeWatched: true,
         includeDropped: true,
+        includeMovie: true,
+        includeTv: true,
+        includeAnime: true,
+        includeCartoon: true,
       },
     });
 
@@ -53,6 +58,10 @@ export async function GET(req: Request) {
           includeWant: true,
           includeWatched: true,
           includeDropped: false,
+          includeMovie: true,
+          includeTv: true,
+          includeAnime: true,
+          includeCartoon: true,
         },
         { status: 200 }
       );
@@ -71,6 +80,10 @@ export async function GET(req: Request) {
         includeWant: settings.includeWant,
         includeWatched: settings.includeWatched,
         includeDropped: settings.includeDropped,
+        includeMovie: settings.includeMovie,
+        includeTv: settings.includeTv,
+        includeAnime: settings.includeAnime,
+        includeCartoon: settings.includeCartoon,
       },
       { status: 200 }
     );
@@ -104,7 +117,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const { minRating, includeWant, includeWatched, includeDropped } = body;
+    const { minRating, includeWant, includeWatched, includeDropped, includeMovie, includeTv, includeAnime, includeCartoon } = body;
 
     // Валидация minRating
     if (minRating !== undefined) {
@@ -135,6 +148,30 @@ export async function PUT(req: Request) {
         { status: 400 }
       );
     }
+    if (includeMovie !== undefined && typeof includeMovie !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeMovie must be a boolean" },
+        { status: 400 }
+      );
+    }
+    if (includeTv !== undefined && typeof includeTv !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeTv must be a boolean" },
+        { status: 400 }
+      );
+    }
+    if (includeAnime !== undefined && typeof includeAnime !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeAnime must be a boolean" },
+        { status: 400 }
+      );
+    }
+    if (includeCartoon !== undefined && typeof includeCartoon !== 'boolean') {
+      return NextResponse.json(
+        { error: "includeCartoon must be a boolean" },
+        { status: 400 }
+      );
+    }
 
     // Обновляем или создаём настройки рекомендаций
     const settings = await prisma.recommendationSettings.upsert({
@@ -144,6 +181,10 @@ export async function PUT(req: Request) {
         includeWant: includeWant !== undefined ? includeWant : undefined,
         includeWatched: includeWatched !== undefined ? includeWatched : undefined,
         includeDropped: includeDropped !== undefined ? includeDropped : undefined,
+        includeMovie: includeMovie !== undefined ? includeMovie : undefined,
+        includeTv: includeTv !== undefined ? includeTv : undefined,
+        includeAnime: includeAnime !== undefined ? includeAnime : undefined,
+        includeCartoon: includeCartoon !== undefined ? includeCartoon : undefined,
         updatedAt: new Date(),
       },
       create: {
@@ -157,12 +198,16 @@ export async function PUT(req: Request) {
         includeWant: includeWant ?? true,
         includeWatched: includeWatched ?? true,
         includeDropped: includeDropped ?? false,
+        includeMovie: includeMovie ?? true,
+        includeTv: includeTv ?? true,
+        includeAnime: includeAnime ?? true,
+        includeCartoon: includeCartoon ?? true,
       },
     });
 
     logger.info('User settings updated', {
       userId: session.user.id,
-      updatedFields: { minRating, includeWant, includeWatched, includeDropped },
+      updatedFields: { minRating, includeWant, includeWatched, includeDropped, includeMovie, includeTv, includeAnime, includeCartoon },
       context: 'UserSettings'
     });
 
@@ -178,6 +223,10 @@ export async function PUT(req: Request) {
         includeWant: settings.includeWant,
         includeWatched: settings.includeWatched,
         includeDropped: settings.includeDropped,
+        includeMovie: settings.includeMovie,
+        includeTv: settings.includeTv,
+        includeAnime: settings.includeAnime,
+        includeCartoon: settings.includeCartoon,
       },
       { status: 200 }
     );

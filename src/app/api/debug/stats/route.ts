@@ -1,9 +1,11 @@
 // Debug endpoint для проверки статистики
-import { NextRequest, NextResponse } from 'next/server';
+
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
+import { logger } from '@/lib/logger';
 
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -28,7 +30,7 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     }
     const data = await res.json();
     return data;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -47,7 +49,7 @@ function isCartoon(movie: any): boolean {
   return hasAnimationGenre && isNotJapanese;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -75,11 +77,11 @@ export async function GET(request: NextRequest) {
         'Пересмотрено': getStatusIdByName('Пересмотрено'),
       },
       databaseCounts: {},
-      sampleRecords: [] as any[],
+      sampleRecords: [] as unknown[],
       typeAnalysis: {
         totalRecords: 0,
         typeCounts: { movie: 0, tv: 0, cartoon: 0, anime: 0 },
-        animationContent: [] as any[]
+        animationContent: [] as unknown[]
       }
     };
 
@@ -169,7 +171,7 @@ export async function GET(request: NextRequest) {
           genres: tmdbData.genres?.map((g: any) => ({ id: g.id, name: g.name })) || [],
           hasAnimationGenre: tmdbData.genres?.some((g: any) => g.id === 16) ?? false,
           isJapanese: tmdbData.original_language === 'ja',
-          finalType: null as any,
+          finalType: null as unknown,
         };
 
         if (isAnime(tmdbData)) {
@@ -224,7 +226,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(debugInfo);
 
   } catch (error: any) {
-    console.error('Debug endpoint error:', error);
+    logger.error('Debug endpoint error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Debug endpoint failed', details: error.message }, 
       { status: 500 }

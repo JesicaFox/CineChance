@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+ 
 import { rateLimit } from '@/middleware/rateLimit';
 import { Redis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
       try {
         const cachedImage = await redis.get(cacheKey);
         if (cachedImage) {
-          console.log('🎯 Cache HIT for image-proxy:', imageUrl.substring(0, 40));
+          logger.info('Cache HIT for image-proxy', { url: imageUrl.substring(0, 40) });
           
           let cacheData: { data: string, contentType: string };
           
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
             try {
               cacheData = JSON.parse(cachedImage);
             } catch (parseError) {
-              console.error('⚠️ Failed to parse cached image JSON:', parseError);
+                logger.warn('Failed to parse cached image JSON', { parseError });
               throw new Error('Invalid cache data format');
             }
           } else {
@@ -61,12 +62,12 @@ export async function GET(req: Request) {
           const { data, contentType } = cacheData;
           
           if (!data || !contentType) {
-            console.warn('⚠️ Cache data incomplete:', { hasData: !!data, hasContentType: !!contentType });
+            logger.warn('Cache data incomplete', { hasData: !!data, hasContentType: !!contentType });
             throw new Error('Invalid cache data');
           }
 
           const buffer = Buffer.from(data, 'base64');
-          console.log('📦 Returning cached image:', { size: buffer.length, contentType });
+          logger.info('Returning cached image', { size: buffer.length, contentType });
       
           return new NextResponse(buffer, {
             headers: {
@@ -79,10 +80,10 @@ export async function GET(req: Request) {
             },
           });
         } else {
-          console.log('❌ Cache MISS for:', imageUrl.substring(0, 40));
+          logger.info('Cache MISS for image', { url: imageUrl.substring(0, 40) });
         }
       } catch (redisError) {
-        console.error('❌ Redis error:', redisError instanceof Error ? redisError.message : String(redisError));
+        logger.error('Redis error', { error: redisError instanceof Error ? redisError.message : String(redisError) });
         logger.warn('Redis cache check failed, continuing without cache', {
           error: redisError instanceof Error ? redisError.message : String(redisError),
         });
@@ -94,7 +95,7 @@ export async function GET(req: Request) {
     if (!success) {
       // Возвращаем placeholder SVG вместо JSON ошибки
       // (JSON вызывает ошибку загрузки картинки в браузере)
-      console.warn('⏱️ Rate limit exceeded for:', imageUrl.substring(0, 40));
+      logger.warn('Rate limit exceeded', { url: imageUrl.substring(0, 40) });
       
       const placeholderSvg = '<svg width="500" height="750" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#374151"/><text x="50%" y="50%" font-family="Arial" font-size="20" fill="#9CA3AF" text-anchor="middle" dominant-baseline="middle">Rate limit</text></svg>';
       const placeholderBuffer = Buffer.from(placeholderSvg, 'utf-8');
@@ -112,7 +113,7 @@ export async function GET(req: Request) {
       });
     }
 
-    console.log('Cache miss, fetching:', imageUrl);
+    logger.info('Image fetch', { url: imageUrl.substring(0, 40), fromTMDB: imageUrl.includes('image.tmdb.org') });
     
     // Пробуем основной URL с таймаутом
     const controller = new AbortController();
@@ -145,7 +146,7 @@ export async function GET(req: Request) {
        imageUrl.includes('.png') ? 'image/png' :
        imageUrl.includes('.webp') ? 'image/webp' : 'image/jpeg');
 
-    console.log('✅ Image fetched successfully:', {
+    logger.info('Image fetched successfully', {
       url: imageUrl.substring(0, 40),
       size: imageBuffer.byteLength,
       contentType,
@@ -162,14 +163,14 @@ export async function GET(req: Request) {
         });
         
         await redisForCache.setex(cacheKey, 21600, cachePayload);
-        console.log('💾 Image cached:', {
+        logger.info('Image cached', {
           url: imageUrl.substring(0, 40),
           cacheKeyLength: cacheKey.length,
           payloadSize: cachePayload.length,
           ttl: 21600
         });
       } catch (cacheError) {
-        console.error('❌ Redis cache failed:', cacheError instanceof Error ? cacheError.message : String(cacheError));
+        logger.error('Redis cache failed', { error: cacheError instanceof Error ? cacheError.message : String(cacheError) });
         logger.warn('Failed to cache image in Redis', {
           error: cacheError instanceof Error ? cacheError.message : String(cacheError)
         });
@@ -193,7 +194,7 @@ export async function GET(req: Request) {
     const isTimeout = errorMessage.includes('timed out') || errorMessage.includes('ETIMEDOUT') || errorMessage.includes('abort');
     
     if (!isTimeout) {
-      console.error('Image proxy error:', error);
+      logger.error('Image proxy error', { error: errorMessage });
     }
     
     // Если у нас есть TMDB ID, пробуем получить постер из FANART_TV как fallback
@@ -231,9 +232,9 @@ export async function GET(req: Request) {
                   contentType: fanartContentType
                 });
                 await redisForFanart.setex(fanartCacheKey, 21600, fanartPayload);
-                console.log('💾 FANART cached:', { tmdbId, cacheKeyLength: fanartCacheKey.length });
+                logger.info('FANART cached', { tmdbId, cacheKeyLength: fanartCacheKey.length });
               } catch (cacheError) {
-                console.error('❌ FANART cache failed:', cacheError instanceof Error ? cacheError.message : String(cacheError));
+                logger.error('FANART cache failed', { error: cacheError instanceof Error ? cacheError.message : String(cacheError) });
                 logger.warn('Failed to cache FANART_TV image', {
                   error: cacheError instanceof Error ? cacheError.message : String(cacheError)
                 });
@@ -272,7 +273,7 @@ export async function GET(req: Request) {
             try {
               fallbackData = JSON.parse(cachedFallback);
             } catch {
-              console.warn('⚠️ Invalid fallback cache format, skipping');
+                logger.warn('Invalid fallback cache format, skipping');
               fallbackData = { data: '', contentType: '' };
             }
           } else {
@@ -280,7 +281,7 @@ export async function GET(req: Request) {
           }
           
           if (fallbackData.data && fallbackData.contentType) {
-            console.log('💾 Returning cached fallback');
+            logger.info('Returning cached fallback');
             return new NextResponse(Buffer.from(fallbackData.data, 'base64'), {
               headers: {
                 'Content-Type': fallbackData.contentType,
@@ -312,9 +313,9 @@ export async function GET(req: Request) {
                 contentType: fallbackContentType
               });
               await redisForFallback.setex(fallbackCacheKey, 21600, fallbackPayload);
-              console.log('💾 Fallback cached:', { cacheKeyLength: fallbackCacheKey.length });
+              logger.info('Fallback cached', { cacheKeyLength: fallbackCacheKey.length });
             } catch (cacheError) {
-              console.error('❌ Fallback cache failed:', cacheError instanceof Error ? cacheError.message : String(cacheError));
+              logger.error('Fallback cache failed', { error: cacheError instanceof Error ? cacheError.message : String(cacheError) });
               logger.warn('Failed to cache fallback image', {
                 error: cacheError instanceof Error ? cacheError.message : String(cacheError)
               });
@@ -331,7 +332,7 @@ export async function GET(req: Request) {
           });
         }
       } catch (fallbackError) {
-        console.error('Fallback image error:', fallbackError);
+        logger.error('Fallback image error', { error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError) });
       }
     }
 
@@ -351,7 +352,7 @@ export async function GET(req: Request) {
         },
       });
     } catch (placeholderError) {
-      console.error('Placeholder error:', placeholderError);
+      logger.error('Placeholder error', { error: placeholderError instanceof Error ? placeholderError.message : String(placeholderError) });
     }
 
     return NextResponse.json({ error: 'Failed to fetch image' }, { status: 500 });

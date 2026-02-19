@@ -4,6 +4,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useCallback } from 'react';
 import { Media } from '@/lib/tmdb';
+import { logger } from '@/lib/logger';
 
 interface BatchData {
   [key: string]: {
@@ -50,7 +51,7 @@ const fetchBatchData = async (movies: Media[]): Promise<BatchData> => {
 
     return mergedResult;
   } catch (error) {
-    console.warn('Batch fetch error:', error);
+    logger.warn('Batch fetch error', { error: error instanceof Error ? error.message : String(error) });
     return {};
   }
 };

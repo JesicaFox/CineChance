@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 import { FilterChange, FilterSessionResultMetrics, AbandonedFilter } from '@/lib/recommendation-types';
 import { logger } from '@/lib/logger';

@@ -8,9 +8,9 @@ import FilterForm from './FilterForm';
 import SessionTracker from './SessionTracker';
 import FilterStateManager from './FilterStateManager';
 import { useSessionTracking } from './useSessionTracking';
+import { logger } from '@/lib/logger';
 import { useDebounce } from './useDebounce';
 import { validateFilters, areFiltersValid, getFirstValidationError } from './filterValidation';
-import { logger } from '@/lib/logger';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { ContentType, ListType } from '@/lib/recommendation-types';
 import { AppErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -99,10 +99,10 @@ type ViewState = 'filters' | 'loading' | 'result' | 'error' | 'suggestions';
 interface FilterChange {
   timestamp: string;
   parameterName: string;
-  previousValue: unknown;
-  newValue: unknown;
+  previousValue: any;
+  newValue: any;
   changeSource: 'user_input' | 'preset' | 'api' | 'reset';
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 export default function RecommendationsClient({ userId }: RecommendationsClientProps) {
@@ -164,6 +164,17 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
     includeWatched: true,
     includeDropped: false,
   });
+  const [userContentTypePreferences, setUserContentTypePreferences] = useState<{
+    includeMovie: boolean;
+    includeTv: boolean;
+    includeAnime: boolean;
+    includeCartoon: boolean;
+  }>({
+    includeMovie: true,
+    includeTv: true,
+    includeAnime: true,
+    includeCartoon: true,
+  });
   const [availableGenres, setAvailableGenres] = useState<{ id: number; name: string }[]>([]);
   const [userTags, setUserTags] = useState<Array<{ id: string; name: string; count: number }>>([]);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true); // Флаг загрузки настроек
@@ -191,9 +202,16 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
             includeWatched: data.includeWatched ?? true,
             includeDropped: data.includeDropped ?? false,
           });
+          // Загружаем настройки типов контента
+          setUserContentTypePreferences({
+            includeMovie: data.includeMovie ?? true,
+            includeTv: data.includeTv ?? true,
+            includeAnime: data.includeAnime ?? true,
+            includeCartoon: data.includeCartoon ?? true,
+          });
         }
       } catch (error) {
-        console.error('Failed to fetch user settings:', error);
+        logger.error('Failed to fetch user settings', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setIsLoadingSettings(false);
       }
@@ -213,7 +231,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
           }
         }
       } catch (error) {
-        console.error('Failed to fetch user genres:', error);
+        logger.error('Failed to fetch user genres', { error: error instanceof Error ? error.message : String(error) });
       }
     };
     fetchGenres();
@@ -232,7 +250,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
         })));
       }
     } catch (error) {
-      console.error('Error fetching user tags:', error);
+      logger.error('Error fetching user tags', { error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -648,6 +666,12 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                 ...(userListPreferences.includeWatched ? ['watched'] as const : []),
                 ...(userListPreferences.includeDropped ? ['dropped'] as const : []),
               ],
+              types: [
+                ...(userContentTypePreferences.includeMovie ? ['movie'] as const : []),
+                ...(userContentTypePreferences.includeTv ? ['tv'] as const : []),
+                ...(userContentTypePreferences.includeAnime ? ['anime'] as const : []),
+                ...(userContentTypePreferences.includeCartoon ? ['cartoon'] as const : []),
+              ],
             }}
             onFiltersChange={() => {}}
             onFilterChange={(parameterName, previousValue, newValue) => {
@@ -791,7 +815,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                   )}
 
                   {/* Состояние: Предложения */}
-                  {viewState === 'suggestions' && stats && (
+                  {viewState === 'suggestions' && stats && stats.suggestions && (
                     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center max-w-md mx-auto">
                       <div className="text-5xl mb-3">💡</div>
                       <h2 className="text-lg font-bold text-white mb-2">
@@ -868,7 +892,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                       
 
                       {/* Быстрые действия на основе статистики */}
-                      {stats && (
+                      {stats && stats.suggestions && (
                         <div className="bg-gray-800 rounded-lg p-4 mb-6 w-full">
                           <h3 className="text-sm font-semibold text-gray-300 mb-3">Быстрые действия:</h3>
                           <div className="flex gap-2 flex-wrap justify-center">
@@ -937,7 +961,7 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
                           >
                             Изменить фильтры
                           </button>
-                          {stats?.suggestions.addMoreMovies && (
+                          {stats?.suggestions?.addMoreMovies && (
                             <button
                               onClick={() => router.push('/my-movies')}
                               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors text-sm font-medium"

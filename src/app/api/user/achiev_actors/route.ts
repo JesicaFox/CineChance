@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -64,7 +65,7 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
     return await res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -108,7 +109,7 @@ interface TMDBPersonCredits {
   }>;
 }
 
-interface ActorProgress {
+interface _ActorProgress {
   id: number;
   name: string;
   profile_path: string | null;
@@ -135,7 +136,7 @@ async function fetchMovieCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Pro
     }
 
     return await response.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -170,7 +171,7 @@ async function fetchPersonCredits(actorId: number): Promise<TMDBPersonCredits | 
     actorCreditsCache.set(actorId, { data, timestamp: now });
     
     return data;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -299,7 +300,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < rewatchedMoviesData.length; i += BATCH_SIZE) {
         const batch = rewatchedMoviesData.slice(i, i + BATCH_SIZE);
         
-        const results = await Promise.all(
+        const _results = await Promise.all(
           batch.map(async (movie) => {
             const rating = movie.userRating;
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
@@ -329,7 +330,7 @@ export async function GET(request: Request) {
       for (let i = 0; i < droppedMoviesData.length; i += BATCH_SIZE) {
         const batch = droppedMoviesData.slice(i, i + BATCH_SIZE);
         
-        const results = await Promise.all(
+        const _results = await Promise.all(
           batch.map(async (movie) => {
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
             
@@ -430,7 +431,7 @@ export async function GET(request: Request) {
                 total_movies: totalMovies,
                 progress_percent: progressPercent,
               };
-            } catch (error) {
+            } catch {
               return {
                 ...actor,
                 total_movies: actor.watched_movies,

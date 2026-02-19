@@ -9,6 +9,7 @@ import { authOptions } from '@/auth';
 import { isUnder18 } from '@/lib/age-utils';
 import { Media } from '@/lib/tmdb';
 import { revalidate, tags } from '@/lib/cache';
+import { logger } from '@/lib/logger';
 
 // Маппинг статусов из ID в названия
 const STATUS_FROM_ID: Record<number, 'want' | 'watched' | 'dropped' | 'rewatched' | null> = {
@@ -38,7 +39,7 @@ export default async function HorizontalMovieGridServer() {
   
   let blacklistedIds = new Set<number>();
   let shouldFilterAdult = false;
-  let watchlistMap: Map<string, { status: number | null; userRating: number | null }> = new Map();
+  const watchlistMap: Map<string, { status: number | null; userRating: number | null }> = new Map();
 
   // Загружаем данные пользователя на сервере для фильтрации
   if (userId) {
@@ -60,7 +61,7 @@ export default async function HorizontalMovieGridServer() {
         shouldFilterAdult = isUnder18(user.birthDate);
       }
     } catch (error) {
-      console.error("Failed to fetch user data", error);
+      logger.error('Failed to fetch user data', { error: error instanceof Error ? error.message : String(error) });
       // В случае ошибки продолжаем с безопасными значениями по умолчанию
       blacklistedIds = new Set();
       shouldFilterAdult = false;
@@ -88,7 +89,7 @@ export default async function HorizontalMovieGridServer() {
         });
       });
     } catch (error) {
-      console.error("Failed to fetch watchlist", error);
+      logger.error('Failed to fetch watchlist', { error: error instanceof Error ? error.message : String(error) });
       // В случае ошибки продолжаем работу с пустым watchlist
       watchlistMap.clear();
     }
@@ -109,7 +110,7 @@ export default async function HorizontalMovieGridServer() {
   
   // Загружаем CineChance рейтинги для отображаемых фильмов
   const displayTmdbIds = displayMovies.map(m => m.id);
-  let cineChanceRatings: Map<number, { averageRating: number; count: number }> = new Map();
+  const cineChanceRatings: Map<number, { averageRating: number; count: number }> = new Map();
   
   if (displayTmdbIds.length > 0) {
     try {
@@ -132,7 +133,7 @@ export default async function HorizontalMovieGridServer() {
         }
       });
     } catch (error) {
-      console.error("Failed to fetch CineChance ratings", error);
+      logger.error('Failed to fetch CineChance ratings', { error: error instanceof Error ? error.message : String(error) });
       // В случае ошибки продолжаем без рейтингов
       cineChanceRatings.clear();
     }

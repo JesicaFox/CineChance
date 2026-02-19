@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Users, Mail, Copy, Check, X, Loader2, AlertCircle } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 interface Invitation {
   id: string;
@@ -33,7 +34,7 @@ export default function InviteFunctionality() {
         setInvitations(data.invitations || []);
       }
     } catch (error) {
-      console.error('Ошибка загрузки приглашений:', error);
+      logger.error('Error loading invitations', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsLoadingList(false);
     }

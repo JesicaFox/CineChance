@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+ 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get('limit');
     const statusesParam = searchParams.get('statuses');
     
-    const limit = limitParam ? parseInt(limitParam, 10) : 10;
+    const _limit = limitParam ? parseInt(limitParam, 10) : 10;
     
     const cacheKey = `user:${userId}:tag_usage:all:${statusesParam || 'default'}`;
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
 
       const tagIds = tags.map(t => t.id);
       
-      let tagUsageCounts: Record<string, number> = {};
+      const tagUsageCounts: Record<string, number> = {};
       
       if (tagIds.length > 0) {
         const watchListsWithTags = await prisma.watchList.findMany({

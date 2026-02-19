@@ -1,10 +1,12 @@
 // src/app/api/stats/movies-by-genre/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusNameById } from '@/lib/movieStatusConstants';
 import { rateLimit } from '@/middleware/rateLimit';
+import { logger } from '@/lib/logger';
 
 // Вспомогательная функция для получения деталей с TMDB
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -15,20 +17,22 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
     return await res.json();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
 
 function isAnime(movie: any): boolean {
-  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
-  const isJapanese = movie.original_language === 'ja';
+  const m = movie as { genres?: { id: number }[]; original_language?: string };
+  const hasAnimeGenre = m.genres?.some((g) => g.id === 16) ?? false;
+  const isJapanese = m.original_language === 'ja';
   return hasAnimeGenre && isJapanese;
 }
 
 function isCartoon(movie: any): boolean {
-  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
-  const isNotJapanese = movie.original_language !== 'ja';
+  const m = movie as { genres?: { id: number }[]; original_language?: string };
+  const hasAnimationGenre = m.genres?.some((g) => g.id === 16) ?? false;
+  const isNotJapanese = m.original_language !== 'ja';
   return hasAnimationGenre && isNotJapanese;
 }
 
@@ -96,7 +100,7 @@ export async function GET(request: NextRequest) {
     const tagsArray = tagsParam ? tagsParam.split(',').filter(t => t.length > 0) : [];
 
     // Получаем фильмы пользователя (включая все статусы для полной статистики)
-    const whereClause: any = {
+    const whereClause: Record<string, unknown> = {
       userId,
       statusId: {
         in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED, MOVIE_STATUS_IDS.DROPPED],
@@ -106,7 +110,7 @@ export async function GET(request: NextRequest) {
 
     // Если есть теги для фильтрации, добавляем их в where clause
     // Теги хранятся в поле tags как связь many-to-many
-    let tagsFilter = undefined;
+    let tagsFilter: any = undefined;
     if (tagsArray.length > 0) {
       tagsFilter = {
         some: {
@@ -197,7 +201,7 @@ export async function GET(request: NextRequest) {
 
     // Загружаем теги только для записей, которые попадут в ответ
     const recordIdsForTags = paginatedMovies.map(m => m.record.id);
-    const tagsMap = new Map<string, any[]>();
+    const tagsMap = new Map<string, unknown[]>();
     
     if (recordIdsForTags.length > 0) {
       const tagsData = await prisma.watchList.findMany({
@@ -275,7 +279,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error fetching movies by genre:', error);
+    logger.error('Error fetching movies by genre', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Failed to fetch movies' }, { status: 500 });
   }
 }

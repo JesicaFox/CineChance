@@ -1,4 +1,5 @@
 // src/app/api/blacklist/route.ts
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
@@ -8,7 +9,7 @@ import { rateLimit } from '@/middleware/rateLimit';
 
 // GET: Проверить, заблокирован ли фильм
 export async function GET(req: Request) {
-  const { success } = await rateLimit(req, '/api/user');
+  const { success } = await rateLimit(req, '/api/blacklist');
   if (!success) {
     return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
   }
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
 
 // POST: Добавить в черный список
 export async function POST(req: Request) {
-  const { success } = await rateLimit(req, '/api/user');
+  const { success } = await rateLimit(req, '/api/blacklist');
   if (!success) {
     return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
   }
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if ((error as any).code === 'P2002') {
+    if ((error as { code?: string }).code === 'P2002') {
       return NextResponse.json({ success: true });
     }
     logger.error('Blacklist POST error', {
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
 
 // DELETE: Удалить из черного списка
 export async function DELETE(req: Request) {
-  const { success } = await rateLimit(req, '/api/user');
+  const { success } = await rateLimit(req, '/api/blacklist');
   if (!success) {
     return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
   }

@@ -89,7 +89,7 @@ export async function fetchMoviesByStatus(
   const take = limit + 1; // Запрашиваем на 1 больше для проверки hasMore
 
   // Оптимизация: сначала считаем общее количество, затем загружаем только нужную страницу
-  const whereClause: any = { userId };
+  const whereClause: Record<string, unknown> = { userId };
   if (statusName) {
     if (Array.isArray(statusName)) {
       const statusIds = statusName.map(name => getStatusIdByName(name)).filter(id => id !== null) as number[];

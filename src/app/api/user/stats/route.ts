@@ -1,4 +1,5 @@
 // src/app/api/user/stats/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
@@ -13,8 +14,8 @@ const PARALLEL_TMDB_REQUESTS = 10;
 
 async function fetchMediaDetailsBatch(
   records: Array<{ tmdbId: number; mediaType: string }>
-): Promise<Map<string, any>> {
-  const results = new Map<string, any>();
+): Promise<Map<string, unknown>> {
+  const results = new Map<string, unknown>();
   
   if (!TMDB_API_KEY) {
     return results;

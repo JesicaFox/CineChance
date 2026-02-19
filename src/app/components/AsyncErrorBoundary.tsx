@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+ 
 import { logError } from '../../lib/logger';
 
 interface AsyncErrorBoundaryProps {
@@ -7,7 +8,7 @@ interface AsyncErrorBoundaryProps {
   componentName?: string;
 }
 
-interface CacheEntry<T> {
+interface _CacheEntry<T> {
   data: T;
   timestamp: number;
 }

@@ -1,5 +1,6 @@
 // src/app/components/LazyMovieCard.tsx
 'use client';
+ 
 
 import { useState, useEffect, useRef } from 'react';
 import { Media } from '@/lib/tmdb';

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 
 interface SessionFlow {
   recommendationsShown: number;
@@ -10,16 +11,16 @@ interface SessionFlow {
   actionsCount: number;
   recommendationsAccepted: number;
   recommendationsSkipped: number;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface FilterChange {
   timestamp: string;
   parameterName: string;
-  previousValue: unknown;
-  newValue: unknown;
+  previousValue: any;
+  newValue: any;
   changeSource: 'user_input' | 'preset' | 'api' | 'reset';
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface EventPayload {
@@ -43,16 +44,16 @@ interface SignalPayload {
 
 // Батч-отправитель для оптимизации запросов
 class BatchSender {
-  private queue: Array<{ payload: unknown; endpoint: string; method: string }> = [];
+  private queue: Array<{ payload: any; endpoint: string; method: string }> = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly batchWindowMs = 100; // Окно батчинга в мс
   private readonly maxBatchSize = 10;
 
   constructor(
-    private onSend: (payloads: Array<{ payload: unknown; endpoint: string; method: string }>) => Promise<void>
+    private onSend: (payloads: Array<{ payload: any; endpoint: string; method: string }>) => Promise<void>
   ) {}
 
-  add(payload: unknown, endpoint: string, method: string = 'POST') {
+  add(payload: any, endpoint: string, method: string = 'POST') {
     this.queue.push({ payload, endpoint, method });
     
     if (this.queue.length >= this.maxBatchSize) {
@@ -76,7 +77,7 @@ class BatchSender {
     try {
       await this.onSend(toSend);
     } catch (err) {
-      console.error('Error sending batch:', err);
+      logger.error('Error sending batch', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 }
@@ -171,7 +172,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
           setIsInitialized(true);
         }
       } catch (err) {
-        console.error('Error initializing session:', err);
+        logger.error('Error initializing session', { error: err instanceof Error ? err.message : String(err) });
       }
     };
 
@@ -200,7 +201,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
               }),
             });
           } catch (err) {
-            console.error('Error ending session:', err);
+            logger.error('Error ending session', { error: err instanceof Error ? err.message : String(err) });
           }
         };
         endSessionAsync();
@@ -280,15 +281,15 @@ export function useSessionTracking(userId: string, logId: string | null) {
         filterChanges.current = [];
       }
     } catch (err) {
-      console.error('Error starting filter session:', err);
+      logger.error('Error starting filter session', { error: err instanceof Error ? err.message : String(err) });
     }
   }, [userId, sessionId, filterSessionId]);
 
   // Оптимизированное отслеживание изменений фильтров
   const trackFilterChange = useCallback((
     parameterName: string,
-    previousValue: unknown,
-    newValue: unknown
+    previousValue: any,
+    newValue: any
   ) => {
     if (!sessionId) return;
 
@@ -319,7 +320,7 @@ export function useSessionTracking(userId: string, logId: string | null) {
             }),
           });
         } catch (err) {
-          console.error('Error updating filter session:', err);
+          logger.error('Error updating filter session', { error: err instanceof Error ? err.message : String(err) });
         }
       };
       

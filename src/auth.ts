@@ -100,11 +100,11 @@ export const authOptions: NextAuthOptions = {
   },
 
   events: {
-    async signIn({ user, account, profile, isNewUser }) {
+    async signIn({ user, account: _account, profile: _profile, isNewUser }) {
       const requestId = 'signin-event';
       logger.info(formatAuthLog(requestId, 'signin', user.id, 'event', `New user: ${isNewUser}`));
     },
-    async signOut({ session, token }) {
+    async signOut({ session: _session, token }) {
       const requestId = 'signout-event';
       const userId = token?.id as string | undefined;
       logger.info(formatAuthLog(requestId, 'signout', userId, 'event', 'User signed out'));

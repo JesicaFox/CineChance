@@ -1,5 +1,6 @@
 // src/app/components/ImageWithProxy.tsx
 'use client';
+ 
 
 import { useState, memo } from 'react';
 

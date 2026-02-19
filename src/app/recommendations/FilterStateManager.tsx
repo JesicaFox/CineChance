@@ -21,7 +21,7 @@ export interface FilterState {
 interface FilterStateManagerProps {
   initialFilters?: Partial<FilterState>;
   onFiltersChange: (filters: FilterState) => void;
-  onFilterChange?: (parameterName: string, previousValue: unknown, newValue: unknown) => void;
+  onFilterChange?: (parameterName: string, previousValue: any, newValue: any) => void;
   children: (state: {
     filters: FilterState;
     updateFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
@@ -32,7 +32,7 @@ interface FilterStateManagerProps {
 }
 
 const defaultFilters: FilterState = {
-  types: ['movie', 'tv', 'anime'],
+  types: ['movie', 'tv', 'anime', 'cartoon'],
   lists: ['want', 'watched'],
   additionalFilters: {
     minRating: 0,

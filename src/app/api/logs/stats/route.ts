@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
+import { logger } from '@/lib/logger';
 
 interface LogsData {
   timestamp: string;
@@ -54,10 +56,10 @@ export async function GET(request: NextRequest) {
       databaseChecks: {
         individualCounts: {} as Record<string, number>,
         combinedCounts: {} as Record<string, number>,
-        sampleRecords: [] as any[]
+        sampleRecords: [] as unknown[]
       },
-      apiComparison: {} as Record<string, any>,
-      sampleRecords: [] as any[]
+      apiComparison: {} as Record<string, unknown>,
+      sampleRecords: [] as unknown[]
     };
 
     // Подробная проверка базы данных
@@ -188,7 +190,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(logs);
 
   } catch (error: any) {
-    console.error('Logs endpoint error:', error);
+    logger.error('Logs endpoint error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch logs', details: error.message }, 
       { status: 500 }
