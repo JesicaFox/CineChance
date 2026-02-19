@@ -5,14 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Personal movie tracking with intelligent recommendations
-**Current focus:** Phase 3: Lint Cleanup
+**Current focus:** Phase 4: Animation Filter
 
 ## Current Status
 
-- **Phase:** 3 (Lint Cleanup)
+- **Phase:** 4 (Animation Filter)
+- **Current Plan:** 01
+- **Total Plans:** 01
 - **Mode:** YOLO (auto-advance enabled)
 - **Parallelization:** true
-- **Goal:** Fix lint errors
+- **Goal:** Add animation filter to recommendations
 
 ## Progress
 
@@ -20,11 +22,12 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 |-------|------|--------|--------------|
 | 1 | Tests & Logging | ● Complete | 5 |
 | 2 | Error Handling | ● Complete | 4 |
-| 3 | Lint Cleanup | ○ In Progress | 0 |
+| 3 | Lint Cleanup | ● Complete | 0 |
+| 4 | Animation Filter | ○ In Progress | 1 |
 
 ## Last Updated
 
-2026-02-18 after Phase 3 Plan 5 (03-05) - Fixed lint errors to achieve 0 errors goal. Updated ESLint config, disabled strict react-hooks rules. 182 → 0 errors.
+2026-02-19 after Phase 4 Plan 1 (04-01) - Added "Мульт" (Animation) filter button to Recommendations page. Updated ContentType, FiltersSnapshot, FilterForm, and API to support cartoon type.
 
 ## Execution History
 
@@ -35,3 +38,4 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 - **03-03:** Completed (~45 min) - Fixed 183 lint errors (408 → 225). Added eslint-disable to 35+ files. Fixed unused catch variables. Remaining: 225 errors in component files.
 - **03-04:** Completed (~110 min) - Removed all eslint-disable, replaced any→unknown. 239→182 errors (24% reduction). Remaining: ~160 unused variables.
 - **03-05:** Completed (~30 min) - Fixed lint errors to achieve 0 errors. Updated ESLint config, disabled strict react-hooks rules. 182 → 0 errors.
+- **04-01:** Completed (5 min) - Added "Мульт" filter button with orange gradient, updated types and API to accept cartoon type
