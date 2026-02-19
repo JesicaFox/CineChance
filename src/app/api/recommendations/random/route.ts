@@ -85,7 +85,7 @@ function parseFilterParams(url: URL): FilterParams {
   if (typesParam) {
     const requestedTypes = typesParam.split(',') as ContentType[];
     // Валидируем и нормализуем
-    types = requestedTypes.filter(t => ['movie', 'tv', 'anime'].includes(t));
+    types = requestedTypes.filter(t => ['movie', 'tv', 'anime', 'cartoon'].includes(t));
   }
 
   // Парсим списки
@@ -215,6 +215,7 @@ function createFiltersSnapshot(
       movie: types.includes('movie'),
       tv: types.includes('tv'),
       anime: types.includes('anime'),
+      cartoon: types.includes('cartoon'),
     },
     lists: {
       want: lists.includes('want'),
