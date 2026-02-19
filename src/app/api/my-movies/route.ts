@@ -289,18 +289,12 @@ export async function GET(request: NextRequest) {
     
     // For filtered queries, fetch ALL records up to a reasonable limit
     // This ensures pagination works correctly after client-side filtering
-    let recordsNeeded: number;
-    if (hasFilters) {
-      // Fetch up to 2000 records when filters are applied
-      recordsNeeded = 2000;
-    } else {
-      // Without filters, use calculated buffer
-      recordsNeeded = Math.min(Math.ceil(page * limit * 1.5) + 1, 500);
-    }
+    // When filters are applied, we need to fetch more because filtering happens client-side
+    const recordsNeeded = hasFilters ? 5000 : Math.min(Math.ceil(page * limit * 1.5) + 1, 500);
     const skip = 0;
     const take = recordsNeeded;
 
-    console.log('[API DEBUG] Pagination strategy:', { page, limit, hasFilters, bufferMultiplier, recordsNeeded, skip, take });
+    console.log('[API DEBUG] Pagination strategy:', { page, limit, hasFilters, recordsNeeded, skip, take });
 
     const watchListRecords = await prisma.watchList.findMany({
       where: whereClause,
