@@ -42,7 +42,7 @@ export default function FilterForm({
   onAdditionalFilterChange, 
   updateAdditionalFilter,
   initialMinRating = 0,
-  initialTypes = ['movie', 'tv', 'anime'],
+  initialTypes = ['movie', 'tv', 'anime', 'cartoon'],
   initialLists = ['want', 'watched'],
   availableGenres = [],
   userTags = [],
@@ -237,6 +237,30 @@ export default function FilterForm({
               <span className="relative z-10">Аниме</span>
               {selectedTypes.includes('anime') && (
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-transparent"></div>
+              )}
+            </button>
+
+            {/* Кнопка Мульт */}
+            <button
+              type="button"
+              onClick={() => handleTypeToggle('cartoon')}
+              className={`
+                px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all duration-200
+                relative overflow-hidden border whitespace-nowrap min-w-[70px] text-center flex-1
+                ${selectedTypes.includes('cartoon')
+                  ? 'text-white shadow-lg shadow-orange-900/30 border-transparent'
+                  : 'text-gray-400 hover:text-gray-300 bg-gray-900/50 border-gray-700 hover:border-gray-600'
+                }
+              `}
+              style={{
+                background: selectedTypes.includes('cartoon')
+                  ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.95) 0%, rgba(234, 88, 12, 0.95) 100%)'
+                  : ''
+              }}
+            >
+              <span className="relative z-10">Мульт</span>
+              {selectedTypes.includes('cartoon') && (
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-transparent"></div>
               )}
             </button>
           </div>
