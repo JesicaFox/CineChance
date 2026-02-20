@@ -5,16 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Personal movie tracking with intelligent recommendations
-**Current focus:** Phase 6: Stats Page
+**Current focus:** Phase 7: Admin User Statistics
 
 ## Current Status
 
-- **Phase:** 6 (Stats Page) - COMPLETE
-- **Current Plan:** Not started
+- **Phase:** 7 (Admin user statistics)
+- **Current Plan:** 02
 - **Total Plans:** 03/03
-- **Mode:** YOLO (auto-advance enabled)
-- **Parallelization:** true
-- **Goal:** Stats page filtering functionality
+- **Goal:** Admin user statistics with pagination, filtering, user detail pages
 
 ## Progress
 
@@ -26,13 +24,15 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 | 4 | Animation Filter | ● Complete | 1 |
 | 5 | Content Filters | ● Complete | 0 |
 | 6 | Stats Page | ● Complete | 0 |
+| 7 | Admin User Statistics | ◐ In Progress | 0 |
 
 ## Last Updated
 
-2026-02-20 after Phase 6 Plan 3 (06-03) - Fixed API filtering for cartoon/anime using in-memory TMDB classification. Stats now correctly filter by all 4 content types.
+2026-02-20 after Phase 7 Plan 1 (07-01) - Added server-side pagination to admin users page with URL-based state, page size selector, and efficient Prisma queries.
 
 ## Execution History
 
+- **07-01:** Completed (4 min) - Server-side pagination for admin users page with URL params, page size selector (10/25/50/100), prev/next navigation, and efficient Prisma skip/take queries
 - **02-01:** Completed (4 min) - AsyncErrorBoundary extended with error codes, manual dismiss; TMDB in-memory 24h cache implemented
 - **02-02:** Completed (10 min) - Custom 404/500 error pages created; MovieGrid, Recommendations, and Search wrapped with error boundaries for component isolation
 - **03-01:** Completed (82 min) - Fixed console.log errors in 44 files, reduced errors from 562 to 439 (22% reduction). Remaining: unused-vars and any-type issues.
@@ -44,3 +44,8 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 - **06-01:** Completed (5 min) - Added 4 content type cards (Фильмы, Сериалы, Мульты, Аниме) to /profile/stats page using ProfileStats.tsx pattern
 - **06-02:** Completed (10 min) - Added interactive filter buttons with toggle behavior, fixed label "Мульты" → "Мультфильмы", added API support for media filtering
 - **06-03:** Completed (26 min) - Fixed API filtering for cartoon/anime using in-memory TMDB classification. Added classifyMediaType(), filterRecordsByMediaType() for proper content type filtering.
+
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 7 added: Admin user statistics
