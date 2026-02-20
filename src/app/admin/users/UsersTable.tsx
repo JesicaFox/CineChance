@@ -309,7 +309,11 @@ export default function UsersTable({
               </tr>
             ) : (
               users.map((user) => (
-                <tr key={user.id} className="border-b border-gray-700/50 hover:bg-gray-700/20">
+                <tr 
+                  key={user.id} 
+                  className="border-b border-gray-700/50 hover:bg-gray-700/20 cursor-pointer"
+                  onClick={() => router.push(`/admin/users/${user.id}/stats`)}
+                >
                   <td className="py-4 pr-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
