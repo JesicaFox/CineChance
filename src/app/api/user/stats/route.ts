@@ -60,6 +60,30 @@ function isCartoon(movie: any): boolean {
   return hasAnimationGenre && isNotJapanese;
 }
 
+function getMediaTypeCondition(mediaType: string): { mediaType?: string } | Record<string, never> {
+  if (!mediaType) return {};
+  
+  if (mediaType === 'movie' || mediaType === 'tv') {
+    return { mediaType };
+  }
+  
+  return {};
+}
+
+function calculateFilteredTypeCounts(
+  allRecords: Array<{ tmdbId: number; mediaType: string }>,
+  filterType: string
+): { movie: number; tv: number; cartoon: number; anime: number } {
+  const typeCounts = { movie: 0, tv: 0, cartoon: 0, anime: 0 };
+  
+  for (const record of allRecords) {
+    if (record.mediaType === 'movie') typeCounts.movie++;
+    else if (record.mediaType === 'tv') typeCounts.tv++;
+  }
+  
+  return typeCounts;
+}
+
 async function calculateTypeBreakdown(
   allRecords: Array<{ tmdbId: number; mediaType: string }>
 ): Promise<{ movie: number; tv: number; cartoon: number; anime: number }> {
@@ -94,19 +118,22 @@ async function calculateTypeBreakdown(
   return typeCounts;
 }
 
-async function fetchStats(userId: string) {
+async function fetchStats(userId: string, mediaFilter?: string | null) {
+  const mediaFilterCondition = mediaFilter ? getMediaTypeCondition(mediaFilter) : undefined;
+
   const [watchedCount, wantToWatchCount, droppedCount, hiddenCount] = await Promise.all([
     prisma.watchList.count({
       where: {
         userId,
         statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED] },
+        ...mediaFilterCondition,
       },
     }),
     prisma.watchList.count({
-      where: { userId, statusId: MOVIE_STATUS_IDS.WANT_TO_WATCH },
+      where: { userId, statusId: MOVIE_STATUS_IDS.WANT_TO_WATCH, ...mediaFilterCondition },
     }),
     prisma.watchList.count({
-      where: { userId, statusId: MOVIE_STATUS_IDS.DROPPED },
+      where: { userId, statusId: MOVIE_STATUS_IDS.DROPPED, ...mediaFilterCondition },
     }),
     prisma.blacklist.count({ where: { userId } }),
   ]);
@@ -122,6 +149,7 @@ async function fetchStats(userId: string) {
           MOVIE_STATUS_IDS.DROPPED
         ] 
       },
+      ...mediaFilterCondition,
     },
     select: {
       tmdbId: true,
@@ -136,6 +164,7 @@ async function fetchStats(userId: string) {
       userId,
       statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED, MOVIE_STATUS_IDS.DROPPED] },
       userRating: { not: null },
+      ...mediaFilterCondition,
     },
     _avg: { 
       userRating: true,
@@ -157,6 +186,7 @@ async function fetchStats(userId: string) {
       userId,
       statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED, MOVIE_STATUS_IDS.DROPPED] },
       userRating: { not: null },
+      ...mediaFilterCondition,
     },
     _count: {
       userRating: true,
@@ -207,9 +237,12 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const cacheKey = `user:${userId}:stats`;
+    const { searchParams } = new URL(request.url);
+    const mediaFilter = searchParams.get('media');
+    const validMedia = ['movie', 'tv', 'cartoon', 'anime'].includes(mediaFilter) ? mediaFilter : null;
+    const cacheKey = `user:${userId}:stats:${validMedia || 'all'}`;
 
-    const responseData = await withCache(cacheKey, () => fetchStats(userId), 3600);
+    const responseData = await withCache(cacheKey, () => fetchStats(userId, validMedia), 3600);
 
     return NextResponse.json(responseData);
   } catch (error) {

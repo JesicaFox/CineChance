@@ -115,7 +115,30 @@ export default function StatsClient({ userId }: StatsClientProps) {
   const [watchedGenresLoading, setWatchedGenresLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTypeFilterClick = (type: string) => {
+    if (typeFilter === type) {
+      setTypeFilter(null);
+    } else {
+      setTypeFilter(type);
+    }
+  };
+
+  const getCardClasses = (cardType: string) => {
+    const baseClasses = "bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border transition block cursor-pointer";
+    
+    if (typeFilter === null) {
+      return baseClasses;
+    }
+    
+    if (typeFilter === cardType) {
+      return `${baseClasses} border-purple-500 bg-gray-800`;
+    }
+    
+    return `${baseClasses} border-gray-800 opacity-50`;
+  };
 
   const getProgressMessage = () => {
     if (progress < 20) return '📊 Собираем статистику оценок...';
@@ -153,8 +176,12 @@ export default function StatsClient({ userId }: StatsClientProps) {
           });
         }, 200);
 
+        const statsUrl = typeFilter 
+          ? `/api/user/stats?media=${typeFilter}` 
+          : '/api/user/stats';
+        
         const [statsRes, tagUsageRes, genresRes] = await Promise.all([
-          fetch('/api/user/stats'),
+          fetch(statsUrl),
           fetch('/api/user/tag-usage'),
           fetch('/api/user/genres'),
         ]);
@@ -224,7 +251,7 @@ export default function StatsClient({ userId }: StatsClientProps) {
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, []);
+  }, [typeFilter]);
 
   const isLoading = statsLoading || averageRatingLoading || tagUsageLoading || watchedGenresLoading;
 
@@ -242,52 +269,52 @@ export default function StatsClient({ userId }: StatsClientProps) {
       {!isLoading && stats?.typeBreakdown && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {/* Фильмы */}
-          <Link
-            href="/my-movies?tab=watched&media=movie"
-            className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-purple-500/50 hover:bg-gray-800/80 transition block"
+          <button
+            onClick={() => handleTypeFilterClick('movie')}
+            className={getCardClasses('movie')}
           >
             <div className="flex items-center gap-2 mb-2">
               <Film className="w-4 h-4 text-purple-400" />
               <p className="text-gray-400 text-xs md:text-sm">Фильмы</p>
             </div>
             <p className="text-lg md:text-xl font-bold text-white">{stats.typeBreakdown.movie}</p>
-          </Link>
+          </button>
 
           {/* Сериалы */}
-          <Link
-            href="/my-movies?tab=watched&media=tv"
-            className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-cyan-500/50 hover:bg-gray-800/80 transition block"
+          <button
+            onClick={() => handleTypeFilterClick('tv')}
+            className={getCardClasses('tv')}
           >
             <div className="flex items-center gap-2 mb-2">
               <Tv className="w-4 h-4 text-cyan-400" />
               <p className="text-gray-400 text-xs md:text-sm">Сериалы</p>
             </div>
             <p className="text-lg md:text-xl font-bold text-white">{stats.typeBreakdown.tv}</p>
-          </Link>
+          </button>
 
-          {/* Мульты */}
-          <Link
-            href="/my-movies?tab=watched&media=cartoon"
-            className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-pink-500/50 hover:bg-gray-800/80 transition block"
+          {/* Мультфильмы */}
+          <button
+            onClick={() => handleTypeFilterClick('cartoon')}
+            className={getCardClasses('cartoon')}
           >
             <div className="flex items-center gap-2 mb-2">
               <Monitor className="w-4 h-4 text-pink-400" />
-              <p className="text-gray-400 text-xs md:text-sm">Мульты</p>
+              <p className="text-gray-400 text-xs md:text-sm">Мультфильмы</p>
             </div>
             <p className="text-lg md:text-xl font-bold text-white">{stats.typeBreakdown.cartoon}</p>
-          </Link>
+          </button>
 
           {/* Аниме */}
-          <Link
-            href="/my-movies?tab=watched&media=anime"
-            className="bg-gray-900 rounded-lg md:rounded-xl p-4 md:p-5 border border-gray-800 hover:border-indigo-500/50 hover:bg-gray-800/80 transition block"
+          <button
+            onClick={() => handleTypeFilterClick('anime')}
+            className={getCardClasses('anime')}
           >
             <div className="flex items-center gap-2 mb-2">
               <Monitor className="w-4 h-4 text-indigo-400" />
               <p className="text-gray-400 text-xs md:text-sm">Аниме</p>
             </div>
             <p className="text-lg md:text-xl font-bold text-white">{stats.typeBreakdown.anime}</p>
-          </Link>
+          </button>
         </div>
       )}
 
