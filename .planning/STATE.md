@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 - **Phase:** 6 (Stats Page) - COMPLETE
 - **Current Plan:** Completed
-- **Total Plans:** 02/02
+- **Total Plans:** 03/03
 - **Mode:** YOLO (auto-advance enabled)
 - **Parallelization:** true
 - **Goal:** Stats page filtering functionality
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Last Updated
 
-2026-02-20 after Phase 6 Plan 2 (06-02) - Added interactive filtering to stats page with toggle behavior. Cards now filter stats by content type when clicked.
+2026-02-20 after Phase 6 Plan 3 (06-03) - Fixed API filtering for cartoon/anime using in-memory TMDB classification. Stats now correctly filter by all 4 content types.
 
 ## Execution History
 
@@ -43,3 +43,4 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 - **04-01:** Completed (5 min) - Added "Мульт" filter button with orange gradient, updated types and API to accept cartoon type
 - **06-01:** Completed (5 min) - Added 4 content type cards (Фильмы, Сериалы, Мульты, Аниме) to /profile/stats page using ProfileStats.tsx pattern
 - **06-02:** Completed (10 min) - Added interactive filter buttons with toggle behavior, fixed label "Мульты" → "Мультфильмы", added API support for media filtering
+- **06-03:** Completed (26 min) - Fixed API filtering for cartoon/anime using in-memory TMDB classification. Added classifyMediaType(), filterRecordsByMediaType() for proper content type filtering.
