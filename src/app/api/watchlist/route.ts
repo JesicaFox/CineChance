@@ -1,6 +1,7 @@
 // src/app/api/watchlist/route.ts
  
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,7 @@ import { logger } from "@/lib/logger";
 import { rateLimit } from "@/middleware/rateLimit";
 import { calculateWeightedRating } from "@/lib/calculateWeightedRating";
 import { invalidateUserCache } from "@/lib/redis";
+import { recomputeTasteMap } from '@/lib/taste-map/compute';
 import { randomUUID } from 'crypto';
 
 // Helper to get or generate request ID
@@ -218,6 +220,18 @@ export async function POST(req: Request) {
         });
       }
 
+      // Trigger background taste map recomputation
+      after(async () => {
+        try {
+          await recomputeTasteMap(session.user.id);
+        } catch (error) {
+          logger.error('Taste map recompute failed', {
+            error: error instanceof Error ? error.message : String(error),
+            userId: session.user.id,
+          });
+        }
+      });
+
       return NextResponse.json({ success: true });
     }
 
@@ -328,6 +342,18 @@ export async function POST(req: Request) {
           },
         });
       }
+
+      // Trigger background taste map recomputation
+      after(async () => {
+        try {
+          await recomputeTasteMap(session.user.id);
+        } catch (error) {
+          logger.error('Taste map recompute failed', {
+            error: error instanceof Error ? error.message : String(error),
+            userId: session.user.id,
+          });
+        }
+      });
 
       return NextResponse.json({ success: true });
     }
@@ -463,6 +489,19 @@ export async function POST(req: Request) {
     }
 
     await invalidateUserCache(session.user.id);
+
+    // Trigger background taste map recomputation
+    after(async () => {
+      try {
+        await recomputeTasteMap(session.user.id);
+      } catch (error) {
+        logger.error('Taste map recompute failed', {
+          error: error instanceof Error ? error.message : String(error),
+          userId: session.user.id,
+        });
+      }
+    });
+
     logger.info(formatWatchlistLog(requestId, endpoint, session.user.id, 'success', tmdbId, `status: ${status}`));
     return NextResponse.json({ success: true, record });
   } catch (error) {
@@ -508,6 +547,19 @@ export async function DELETE(req: Request) {
     });
 
     await invalidateUserCache(session.user.id);
+
+    // Trigger background taste map recomputation
+    after(async () => {
+      try {
+        await recomputeTasteMap(session.user.id);
+      } catch (error) {
+        logger.error('Taste map recompute failed', {
+          error: error instanceof Error ? error.message : String(error),
+          userId: session.user.id,
+        });
+      }
+    });
+
     logger.info(formatWatchlistLog(requestId, endpoint, session.user.id, 'deleted', tmdbId));
     return NextResponse.json({ success: true });
   } catch (error) {
