@@ -107,7 +107,8 @@ export async function GET(request: NextRequest) {
     const genresParam = searchParams.get('genres');
     const tagsParam = searchParams.get('tags');
 
-    console.log('[API DEBUG] Request params:', {
+    logger.debug('Request params', {
+      context: 'my-movies',
       page,
       limit,
       typesParam,
@@ -294,7 +295,7 @@ export async function GET(request: NextRequest) {
     const skip = 0;
     const take = recordsNeeded;
 
-    console.log('[API DEBUG] Pagination strategy:', { page, limit, hasFilters, recordsNeeded, skip, take });
+    logger.debug('Pagination strategy', { context: 'my-movies', page, limit, hasFilters, recordsNeeded, skip, take });
 
     const watchListRecords = await prisma.watchList.findMany({
       where: whereClause,
@@ -345,7 +346,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Filter movies
-    console.log('[API DEBUG] Before filter:', moviesWithDetails.length, 'movies');
+    logger.debug('Before filter', { context: 'my-movies', count: moviesWithDetails.length });
     const filteredMovies = moviesWithDetails.filter(({ record, tmdbData, isAnime, isCartoon }) => {
       if (!tmdbData) return false;
 
@@ -398,7 +399,7 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
-    console.log('[API DEBUG] After filter:', filteredMovies.length, 'movies');
+    logger.debug('After filter', { context: 'my-movies', count: filteredMovies.length });
 
     // Transform to output format
     const movies = filteredMovies.map(({ record, tmdbData, cineChanceData }) => {
@@ -446,7 +447,8 @@ export async function GET(request: NextRequest) {
     // hasMore: Check if more movies exist in filtered result OR if we loaded full batch from DB
     const hasMore = sortedMovies.length > pageEndIndex || watchListRecords.length === recordsNeeded;
 
-    console.log('[API DEBUG]', {
+    logger.debug('Pagination result', {
+      context: 'my-movies',
       page,
       limit,
       recordsNeeded,
