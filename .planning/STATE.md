@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Status
 
 - **Phase:** 9 (ML Database Schema)
-- **Current Plan:** 01 Complete (migration pending)
+- **Current Plan:** Not started
 - **Total Plans:** 01/01
 - **Goal:** Add ML tables to Prisma schema ✓
 
