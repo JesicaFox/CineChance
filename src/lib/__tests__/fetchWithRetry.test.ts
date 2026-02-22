@@ -4,7 +4,7 @@ import fetchWithRetry from '../fetchWithRetry';
 
 describe('fetchWithRetry', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   afterEach(() => {

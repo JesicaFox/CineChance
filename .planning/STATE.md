@@ -1,37 +1,50 @@
-# State: CineChance Stabilization
+# State: CineChance v2.0
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Personal movie tracking with intelligent recommendations
-**Current focus:** Phase 7: Admin User Statistics
+**Current focus:** Phase 9: ML Database Schema
 
 ## Current Status
 
-- **Phase:** 7 (Admin user statistics) - COMPLETE
+- **Phase:** 9 (ML Database Schema)
 - **Current Plan:** Not started
-- **Total Plans:** 03/03
-- **Goal:** Admin user statistics with pagination, filtering, user detail pages
+- **Total Plans:** 01/01
+- **Goal:** Add ML tables to Prisma schema ✓
 
 ## Progress
 
 | Phase | Name | Status | Requirements |
 |-------|------|--------|--------------|
-| 1 | Tests & Logging | ● Complete | 5 |
-| 2 | Error Handling | ● Complete | 4 |
-| 3 | Lint Cleanup | ● Complete | 0 |
-| 4 | Animation Filter | ● Complete | 1 |
-| 5 | Content Filters | ● Complete | 0 |
-| 6 | Stats Page | ● Complete | 0 |
-| 7 | Admin User Statistics | ● Complete | 0 |
+| 1-8 | v1.0 Stabilization | ● Complete | 10 |
+| 9 | ML Database Schema | ● Complete | 0 |
+
+---
+
+## v2.0 Recommendations Overview
+
+**Requirements:** [ML-01, ML-02, ML-03, ML-04, ML-05]
+
+| Phase | Name | Goal |
+|-------|------|------|
+| 9 | ML Database Schema | Add 4 new tables for ML feedback loop |
+| 10 | Taste Map Infrastructure | TasteMap + Redis + Similarity calculation |
+| 11 | Core Patterns | Implement Patterns 1-4 |
+| 12 | Advanced Patterns | Implement Patterns 5-8 |
+| 13 | Recommendation API | API + Cold Start + Heavy Users |
+| 14 | UI Integration | Main page + Admin dashboard |
+| 15 | ML Feedback Loop | Decision logging + outcome tracking |
 
 ## Last Updated
 
-2026-02-20 after Phase 7 Plan 3 (07-03) - Created admin user statistics page at /admin/users/[userId]/stats with API routes for stats, tags, and genres. Added click navigation from user list.
+2026-02-22 - Phase 9 complete: ML schema tables added
 
 ## Execution History
 
+- **09-01:** Completed (19 min) - Added 4 ML feedback loop tables to Prisma schema: RecommendationDecision, PredictionOutcome, ModelCorrection, ModelTraining. Migration pending manual execution due to DB connection issues.
+- **08-01:** Completed (7 min) - Admin panel UI redesign: sidebar icons only with tooltips, user table with manual filtering, removed status column, renamed Реком., added site-wide stats (movies in lists, recommendations, matches)
 - **07-03:** Completed (16 min) - Admin user statistics page with content type filtering (movie/tv/cartoon/anime), rating distribution, tags, and genres. Created admin API routes for fetching any user's data. Added navigation from user list.
 - **07-02:** Completed (16 min) - Server-side column sorting (name, email, createdAt, watchList, recommendationLogs, status) and filtering (name, email, verification status) on admin users table with URL params and Prisma queries
 - **07-01:** Completed (4 min) - Server-side pagination for admin users page with URL params, page size selector (10/25/50/100), prev/next navigation, and efficient Prisma skip/take queries
@@ -51,3 +64,13 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ### Roadmap Evolution
 - Phase 7 added: Admin user statistics
+- Phase 8 added: Admin panel UI improvements
+
+### Key Decisions (Phase 9)
+- ModelTraining is global (no userId) - tracks model versions, not per-user data
+- ModelCorrection has optional userId for global or user-specific corrections
+
+### Key Decisions (Phase 8)
+- Removed status column/filter for cleaner UI
+- Added manual "Go" button for filtering to prevent excessive API calls
+- Used raw SQL for matches count to efficiently find shared movies between users

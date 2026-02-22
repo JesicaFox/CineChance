@@ -42,6 +42,9 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# Pattern selection (v2.0 features - internal research)
+docs/Pattern selection/
+
 # Test scripts
 scripts/test-*.ts
 nul

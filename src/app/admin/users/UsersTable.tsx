@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Users, Mail, Shield, ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 interface UserData {
   id: string;
@@ -26,13 +27,12 @@ interface UsersTableProps {
   hasPrevPage: boolean;
 }
 
-type SortField = 'name' | 'email' | 'createdAt' | 'watchList' | 'recommendationLogs' | 'status';
+type SortField = 'name' | 'email' | 'createdAt' | 'watchList' | 'recommendationLogs';
 type SortDirection = 'asc' | 'desc';
 
 interface Filters {
   name: string;
   email: string;
-  status: 'all' | 'verified' | 'unverified';
 }
 
 // Sort indicator component - defined outside main component
@@ -60,13 +60,25 @@ export default function UsersTable({
   // Get current sort/filter from URL
   const sortField = (searchParams.get('sort') as SortField) || 'createdAt';
   const sortDirection = (searchParams.get('order') as SortDirection) || 'desc';
-  const filters: Filters = {
+  
+  // URL-based filters (applied)
+  const appliedFilters: Filters = {
     name: searchParams.get('filterName') || '',
     email: searchParams.get('filterEmail') || '',
-    status: (searchParams.get('filterStatus') as Filters['status']) || 'all',
   };
 
-  const showFilters = Boolean(filters.name || filters.email || filters.status !== 'all');
+  // Local state for input fields (not applied until Go clicked)
+  const [localFilters, setLocalFilters] = useState<Filters>(appliedFilters);
+  
+  // Filter panel visibility (expanded by default)
+  const [showFilters, setShowFilters] = useState(true);
+  
+  // Sync local state with URL filters on mount/URL change
+  useEffect(() => {
+    setLocalFilters(appliedFilters);
+  }, [searchParams.toString()]);
+  
+  const hasActiveFilters = Boolean(appliedFilters.name || appliedFilters.email);
 
   // Format date
   const formatDate = (date: Date) => {
@@ -79,50 +91,44 @@ export default function UsersTable({
     });
   };
 
-  // Update URL with new params
-  const updateParams = (updates: Record<string, string | null>) => {
+  // Apply filters on Go button click
+  const applyFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
-
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === '' || value === 'all') {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-
-    // Reset to page 1 when filtering or sorting
-    if (!updates.hasOwnProperty('page')) {
-      params.set('page', '1');
+    
+    if (localFilters.name) {
+      params.set('filterName', localFilters.name);
+    } else {
+      params.delete('filterName');
     }
-
+    
+    if (localFilters.email) {
+      params.set('filterEmail', localFilters.email);
+    } else {
+      params.delete('filterEmail');
+    }
+    
+    // Reset to page 1 when filtering
+    params.set('page', '1');
+    
     router.push(`/admin/users?${params.toString()}`, { scroll: false });
   };
 
   // Handle sort
   const handleSort = (field: SortField) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
     if (sortField === field) {
       // Toggle direction
-      updateParams({
-        sort: field,
-        order: sortDirection === 'asc' ? 'desc' : 'asc',
-      });
+      params.set('sort', field);
+      params.set('order', sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      updateParams({
-        sort: field,
-        order: 'asc',
-      });
+      params.set('sort', field);
+      params.set('order', 'asc');
     }
-  };
-
-  // Handle filter change
-  const handleFilterChange = (key: keyof Filters, value: string) => {
-    const paramMap: Record<string, string> = {
-      name: 'filterName',
-      email: 'filterEmail',
-      status: 'filterStatus',
-    };
-    updateParams({ [paramMap[key]]: value || null });
+    
+    params.set('page', '1');
+    
+    router.push(`/admin/users?${params.toString()}`, { scroll: false });
   };
 
   // Clear filters
@@ -130,12 +136,10 @@ export default function UsersTable({
     const params = new URLSearchParams(searchParams.toString());
     params.delete('filterName');
     params.delete('filterEmail');
-    params.delete('filterStatus');
     params.set('page', '1');
+    setLocalFilters({ name: '', email: '' });
     router.push(`/admin/users?${params.toString()}`, { scroll: false });
   };
-
-  const hasActiveFilters = filters.name || filters.email || filters.status !== 'all';
 
   // Page navigation helpers
   const getPageUrl = (newPage: number) => {
@@ -200,15 +204,12 @@ export default function UsersTable({
       {/* Filter controls */}
       <div className="flex items-center gap-4 flex-wrap">
         <button
-          onClick={() => {
-            const params = new URLSearchParams(searchParams.toString());
-            if (hasActiveFilters) {
-              clearFilters();
-            } else {
-              // Toggle show filters - just a visual toggle
-            }
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            showFilters 
+              ? 'bg-purple-600 hover:bg-purple-500 text-white' 
+              : 'bg-gray-700 hover:bg-gray-600 text-white'
+          }`}
         >
           <Search className="w-4 h-4" />
           Фильтры
@@ -232,41 +233,42 @@ export default function UsersTable({
         </span>
       </div>
 
-      {/* Filter inputs - always visible for simplicity */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-700/30 rounded-lg border border-gray-700">
-        <div>
-          <label className="block text-gray-400 text-sm mb-2">Имя</label>
-          <input
-            type="text"
-            placeholder="Поиск по имени..."
-            value={filters.name}
-            onChange={(e) => handleFilterChange('name', e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-          />
+      {/* Filter inputs - toggleable */}
+      {showFilters && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-gray-700/30 rounded-lg border border-gray-700">
+          <div className="md:col-span-4">
+            <label className="block text-gray-400 text-sm mb-2">Имя</label>
+            <input
+              type="text"
+              placeholder="Поиск по имени..."
+              value={localFilters.name}
+              onChange={(e) => setLocalFilters(prev => ({ ...prev, name: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="md:col-span-4">
+            <label className="block text-gray-400 text-sm mb-2">Email</label>
+            <input
+              type="text"
+              placeholder="Поиск по email..."
+              value={localFilters.email}
+              onChange={(e) => setLocalFilters(prev => ({ ...prev, email: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="md:col-span-4 flex items-end gap-2">
+            <button
+              onClick={applyFilters}
+              className="w-10 h-10 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center"
+              title="Найти"
+            >
+              Go
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="block text-gray-400 text-sm mb-2">Email</label>
-          <input
-            type="text"
-            placeholder="Поиск по email..."
-            value={filters.email}
-            onChange={(e) => handleFilterChange('email', e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-gray-400 text-sm mb-2">Статус</label>
-          <select
-            value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-          >
-            <option value="all">Все</option>
-            <option value="verified">Подтверждённые</option>
-            <option value="unverified">Неподтверждённые</option>
-          </select>
-        </div>
-      </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto">
@@ -290,19 +292,15 @@ export default function UsersTable({
                 <SortIndicator field="watchList" currentField={sortField} direction={sortDirection} />
               </th>
               <th className={thClass('recommendationLogs')} onClick={() => handleSort('recommendationLogs')}>
-                Рекомендаций
+                Реком.
                 <SortIndicator field="recommendationLogs" currentField={sortField} direction={sortDirection} />
-              </th>
-              <th className={thClass('status')} onClick={() => handleSort('status')}>
-                Статус
-                <SortIndicator field="status" currentField={sortField} direction={sortDirection} />
               </th>
             </tr>
           </thead>
           <tbody className="text-white">
             {users.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-500">
+                <td colSpan={5} className="py-12 text-center text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Пользователи не найдены</p>
                 </td>
@@ -338,18 +336,6 @@ export default function UsersTable({
                   </td>
                   <td className="py-4 pr-4 text-gray-300">
                     {user._count.recommendationLogs}
-                  </td>
-                  <td className="py-4">
-                    {user.emailVerified ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
-                        <Shield className="w-3 h-3" />
-                        Подтверждён
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-xs">
-                        Неподтверждён
-                      </span>
-                    )}
                   </td>
                 </tr>
               ))

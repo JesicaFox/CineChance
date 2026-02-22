@@ -39,6 +39,11 @@ model User {
   userSessions           UserSession[]
   watchList              WatchList[]
 
+  // ML Feedback Loop relations
+  recommendationDecisions RecommendationDecision[]
+  modelCorrections        ModelCorrection[]
+  adminCorrections        ModelCorrection[]     @relation("AdminCorrection")
+
   @@index([updatedAt])
   @@index([createdAt])
   @@index([email])
@@ -491,4 +496,143 @@ model RecommendationMetrics {
   @@index([segment, metricDate])
   @@index([metricDate])
   @@index([aggregationLevel, metricDate])
+}
+
+// =====================================================
+// ML Feedback Loop Tables
+// =====================================================
+
+/// Stores the decision logic for why a recommendation was made
+model RecommendationDecision {
+  id          String @id @default(cuid())
+
+  // Who receives the recommendation
+  userId      String
+  tmdbId      Int
+  mediaType   String
+
+  // Decision scores
+  finalScore      Float
+  genreScore      Float
+  personScore     Float
+  tasteScore      Float
+  wantSignalScore Float
+
+  // Detailed factors
+  genreFactors    Json? // { genre: "action", affinity: 0.9, ... }
+  personFactors   Json? // { director: "X", actor: "Y", ... }
+  dropRiskFactors Json? // { genre: "anime", dropRate: 0.67 }
+
+  // What was filtered and why
+  filtersApplied Json? // [ { filter: "blacklist", reason: "..." } ]
+  rejections     Json? // [ { reason: "dropRate > 50%", score: ... } ]
+
+  // Context
+  sourceType          String  // "similar_users" | "trending" | "want_watch"
+  similarUserId       String?
+  recommendationListId String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outcomes PredictionOutcome[]
+
+  @@index([userId, createdAt])
+  @@index([finalScore])
+}
+
+/// Tracks what the user did with the recommendation
+model PredictionOutcome {
+  id String @id @default(cuid())
+
+  // Link to decision
+  decisionId String
+
+  // Result
+  userAction  String?  // "added_to_want" | "watched" | "rated" | "ignored" | "blacklisted"
+  rating      Int?
+  statusAfter String? // "want" | "watched" | "dropped"
+
+  // Metrics
+  wasSuccessful    Boolean?
+  confidenceMatch  Float? // How much the prediction matched reality
+
+  // Timing
+  recommendedAt DateTime
+  actionAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  decision RecommendationDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([decisionId])
+  @@index([userAction])
+  @@index([wasSuccessful])
+}
+
+/// Admin manual overrides for model logic
+model ModelCorrection {
+  id String @id @default(cuid())
+
+  // What to correct (optional - can be global)
+  userId    String?
+  tmdbId    Int?
+  mediaType String?
+
+  // Correction details
+  correctionType  String  // "boost" | "reduce" | "block" | "reweight"
+  targetFactor    String? // "genre" | "person" | "similar_user"
+  targetValue     String? // "action", "actor_1", etc.
+  correctionValue Float   // +0.5, -0.3, 1.0 (block)
+
+  // Reason
+  reason  String
+  adminId String
+
+  // Status
+  isActive  Boolean   @default(true)
+  appliedAt DateTime?
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user  User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin User  @relation("AdminCorrection", fields: [adminId], references: [id])
+
+  @@index([userId])
+  @@index([correctionType])
+}
+
+/// Model version and parameter tracking
+model ModelTraining {
+  id String @id @default(cuid())
+
+  // Version
+  modelVersion String
+
+  // Parameters
+  weights    Json // { genre: 0.25, person: 0.25, ... }
+  thresholds Json // { minScore: 0.5, dropRate: 0.5 }
+
+  // Training data
+  trainingDataSize Int   // How many decisions were used
+  trainingDateRange Json? // { from: "2024-01-01", to: "2024-12-31" }
+
+  // Metrics
+  accuracy  Float?
+  precision Float?
+  recall    Float?
+
+  // Status
+  status String // "training" | "ready" | "active" | "deprecated"
+
+  createdAt    DateTime  @default(now())
+  activatedAt  DateTime?
+  deprecatedAt DateTime?
+
+  @@index([modelVersion])
+  @@index([status])
 }
