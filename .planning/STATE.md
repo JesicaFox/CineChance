@@ -1,35 +1,45 @@
-# State: CineChance Stabilization
+# State: CineChance v2.0
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Personal movie tracking with intelligent recommendations
-**Current focus:** Phase 8: Admin Panel UI Improvements
+**Current focus:** Phase 9: ML Database Schema
 
 ## Current Status
 
-- **Phase:** 8 (Admin panel UI)
+- **Phase:** 9 (ML Database Schema)
 - **Current Plan:** Not started
 - **Total Plans:** 01/01
-- **Goal:** Admin panel UI improvements - COMPLETE
+- **Goal:** Add ML tables to Prisma schema
 
 ## Progress
 
 | Phase | Name | Status | Requirements |
 |-------|------|--------|--------------|
-| 1 | Tests & Logging | ● Complete | 5 |
-| 2 | Error Handling | ● Complete | 4 |
-| 3 | Lint Cleanup | ● Complete | 0 |
-| 4 | Animation Filter | ● Complete | 1 |
-| 5 | Content Filters | ● Complete | 0 |
-| 6 | Stats Page | ● Complete | 0 |
-| 7 | Admin User Statistics | ● Complete | 0 |
-| 8 | Admin Panel UI | ● Complete | 0 |
+| 1-8 | v1.0 Stabilization | ● Complete | 10 |
+| 9 | ML Database Schema | ○ Pending | 0 |
+
+---
+
+## v2.0 Recommendations Overview
+
+**Requirements:** [ML-01, ML-02, ML-03, ML-04, ML-05]
+
+| Phase | Name | Goal |
+|-------|------|------|
+| 9 | ML Database Schema | Add 4 new tables for ML feedback loop |
+| 10 | Taste Map Infrastructure | TasteMap + Redis + Similarity calculation |
+| 11 | Core Patterns | Implement Patterns 1-4 |
+| 12 | Advanced Patterns | Implement Patterns 5-8 |
+| 13 | Recommendation API | API + Cold Start + Heavy Users |
+| 14 | UI Integration | Main page + Admin dashboard |
+| 15 | ML Feedback Loop | Decision logging + outcome tracking |
 
 ## Last Updated
 
-2026-02-21 after Phase 8 Plan 1 (08-01) - Redesigned admin panel UI: icon-only sidebar with tooltips, manual filtering with Go button, removed status column/filter, added site-wide stats cards (movies, recommendations, matches).
+2026-02-22 - Planning v2.0 Recommendations phases
 
 ## Execution History
 

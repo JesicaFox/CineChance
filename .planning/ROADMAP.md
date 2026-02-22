@@ -1,16 +1,15 @@
-# Roadmap: CineChance Stabilization
+# Roadmap: CineChance
 
 **Created:** 2026-02-17
 **Mode:** YOLO (Auto-approve)
-**Goal:** Восстановить уверенность в коде
 
 ## Milestones
 
-- ✅ **v1.0 Stabilization** — Phases 1-2 (shipped 2026-02-17)
-- ✅ **v1.1 Lint Cleanup** — Phase 3 (completed 2026-02-20)
-- ✅ **v1.2 Animation Filter** — Phase 4 (completed 2026-02-19)
-- ✅ **v1.3 Recommendation Filters Enhancement** — Phase 5 (completed 2026-02-19)
-- ✅ **Phase 6: Stats Page Enhancement** — Completed 2026-02-20
+- ✅ **v1.0 Stabilization** — Phases 1-8 (shipped 2026-02-21)
+- 🚀 **v2.0 Recommendations** — Phases 9-15 (in progress)
+  - User-to-user recommendations based on Taste Map
+  - 8 pattern matching algorithms
+  - ML feedback loop
 
 ---
 
@@ -105,6 +104,92 @@ Plans:
 
 Plans:
 - [ ] 08-01-PLAN.md — UI improvements for admin panel
+
+---
+
+## v2.0: User-to-User Recommendations
+
+**Goal:** Рекомендации фильмов пользователям на основе Карты вкусов (Taste Map)
+
+### Phase 9: ML Database Schema
+
+**Goal:** Добавить таблицы для ML feedback loop в Prisma schema
+**Depends on:** Phase 8
+**Plans:** 1 plan
+
+Plans:
+- [ ] 09-01-PLAN.md — Add ML tables: RecommendationDecision, PredictionOutcome, ModelCorrection, ModelTraining
+
+---
+
+### Phase 10: Taste Map Infrastructure
+
+**Goal:** Создать инфраструктуру для вычисления и хранения Taste Map
+**Depends on:** Phase 9
+**Plans:** 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — TasteMap структура данных и Redis хранение
+- [ ] 10-02-PLAN.md — Similarity calculation (поиск похожих пользователей)
+
+---
+
+### Phase 11: Core Recommendation Patterns
+
+**Goal:** Реализовать базовые паттерны рекомендаций (1-4)
+**Depends on:** Phase 10
+**Plans:** 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Patterns 1-2: Taste Match, Want-to-watch Overlap
+- [ ] 11-02-PLAN.md — Patterns 3-4: Drop Patterns, Type Twins
+
+---
+
+### Phase 12: Advanced Recommendation Patterns
+
+**Goal:** Реализовать продвинутые паттерны рекомендаций (5-8)
+**Depends on:** Phase 11
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Patterns 5-6: Genre Twins, Genre Recommendations
+- [ ] 12-02-PLAN.md — Patterns 7-8: Person Twins, Person Recommendations
+
+---
+
+### Phase 13: Recommendation API
+
+**Goal:** Создать API для получения рекомендаций с обработкой Edge Cases
+**Depends on:** Phase 12
+**Plans:** 2 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Recommendation API endpoint + Cold Start handling
+- [ ] 13-02-PLAN.md — Heavy Users handling, Graceful Degradation, Confidence Scoring
+
+---
+
+### Phase 14: UI Integration
+
+**Goal:** Интегрировать рекомендации в UI
+**Depends on:** Phase 13
+**Plans:** 2 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Main page: Top-12 recommendations horizontal scroll
+- [ ] 14-02-PLAN.md — Admin ML Dashboard: discrepancy monitoring, model corrections
+
+---
+
+### Phase 15: ML Feedback Loop
+
+**Goal:** Замкнуть цикл: логирование решений → отслеживание исходов → коррекция модели
+**Depends on:** Phase 14
+**Plans:** 1 plan
+
+Plans:
+- [ ] 15-01-PLAN.md — Decision logging, outcome tracking, auto-corrections
 
 ---
 
