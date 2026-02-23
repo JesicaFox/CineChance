@@ -9,9 +9,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Status
 
-- **Phase:** 16 (ML Stats Security)
-- **Current Plan:** 01 (Completed)
-- **Goal:** Add authentication to unprotected ML stats endpoint
+- **Phase:** 17 (Outcome Tracking)
+- **Current Plan:** Not started
+- **Goal:** Enable outcome tracking from main page recommendations
 
 ## Progress
 
@@ -26,6 +26,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 | 14 | UI Integration | ● Complete | 0 |
 | 15 | ML Feedback Loop | ● Complete | 1 |
 | 16 | ML Stats Security | ● Complete | 0 |
+| 17 | Outcome Tracking | ● Complete | 0 |
 
 ---
 
@@ -59,6 +60,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 - **15-01:** Completed (25 min) - Outcome tracking module with trackOutcome(), calculateAcceptanceRate(), getAlgorithmPerformance(), outcome tracking integration in my-movies API, ML stats endpoint with outcome metrics
 - **16-01:** Completed (2 min) - Added authentication check to ml-stats endpoint, returns 401 for unauthenticated requests
+- **17-01:** Completed (5 min) - Outcome tracking for home page recommendations via logId passing through localStorage
 - **14-02:** Completed (5 min) - ML Dashboard component integrated into admin monitoring page with algorithm performance, user segments, and prediction discrepancy metrics
 - **14-01:** Completed (5 min) - RecommendationsGrid component integrated into main page with horizontal scroll, cold start messaging, and confidence scoring
 
