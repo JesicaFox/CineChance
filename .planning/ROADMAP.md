@@ -6,7 +6,7 @@
 ## Milestones
 
 - ✅ **v1.0 Stabilization** — Phases 1-8 (shipped 2026-02-21)
-- 🚀 **v2.0 Recommendations** — Phases 9-15 (in progress)
+- ✅ **v2.0 Recommendations** — Phases 9-15 (in progress)
   - User-to-user recommendations based on Taste Map
   - 8 pattern matching algorithms
   - ML feedback loop
@@ -163,11 +163,13 @@ Plans:
 
 **Goal:** Создать API для получения рекомендаций с обработкой Edge Cases
 **Depends on:** Phase 12
+**Status:** ✅ Complete (2026-02-23)
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 13-01-PLAN.md — Redis caching, timeout protection, cold start metadata
-- [ ] 13-02-PLAN.md — Heavy Users handling, Graceful Degradation, Confidence Scoring
+- [x] 13-01-PLAN.md — Redis caching, timeout protection, cold start metadata
+- [x] 13-02-PLAN.md — Heavy Users handling, Graceful Degradation, Confidence Scoring
+- [x] 13-03-PLAN.md — Heavy user sampling implementation (gap closure)
 
 ---
 
