@@ -6,10 +6,10 @@
 ## Milestones
 
 - ✅ **v1.0 Stabilization** — Phases 1-8 (shipped 2026-02-21)
-- ✅ **v2.0 Recommendations** — Phases 9-15 (in progress)
+- ✅ **v2.0 Recommendations** — Phases 9-15 (last phase!)
   - User-to-user recommendations based on Taste Map
   - 8 pattern matching algorithms
-  - ML feedback loop
+  - ML feedback loop (Phase 15 pending)
 
 ---
 
@@ -177,11 +177,12 @@ Plans:
 
 **Goal:** Интегрировать рекомендации в UI
 **Depends on:** Phase 13
+**Status:** ✅ Complete (2026-02-23)
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 14-01-PLAN.md — Main page: Top-12 recommendations horizontal scroll
-- [ ] 14-02-PLAN.md — Admin ML Dashboard: discrepancy monitoring, model corrections
+- [x] 14-01-PLAN.md — Main page: Top-12 recommendations horizontal scroll
+- [x] 14-02-PLAN.md — Admin ML Dashboard: discrepancy monitoring, model corrections
 
 ---
 
