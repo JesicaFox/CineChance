@@ -72,7 +72,7 @@ export async function calculateAcceptanceRate(
     };
 
     if (algorithm) {
-      where.parent = { algorithm };
+      where.parentLog = { algorithm };
     }
 
     if (dateRange) {

@@ -54,18 +54,20 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    // Get outcome metrics using tracking functions
-    const [last7DaysStats, last30DaysStats, overallStats] = await Promise.all([
-      // Outcome stats for last 7 days
-      getOutcomeStats(null, null, DATE_RANGE_7_DAYS),
-      // Outcome stats for last 30 days
-      getOutcomeStats(null, null, DATE_RANGE_30_DAYS),
-      // Overall outcome stats
-      getOutcomeStats(null, null, null),
-    ]);
-
     // Get first user ID for algorithm performance (fallback if no user)
     const firstUserId = allUsers.length > 0 ? allUsers[0].id : 'system';
+
+    // Get outcome metrics using tracking functions
+    // For admin overview, we use firstUserId to get representative stats
+    const [last7DaysStats, last30DaysStats, overallStats] = await Promise.all([
+      // Outcome stats for last 7 days
+      getOutcomeStats(firstUserId, null, DATE_RANGE_7_DAYS),
+      // Outcome stats for last 30 days
+      getOutcomeStats(firstUserId, null, DATE_RANGE_30_DAYS),
+      // Overall outcome stats
+      getOutcomeStats(firstUserId, null, null),
+    ]);
+
     const [last7DaysAlgorithmPerf, last30DaysAlgorithmPerf, overallAlgorithmPerf] = await Promise.all([
       // Algorithm performance for last 7 days
       getAlgorithmPerformance(firstUserId, {
