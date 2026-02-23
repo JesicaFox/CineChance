@@ -193,7 +193,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 15-01-PLAN.md — Outcome tracking when user acts on recommendations
+- [ ] 15-01-PLAN.md — Decision logging, outcome tracking, auto-corrections
 
 ---
 
