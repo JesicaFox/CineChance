@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import AdminSidebar from "../AdminSidebar";
 import RecommendationStats from '@/app/components/RecommendationStats';
 import MLDashboard from '@/app/components/MLDashboard';
-import { Database, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import LoaderSkeleton from "@/app/components/LoaderSkeleton";
 
 function MLDashboardSkeleton() {
@@ -65,46 +65,7 @@ export default async function MonitoringPage() {
             <MLDashboard />
           </Suspense>
 
-          {/* Информация о системе */}
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <div className="flex items-center gap-3 mb-6">
-              <Database className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-semibold text-white">Политика хранения данных</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <p className="text-gray-400 text-xs mb-2">Тип данных</p>
-                <p className="text-white font-medium">События рекомендаций</p>
-                <p className="text-gray-500 text-sm">90 дней</p>
-              </div>
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <p className="text-gray-400 text-xs mb-2">Тип данных</p>
-                <p className="text-white font-medium">Сигналы намерений</p>
-                <p className="text-gray-500 text-sm">30 дней</p>
-              </div>
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <p className="text-gray-400 text-xs mb-2">Тип данных</p>
-                <p className="text-white font-medium">Сессии пользователей</p>
-                <p className="text-gray-500 text-sm">60 дней</p>
-              </div>
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <p className="text-gray-400 text-xs mb-2">Тип данных</p>
-                <p className="text-white font-medium">Негативная обратная связь</p>
-                <p className="text-gray-500 text-sm">180 дней</p>
-              </div>
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <p className="text-gray-400 text-xs mb-2">Тип данных</p>
-                <p className="text-white font-medium">Логи рекомендаций</p>
-                <p className="text-gray-500 text-sm">365 дней</p>
-              </div>
-              <div className="p-4 bg-gray-800/50 rounded-lg">
-                <p className="text-gray-400 text-xs mb-2">Тип данных</p>
-                <p className="text-white font-medium">ML предсказания</p>
-                <p className="text-gray-500 text-sm">90 дней</p>
-              </div>
-            </div>
-          </div>
+          {/* Расписание очистки */}
 
           {/* Расписание очистки */}
           <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">

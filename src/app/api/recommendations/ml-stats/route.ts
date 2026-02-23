@@ -133,9 +133,12 @@ export async function GET(request: NextRequest) {
       },
       algorithmPerformance,
       userSegments: {
+        totalUsers: allUsers.length,
         coldStart,
-        activeUsers,
+        activeUsers: activeUsers, // Use already calculated value
         heavyUsers,
+        coldStartThreshold: COLD_START_THRESHOLD,
+        heavyUserThreshold: HEAVY_USER_THRESHOLD,
       },
       discrepancy: {
         predicted: 0,

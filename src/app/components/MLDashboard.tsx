@@ -32,9 +32,12 @@ interface MLStatsData {
     successRate: number;
   }>;
   userSegments: {
+    totalUsers: number;
     coldStart: number;
     activeUsers: number;
     heavyUsers: number;
+    coldStartThreshold: number;
+    heavyUserThreshold: number;
   };
   discrepancy: {
     predicted: number;
@@ -158,14 +161,20 @@ function DiscrepancyCard({
   );
 }
 
-function SegmentCard({ 
-  coldStart, 
-  active, 
-  heavy 
-}: { 
-  coldStart: number; 
-  active: number; 
+function SegmentCard({
+  totalUsers,
+  coldStart,
+  active,
+  heavy,
+  coldStartThreshold,
+  heavyUserThreshold
+}: {
+  totalUsers: number;
+  coldStart: number;
+  active: number;
   heavy: number;
+  coldStartThreshold: number;
+  heavyUserThreshold: number;
 }) {
   const total = coldStart + active + heavy;
   const coldPercent = total > 0 ? coldStart / total : 0;
@@ -180,7 +189,26 @@ function SegmentCard({
         </div>
         <span className="text-gray-400 text-sm">Сегменты пользователей</span>
       </div>
-      
+
+      {/* Пороги */}
+      <div className="mb-4 p-3 bg-gray-800/30 rounded-lg">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-400">Холодный старт:</span>
+          <span className="text-blue-400">менее {formatNumber(coldStartThreshold)} показов</span>
+        </div>
+        <div className="flex items-center justify-between text-sm mt-2">
+          <span className="text-gray-400">Тяжёлые:</span>
+          <span className="text-purple-400">{formatNumber(heavyUserThreshold)}+ показов</span>
+        </div>
+      </div>
+
+      {/* Общее количество пользователей */}
+      <div className="mb-4 text-center">
+        <p className="text-gray-400 text-xs mb-1">Всего пользователей</p>
+        <p className="text-xl font-bold text-white">{formatNumber(totalUsers)}</p>
+      </div>
+
+      {/* График сегментов */}
       <div className="space-y-3">
         <div>
           <div className="flex justify-between text-sm mb-1">
@@ -188,34 +216,34 @@ function SegmentCard({
             <span className="text-white">{formatNumber(coldStart)}</span>
           </div>
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-blue-400 transition-all" 
+            <div
+              className="h-full bg-blue-400 transition-all"
               style={{ width: `${coldPercent * 100}%` }}
             />
           </div>
         </div>
-        
+
         <div>
           <div className="flex justify-between text-sm mb-1">
             <span className="text-green-400">Активные</span>
             <span className="text-white">{formatNumber(active)}</span>
           </div>
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-green-400 transition-all" 
+            <div
+              className="h-full bg-green-400 transition-all"
               style={{ width: `${activePercent * 100}%` }}
             />
           </div>
         </div>
-        
+
         <div>
           <div className="flex justify-between text-sm mb-1">
             <span className="text-purple-400">Тяжёлые</span>
             <span className="text-white">{formatNumber(heavy)}</span>
           </div>
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-purple-400 transition-all" 
+            <div
+              className="h-full bg-purple-400 transition-all"
               style={{ width: `${heavyPercent * 100}%` }}
             />
           </div>
@@ -349,9 +377,12 @@ export default function MLDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Сегменты пользователей */}
         <SegmentCard
+          totalUsers={stats.userSegments.totalUsers}
           coldStart={stats.userSegments.coldStart}
           active={stats.userSegments.activeUsers}
           heavy={stats.userSegments.heavyUsers}
+          coldStartThreshold={stats.userSegments.coldStartThreshold}
+          heavyUserThreshold={stats.userSegments.heavyUserThreshold}
         />
 
         {/* Discrepancy */}
