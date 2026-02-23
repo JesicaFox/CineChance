@@ -42,6 +42,12 @@ export interface RecommendationSession {
   temporalContext: TemporalContext;
   /** ML features computed for this session */
   mlFeatures: MLFeatures;
+  /** Sample size for heavy users (500+ watched items).
+   * If set, algorithms should use take: session.sampleSize when querying user data */
+  sampleSize?: number;
+  /** Whether the user is a heavy user (500+ watched items).
+   * Indicates that sampling was applied to their query */
+  isHeavyUser?: boolean;
 }
 
 /**
