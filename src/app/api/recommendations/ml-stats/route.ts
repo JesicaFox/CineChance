@@ -89,27 +89,52 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Calculate totals from outcome stats
+    const totalAddedToWant = overallStats.reduce((sum, day) => sum + day.added, 0);
+    const totalWatched = overallStats.reduce((sum, day) => sum + day.rated, 0);
+    const totalShown = overallStats.reduce((sum, day) => sum + day.total, 0);
+    
+    // Calculate rates
+    const acceptanceRate = totalShown > 0 ? (totalAddedToWant + totalWatched) / totalShown : 0;
+    const wantRate = totalShown > 0 ? totalAddedToWant / totalShown : 0;
+    const watchRate = totalShown > 0 ? totalWatched / totalShown : 0;
+
+    // Map algorithm performance to expected format
+    const algorithmPerformance: Record<string, { total: number; success: number; failure: number; successRate: number }> = {};
+    for (const perf of overallAlgorithmPerf.byAlgorithm) {
+      algorithmPerformance[perf.algorithm] = {
+        total: perf.shown,
+        success: perf.accepted,
+        failure: perf.shown - perf.accepted,
+        successRate: perf.shown > 0 ? perf.accepted / perf.shown : 0,
+      };
+    }
+
     return NextResponse.json({
       success: true,
-      timestamp: new Date().toISOString(),
-      outcomeMetrics: {
-        overall: overallStats,
-        last7Days: last7DaysStats,
-        last30Days: last30DaysStats,
-        byAlgorithm: {
-          overall: overallAlgorithmPerf.byAlgorithm,
-          last7Days: last7DaysAlgorithmPerf.byAlgorithm,
-          last30Days: last30DaysAlgorithmPerf.byAlgorithm,
-        },
+      overview: {
+        totalRecommendations,
+        totalShown,
+        totalAddedToWant,
+        totalWatched,
+        acceptanceRate,
+        wantRate,
+        watchRate,
       },
+      algorithmPerformance,
       userSegments: {
         coldStart,
         activeUsers,
         heavyUsers,
       },
-      overview: {
-        totalRecommendations,
-        totalUsers: allUsers.length,
+      discrepancy: {
+        predicted: 0,
+        actual: 0,
+        accuracy: 0,
+      },
+      corrections: {
+        active: 0,
+        pending: 0,
       },
     });
 

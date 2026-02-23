@@ -190,7 +190,7 @@ Plans:
 
 **Goal:** Замкнуть цикл: логирование решений → отслеживание исходов → коррекция модели
 **Depends on:** Phase 14
-**Plans:** 2/2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 15-01-PLAN.md — Decision logging, outcome tracking, auto-corrections

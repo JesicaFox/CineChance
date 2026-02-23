@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 import { logger } from '@/lib/logger';
+import { trackOutcome } from '@/lib/recommendation-outcome-tracking';
 
 const ITEMS_PER_PAGE = 20;
 
