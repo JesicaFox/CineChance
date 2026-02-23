@@ -26,6 +26,8 @@ import { getRedis } from '@/lib/redis';
 
 // Constants
 const COLD_START_THRESHOLD = 10; // Users with <10 watched get fallback
+const HEAVY_USER_THRESHOLD = 500; // Users with 500+ watched get sampled
+const HEAVY_USER_SAMPLE_SIZE = 200; // Sample most recent N for heavy users
 const MAX_RECOMMENDATIONS = 12;
 const RECOMMENDATION_COOLDOWN_DAYS = 7;
 const CACHE_TTL_SECONDS = 900; // 15 minutes
@@ -140,6 +142,71 @@ function deduplicateRecommendations(
   }
 
   return Array.from(byKey.values());
+}
+
+/**
+ * Calculate confidence score for recommendations
+ * 
+ * Algorithm:
+ * - Base: 50 + (algorithmCount * 5), max 90
+ * - Similar users: +10 if 5+ found
+ * - Variance: -20 if high variance (std dev > 20)
+ * - Cold start: -30 (lower confidence)
+ * - Heavy user sampling: -10 (sampling = less data)
+ */
+function calculateConfidence(
+  algorithmCount: number,
+  similarUsersFound: number,
+  isColdStart: boolean,
+  isHeavyUser: boolean,
+  recommendations: RecommendationItem[]
+): { value: number; factors: { algorithmCount: number; similarUsersFound: number; scoreVariance: number; isColdStart: boolean; isHeavyUser: boolean } } {
+  // Calculate score variance
+  let scoreVariance = 0;
+  if (recommendations.length > 1) {
+    const scores = recommendations.map(r => r.score);
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const squaredDiffs = scores.map(s => Math.pow(s - mean, 2));
+    scoreVariance = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / scores.length);
+  }
+
+  // Base confidence: 50 + (algorithmCount * 5), max 90
+  let confidence = 50 + (algorithmCount * 5);
+  confidence = Math.min(confidence, 90);
+
+  // Similar users: +10 if 5+ found
+  if (similarUsersFound >= 5) {
+    confidence += 10;
+  }
+
+  // High variance: -20 if std dev > 20
+  if (scoreVariance > 20) {
+    confidence -= 20;
+  }
+
+  // Cold start: -30 (lower confidence)
+  if (isColdStart) {
+    confidence -= 30;
+  }
+
+  // Heavy user sampling: -10 (sampling = less data)
+  if (isHeavyUser) {
+    confidence -= 10;
+  }
+
+  // Clamp to 0-100 range
+  confidence = Math.max(0, Math.min(100, confidence));
+
+  return {
+    value: Math.round(confidence),
+    factors: {
+      algorithmCount,
+      similarUsersFound,
+      scoreVariance: Math.round(scoreVariance * 10) / 10,
+      isColdStart,
+      isHeavyUser,
+    },
+  };
 }
 
 /**
@@ -289,17 +356,21 @@ export async function GET(req: Request) {
     });
 
     const isColdStart = watchedCount < COLD_START_THRESHOLD;
+    const isHeavyUser = watchedCount >= HEAVY_USER_THRESHOLD;
 
     logger.info('Patterns API: request started', {
       requestId,
       userId,
       watchedCount,
       isColdStart,
+      isHeavyUser,
       context: 'PatternsAPI',
     });
 
     let recommendations: RecommendationItem[];
     const algorithmTimeouts: string[] = [];
+    const algorithmsStatus: Record<string, { success: boolean; error?: string }> = {};
+    let allRecommendations: RecommendationItem[] = [];
 
     if (isColdStart) {
       // Cold start: use TMDB fallback
@@ -320,8 +391,10 @@ export async function GET(req: Request) {
       };
 
       const sessionData = createSessionData();
-      const allRecommendations: RecommendationItem[] = [];
+      allRecommendations = [];
       const ALGORITHM_TIMEOUT_MS = 3000; // 3 seconds per algorithm
+
+      // Track per-algorithm success/failure status (reuse outer variable)
 
       for (const algorithm of recommendationAlgorithms) {
         try {
@@ -341,6 +414,9 @@ export async function GET(req: Request) {
           const result = await algorithm.execute(userId, context, sessionData);
           clearTimeout(timeoutId);
           
+          // Track algorithm success
+          algorithmsStatus[algorithm.name] = { success: true };
+
           // Add recommendations to pool
           allRecommendations.push(...result.recommendations);
 
@@ -360,6 +436,10 @@ export async function GET(req: Request) {
           // Check if it was a timeout
           if (error instanceof Error && error.name === 'AbortError') {
             algorithmTimeouts.push(algorithm.name);
+            algorithmsStatus[algorithm.name] = { 
+              success: false, 
+              error: 'timeout' 
+            };
             logger.warn('Patterns API: algorithm aborted due to timeout', {
               requestId,
               algorithm: algorithm.name,
@@ -367,10 +447,15 @@ export async function GET(req: Request) {
               context: 'PatternsAPI',
             });
           } else {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            algorithmsStatus[algorithm.name] = { 
+              success: false, 
+              error: errorMessage 
+            };
             logger.error('Patterns API: algorithm failed', {
               requestId,
               algorithm: algorithm.name,
-              error: error instanceof Error ? error.message : String(error),
+              error: errorMessage,
               context: 'PatternsAPI',
             });
           }
@@ -404,6 +489,21 @@ export async function GET(req: Request) {
       await logRecommendations(userId, recommendations);
     }
 
+    // Calculate confidence score
+    const successfulAlgorithms = Object.values(algorithmsStatus).filter(s => s.success).length;
+    // Estimate similar users found based on algorithm results (approximation)
+    const similarUsersFound = allRecommendations.length > 0 
+      ? Math.min(allRecommendations.length * 2, 20) // Rough estimate
+      : 0;
+    
+    const confidence = calculateConfidence(
+      successfulAlgorithms,
+      similarUsersFound,
+      isColdStart,
+      isHeavyUser,
+      recommendations
+    );
+
     const duration = Date.now() - startTime;
     logger.info('Patterns API: request completed', {
       requestId,
@@ -423,12 +523,19 @@ export async function GET(req: Request) {
           threshold: COLD_START_THRESHOLD,
           fallbackSource: isColdStart ? 'tmdb_trending_fallback' : null,
         },
+        isHeavyUser,
+        heavyUser: isHeavyUser ? {
+          threshold: HEAVY_USER_THRESHOLD,
+          sampleSize: HEAVY_USER_SAMPLE_SIZE,
+        } : null,
         watchedCount,
         algorithmsUsed: isColdStart 
           ? ['tmdb_trending_fallback'] 
           : recommendationAlgorithms.map(a => a.name),
+        algorithmsStatus: isColdStart ? {} : algorithmsStatus,
         algorithmTimeouts,
         timeoutThresholdMs: 3000,
+        confidence,
         durationMs: duration,
         cacheHit: false,
       },
