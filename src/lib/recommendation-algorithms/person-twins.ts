@@ -1,11 +1,10 @@
 /**
  * Person Twins Algorithm (Pattern 7)
- * 
- * Recommends movies based on shared favorite actors and directors.
- * Finds users with similar person preferences (actors + directors overlap)
- * and recommends their highly-rated watched movies.
- * 
- * Person overlap: Jaccard similarity on actors + directors combined
+ *
+ * Recommends movies based on users who share favorite actors/directors.
+ * Uses person overlap (Jaccard similarity) from TasteMap to find users
+ * with similar favorite persons and recommends their highly-rated movies.
+ *
  * Score formula: (personSimilarity * 0.5) + (rating * 0.3) + (cooccurrence * 0.2)
  */
 
@@ -20,8 +19,8 @@ import type {
 import { normalizeScores, DEFAULT_COOLDOWN } from './interface';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { getPersonProfile } from '@/lib/taste-map/redis';
 import { personOverlap, getSimilarUsers } from '@/lib/taste-map/similarity';
+import { getPersonProfile } from '@/lib/taste-map/redis';
 import { subDays } from 'date-fns';
 
 // Algorithm configuration
@@ -29,7 +28,7 @@ const ALGORITHM_NAME = 'person_twins_v1';
 const MIN_USER_HISTORY = 10;
 const PERSON_SIMILARITY_THRESHOLD = 0.5;
 const MAX_PERSON_TWINS = 15;
-const TOP_MOVIES_PER_TWIN = 10;
+const TOP_MOVIES_PER_USER = 10;
 const MAX_RECOMMENDATIONS = 12;
 
 // Score weights
@@ -40,10 +39,173 @@ const WEIGHTS = {
 };
 
 /**
+ * Get status IDs for watched content
+ */
+async function getWatchedStatusIds(): Promise<number[]> {
+  const statuses = await prisma.movieStatus.findMany({
+    where: {
+      OR: [
+        { name: 'Просмотрено' },
+        { name: 'Пересмотрено' },
+      ],
+    },
+    select: { id: true },
+  });
+
+  return statuses.map(s => s.id);
+}
+
+/**
+ * Find users with similar favorite persons using Jaccard overlap
+ */
+async function findPersonSimilarUsers(
+  userId: string,
+  personProfile: { actors: Record<string, number>; directors: Record<string, number> }
+): Promise<{ userId: string; personSimilarity: number }[]> {
+  // Try to get from cache first
+  const cached = await getSimilarUsers(userId);
+
+  if (cached.length > 0) {
+    // Filter by person overlap threshold
+    return cached
+      .map(u => ({ userId: u.userId, personSimilarity: u.overallMatch }))
+      .filter(u => u.personSimilarity >= PERSON_SIMILARITY_THRESHOLD)
+      .slice(0, MAX_PERSON_TWINS);
+  }
+
+  // If no cache, compute person overlap for all other users
+  const allUserIds = await prisma.user.findMany({
+    where: { id: { not: userId } },
+    select: { id: true },
+  });
+
+  const candidateIds = allUserIds.map(u => u.id);
+
+  const personSimilarUsers: { userId: string; personSimilarity: number }[] = [];
+
+  for (const candidateId of candidateIds) {
+    try {
+      const candidateProfile = await getPersonProfile(candidateId);
+
+      if (candidateProfile) {
+        // Compute person overlap (average of actor and director overlap)
+        const actorsOverlap = personOverlap(personProfile.actors, candidateProfile.actors);
+        const directorsOverlap = personOverlap(personProfile.directors, candidateProfile.directors);
+        const personSimilarity = (actorsOverlap + directorsOverlap) / 2;
+
+        if (personSimilarity >= PERSON_SIMILARITY_THRESHOLD) {
+          personSimilarUsers.push({
+            userId: candidateId,
+            personSimilarity,
+          });
+        }
+      }
+    } catch {
+      // Skip users with errors
+    }
+  }
+
+  // Sort by similarity score and limit
+  return personSimilarUsers
+    .sort((a, b) => b.personSimilarity - a.personSimilarity)
+    .slice(0, MAX_PERSON_TWINS);
+}
+
+/**
+ * Fetch top-rated watched movies from person-similar users
+ */
+async function fetchCandidateMovies(
+  personSimilarUsers: { userId: string; personSimilarity: number }[],
+  excludeUserId: string
+): Promise<CandidateMovie[]> {
+  const watchedStatusIds = await getWatchedStatusIds();
+  const movieMap = new Map<string, CandidateMovie>();
+
+  for (const similarUser of personSimilarUsers) {
+    // Get top rated movies from this user
+    const userMovies = await prisma.watchList.findMany({
+      where: {
+        userId: similarUser.userId,
+        statusId: { in: watchedStatusIds },
+        userRating: { gte: 7 }, // High rating threshold
+      },
+      select: {
+        tmdbId: true,
+        mediaType: true,
+        title: true,
+        userRating: true,
+        voteAverage: true,
+      },
+      orderBy: [
+        { userRating: 'desc' },
+        { voteAverage: 'desc' },
+      ],
+      take: TOP_MOVIES_PER_USER,
+    });
+
+    for (const movie of userMovies) {
+      const key = `${movie.tmdbId}_${movie.mediaType}`;
+
+      const existing = movieMap.get(key);
+      if (existing) {
+        // Update existing entry
+        existing.cooccurrenceCount += 1;
+        existing.sourceUserIds.push(similarUser.userId);
+        // Update similarity score to average
+        const totalSimilarity = existing.similarityScore * (existing.cooccurrenceCount - 1) + similarUser.personSimilarity;
+        existing.similarityScore = totalSimilarity / existing.cooccurrenceCount;
+      } else {
+        // Create new entry
+        movieMap.set(key, {
+          tmdbId: movie.tmdbId,
+          mediaType: movie.mediaType,
+          title: movie.title || `Movie ${movie.tmdbId}`,
+          userRating: movie.userRating,
+          voteAverage: movie.voteAverage || 0,
+          similarityScore: similarUser.personSimilarity,
+          cooccurrenceCount: 1,
+          sourceUserIds: [similarUser.userId],
+        });
+      }
+    }
+  }
+
+  return Array.from(movieMap.values());
+}
+
+/**
+ * Calculate weighted scores for candidates
+ */
+function calculateCandidateScores(
+  candidates: CandidateMovie[],
+  personSimilarUsers: { userId: string; personSimilarity: number }[]
+): (CandidateMovie & { score: number })[] {
+  const maxCooccurrence = Math.max(...candidates.map(c => c.cooccurrenceCount), 1);
+
+  return candidates.map(candidate => {
+    // Normalize components
+    const personSimilarityNorm = candidate.similarityScore; // Already 0-1
+    const ratingNorm = (candidate.userRating ?? candidate.voteAverage / 2) / 10; // 0-1 scale
+    const cooccurrenceNorm = candidate.cooccurrenceCount / maxCooccurrence; // 0-1 relative
+
+    // Weighted sum
+    const rawScore =
+      personSimilarityNorm * WEIGHTS.personSimilarity +
+      ratingNorm * WEIGHTS.rating +
+      cooccurrenceNorm * WEIGHTS.cooccurrence;
+
+    return {
+      ...candidate,
+      score: rawScore,
+    };
+  });
+}
+
+/**
  * Person Twins recommendation algorithm
- * 
- * This algorithm finds users who share favorite actors and directors,
- * then recommends their highly-rated watched movies.
+ *
+ * Finds users with similar favorite actors/directors and recommends their
+ * highly-rated watched movies.
  */
 export const personTwins: IRecommendationAlgorithm = {
   name: ALGORITHM_NAME,
@@ -84,11 +246,11 @@ export const personTwins: IRecommendationAlgorithm = {
         };
       }
 
-      // 2. Get user's person profile (actors + directors)
-      const userPersonProfile = await getPersonProfile(userId);
+      // 2. Get user's person profile (favorite actors + directors)
+      const personProfile = await getPersonProfile(userId);
 
-      if (!userPersonProfile) {
-        logger.info('Person Twins: no person profile', {
+      if (!personProfile) {
+        logger.info('Person Twins: no person profile available', {
           userId,
           context: 'PersonTwins',
         });
@@ -102,12 +264,11 @@ export const personTwins: IRecommendationAlgorithm = {
         };
       }
 
-      // Check if user has any favorite persons
-      const hasActors = Object.values(userPersonProfile.actors).some(score => score > 0);
-      const hasDirectors = Object.values(userPersonProfile.directors).some(score => score > 0);
+      // 3. Find similar users via person overlap
+      const personSimilarUsers = await findPersonSimilarUsers(userId, personProfile);
 
-      if (!hasActors && !hasDirectors) {
-        logger.info('Person Twins: no favorite persons found', {
+      if (personSimilarUsers.length === 0) {
+        logger.info('Person Twins: no person-similar users found', {
           userId,
           context: 'PersonTwins',
         });
@@ -121,31 +282,13 @@ export const personTwins: IRecommendationAlgorithm = {
         };
       }
 
-      // 3. Find users with similar person preferences
-      const personTwins = await findPersonTwins(userId, userPersonProfile);
-
-      if (personTwins.length === 0) {
-        logger.info('Person Twins: no person twins found', {
-          userId,
-          context: 'PersonTwins',
-        });
-        return {
-          recommendations: [],
-          metrics: {
-            candidatesPoolSize: 0,
-            afterFilters: 0,
-            avgScore: 0,
-          },
-        };
-      }
-
-      // 4. Fetch top-rated watched movies from person twins
-      const candidateMovies = await fetchCandidateMovies(personTwins, userId);
+      // 4. Fetch top-rated watched movies from person-similar users
+      const candidateMovies = await fetchCandidateMovies(personSimilarUsers, userId);
 
       if (candidateMovies.length === 0) {
         logger.info('Person Twins: no candidate movies', {
           userId,
-          personTwinsCount: personTwins.length,
+          personSimilarUsersCount: personSimilarUsers.length,
           context: 'PersonTwins',
         });
         return {
@@ -161,9 +304,9 @@ export const personTwins: IRecommendationAlgorithm = {
       const initialPoolSize = candidateMovies.length;
 
       // 5. Calculate scores for each candidate
-      const scoredCandidates = calculateCandidateScores(candidateMovies, personTwins);
+      const scoredCandidates = calculateCandidateScores(candidateMovies, personSimilarUsers);
 
-      // 6. Apply cooldown filter (7 days)
+      // 6. Apply cooldown filter
       const cooldownDate = subDays(new Date(), DEFAULT_COOLDOWN.days);
       const recentRecommendations = await prisma.recommendationLog.findMany({
         where: {
@@ -177,34 +320,19 @@ export const personTwins: IRecommendationAlgorithm = {
         recentRecommendations.map(r => `${r.tmdbId}_${r.mediaType}`)
       );
 
-      // Also exclude items user already has in their watchlist
-      const userExistingItems = await prisma.watchList.findMany({
-        where: { userId },
-        select: { tmdbId: true, mediaType: true },
-      });
-
-      const existingKeys = new Set(
-        userExistingItems.map(item => `${item.tmdbId}_${item.mediaType}`)
-      );
-
-      // Filter candidates
+      // Also exclude items from this session
       const filteredCandidates = scoredCandidates.filter(candidate => {
         const key = `${candidate.tmdbId}_${candidate.mediaType}`;
-        return (
-          !excludedKeys.has(key) &&
-          !existingKeys.has(key) &&
-          !sessionData.previousRecommendations.has(key)
-        );
+        return !excludedKeys.has(key) && !sessionData.previousRecommendations.has(key);
       });
 
       const afterFilters = filteredCandidates.length;
 
       if (filteredCandidates.length === 0) {
-        logger.info('Person Twins: all candidates filtered', {
+        logger.info('Person Twins: all candidates filtered by cooldown', {
           userId,
           initialPoolSize,
           excludedCount: excludedKeys.size,
-          existingCount: existingKeys.size,
           context: 'PersonTwins',
         });
         return {
@@ -246,7 +374,6 @@ export const personTwins: IRecommendationAlgorithm = {
         initialPoolSize,
         afterFilters,
         avgScore: avgScore.toFixed(1),
-        personTwinsCount: personTwins.length,
         durationMs: duration,
         context: 'PersonTwins',
       });
@@ -265,7 +392,7 @@ export const personTwins: IRecommendationAlgorithm = {
         userId,
         context: 'PersonTwins',
       });
-      
+
       return {
         recommendations: [],
         metrics: {
@@ -277,175 +404,5 @@ export const personTwins: IRecommendationAlgorithm = {
     }
   },
 };
-
-/**
- * Person twin with their similarity score
- */
-interface PersonTwin {
-  userId: string;
-  personSimilarity: number;
-}
-
-/**
- * Find users with similar person preferences (actors + directors)
- */
-async function findPersonTwins(
-  userId: string,
-  userPersonProfile: { actors: Record<string, number>; directors: Record<string, number> }
-): Promise<PersonTwin[]> {
-  // Get all other users
-  const allUserIds = await prisma.user.findMany({
-    where: { id: { not: userId } },
-    select: { id: true },
-  });
-
-  const candidateIds = allUserIds.map(u => u.id);
-  const personTwins: PersonTwin[] = [];
-
-  // Compute person overlap for each candidate
-  for (const candidateId of candidateIds) {
-    try {
-      const candidateProfile = await getPersonProfile(candidateId);
-
-      if (!candidateProfile) continue;
-
-      // Calculate Jaccard similarity for actors
-      const actorsOverlap = personOverlap(
-        userPersonProfile.actors,
-        candidateProfile.actors
-      );
-
-      // Calculate Jaccard similarity for directors
-      const directorsOverlap = personOverlap(
-        userPersonProfile.directors,
-        candidateProfile.directors
-      );
-
-      // Combine actor and director overlap (average)
-      const combinedSimilarity = (actorsOverlap + directorsOverlap) / 2;
-
-      if (combinedSimilarity >= PERSON_SIMILARITY_THRESHOLD) {
-        personTwins.push({
-          userId: candidateId,
-          personSimilarity: combinedSimilarity,
-        });
-      }
-    } catch {
-      // Skip users with errors
-    }
-  }
-
-  // Sort by similarity (highest first) and limit
-  return personTwins
-    .sort((a, b) => b.personSimilarity - a.personSimilarity)
-    .slice(0, MAX_PERSON_TWINS);
-}
-
-/**
- * Fetch top-rated watched movies from person twins
- */
-async function fetchCandidateMovies(
-  personTwins: PersonTwin[],
-  excludeUserId: string
-): Promise<CandidateMovie[]> {
-  const watchedStatusIds = await getWatchedStatusIds();
-  const movieMap = new Map<string, CandidateMovie>();
-
-  for (const twin of personTwins) {
-    // Get top rated movies from this twin (rating >= 7)
-    const userMovies = await prisma.watchList.findMany({
-      where: {
-        userId: twin.userId,
-        statusId: { in: watchedStatusIds },
-        userRating: { gte: 7 }, // High rating threshold
-      },
-      select: {
-        tmdbId: true,
-        mediaType: true,
-        title: true,
-        userRating: true,
-        voteAverage: true,
-      },
-      orderBy: [
-        { userRating: 'desc' },
-        { voteAverage: 'desc' },
-      ],
-      take: TOP_MOVIES_PER_TWIN,
-    });
-
-    for (const movie of userMovies) {
-      const key = `${movie.tmdbId}_${movie.mediaType}`;
-      
-      const existing = movieMap.get(key);
-      if (existing) {
-        // Update existing entry
-        existing.cooccurrenceCount += 1;
-        existing.sourceUserIds.push(twin.userId);
-        // Update similarity score to average
-        const totalSimilarity = existing.similarityScore * (existing.cooccurrenceCount - 1) + twin.personSimilarity;
-        existing.similarityScore = totalSimilarity / existing.cooccurrenceCount;
-      } else {
-        // Create new entry
-        movieMap.set(key, {
-          tmdbId: movie.tmdbId,
-          mediaType: movie.mediaType,
-          title: movie.title || `Movie ${movie.tmdbId}`,
-          userRating: movie.userRating,
-          voteAverage: movie.voteAverage || 0,
-          similarityScore: twin.personSimilarity,
-          cooccurrenceCount: 1,
-          sourceUserIds: [twin.userId],
-        });
-      }
-    }
-  }
-
-  return Array.from(movieMap.values());
-}
-
-/**
- * Calculate weighted scores for candidates
- */
-function calculateCandidateScores(
-  candidates: CandidateMovie[],
-  personTwins: PersonTwin[]
-): (CandidateMovie & { score: number })[] {
-  const maxCooccurrence = Math.max(...candidates.map(c => c.cooccurrenceCount), 1);
-
-  return candidates.map(candidate => {
-    // Normalize components
-    const personSimNorm = candidate.similarityScore; // Already 0-1
-    const ratingNorm = (candidate.userRating ?? candidate.voteAverage / 2) / 10; // 0-1 scale
-    const cooccurrenceNorm = candidate.cooccurrenceCount / maxCooccurrence; // 0-1 relative
-
-    // Weighted sum
-    const rawScore =
-      personSimNorm * WEIGHTS.personSimilarity +
-      ratingNorm * WEIGHTS.rating +
-      cooccurrenceNorm * WEIGHTS.cooccurrence;
-
-    return {
-      ...candidate,
-      score: rawScore,
-    };
-  });
-}
-
-/**
- * Get status IDs for watched content
- */
-async function getWatchedStatusIds(): Promise<number[]> {
-  const statuses = await prisma.movieStatus.findMany({
-    where: {
-      OR: [
-        { name: 'Просмотрено' },
-        { name: 'Пересмотрено' },
-      ],
-    },
-    select: { id: true },
-  });
-  
-  return statuses.map(s => s.id);
-}
 
 export default personTwins;
