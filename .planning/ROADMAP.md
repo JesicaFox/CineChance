@@ -216,7 +216,7 @@ Plans:
 **Gap Closure:** Closes integration and flow gaps from audit
 
 Plans:
-- [ ] 17-01-PLAN.md — Capture recommendationLogId in RecommendationsGrid, pass to my-movies API
+- [ ] 17-01-PLAN.md — Capture recommendationLogId in RecommendationsGrid, pass to watchlist API
 
 ---
 
