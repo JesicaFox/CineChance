@@ -321,7 +321,7 @@ export default function MLDashboard() {
       {/* Основные метрики */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
-          title="Всего рекомендаций"
+          title="Пассивные рекомендации"
           value={formatNumber(stats.overview.totalRecommendations)}
           subtitle="сгенерировано"
           icon={Brain}

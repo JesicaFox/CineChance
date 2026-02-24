@@ -40,8 +40,15 @@ export async function GET(request: NextRequest) {
       totalRecommendations,
       allUsers,
     ] = await Promise.all([
-      // Total recommendations generated (all logs)
-      prisma.recommendationLog.count(),
+      // Passive recommendations (source: 'patterns_api' - главная страница)
+      prisma.recommendationLog.count({
+        where: {
+          context: {
+            path: ['source'],
+            equals: 'patterns_api',
+          },
+        },
+      }),
       
       // Get all users with watch count
       prisma.user.findMany({
