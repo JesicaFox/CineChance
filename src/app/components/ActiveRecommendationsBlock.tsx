@@ -3,12 +3,9 @@
 import { useEffect, useState } from 'react';
 import { 
   RefreshCw, 
-  Target,
   AlertCircle,
   CheckCircle,
-  Users,
   Brain,
-  TrendingUp,
   Eye
 } from 'lucide-react';
 
@@ -17,13 +14,9 @@ interface ActiveStatsData {
   overview: {
     totalGenerated: number;
     totalShown: number;
-    totalAddedToWant: number;
-    totalWatched: number;
     totalDropped: number;
     totalHidden: number;
     uniqueUsers: number;
-    wantRate: number;
-    watchRate: number;
   };
 }
 
@@ -31,10 +24,6 @@ function formatNumber(num: number): string {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toString();
-}
-
-function formatPercent(num: number): string {
-  return (num * 100).toFixed(1) + '%';
 }
 
 function StatCard({ 
@@ -162,20 +151,6 @@ export default function ActiveRecommendationsBlock({ onRefresh }: ActiveRecommen
           subtitle={`${stats.overview.uniqueUsers} польз.`}
           icon={Eye}
           color="bg-purple-400/10 text-purple-400"
-        />
-        <StatCard
-          title="Добавлено в хочу"
-          value={formatNumber(stats.overview.totalAddedToWant)}
-          subtitle={formatPercent(stats.overview.wantRate)}
-          icon={TrendingUp}
-          color="bg-green-400/10 text-green-400"
-        />
-        <StatCard
-          title="Просмотрено"
-          value={formatNumber(stats.overview.totalWatched)}
-          subtitle={formatPercent(stats.overview.watchRate)}
-          icon={Target}
-          color="bg-emerald-400/10 text-emerald-400"
         />
       </div>
     </div>

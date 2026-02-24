@@ -32,10 +32,6 @@ export async function GET(request: NextRequest) {
     const [
       totalGenerated,
       totalShown,
-      totalAddedToWant,
-      totalWatched,
-      totalDropped,
-      totalHidden,
       uniqueUsersCount,
     ] = await Promise.all([
       // Active recommendations - сгенерировано (algorithm = 'random_v1')
@@ -53,46 +49,6 @@ export async function GET(request: NextRequest) {
         },
       }),
       
-      // Добавлено в хочу - из RecommendationEvent
-      prisma.recommendationEvent.count({
-        where: {
-          eventType: 'added',
-          parentLog: {
-            algorithm: 'random_v1',
-          },
-        },
-      }),
-      
-      // Просмотрено
-      prisma.recommendationEvent.count({
-        where: {
-          eventType: 'rated',
-          parentLog: {
-            algorithm: 'random_v1',
-          },
-        },
-      }),
-      
-      // Брошено
-      prisma.recommendationEvent.count({
-        where: {
-          eventType: 'dropped',
-          parentLog: {
-            algorithm: 'random_v1',
-          },
-        },
-      }),
-      
-      // Скрыто
-      prisma.recommendationEvent.count({
-        where: {
-          eventType: 'hidden',
-          parentLog: {
-            algorithm: 'random_v1',
-          },
-        },
-      }),
-      
       // Unique users with active recommendations
       prisma.recommendationLog.groupBy({
         by: ['userId'],
@@ -103,23 +59,13 @@ export async function GET(request: NextRequest) {
     ]);
 
     const uniqueUsers = uniqueUsersCount.length;
-    
-    // Calculate rates
-    const wantRate = totalShown > 0 ? totalAddedToWant / totalShown : 0;
-    const watchRate = totalShown > 0 ? totalWatched / totalShown : 0;
 
     return NextResponse.json({
       success: true,
       overview: {
         totalGenerated,
         totalShown,
-        totalAddedToWant,
-        totalWatched,
-        totalDropped,
-        totalHidden,
         uniqueUsers,
-        wantRate,
-        watchRate,
       },
     });
 
