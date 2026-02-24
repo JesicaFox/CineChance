@@ -120,7 +120,7 @@ function ApiRow({
 /**
  * Algorithm Row - Shows metrics for individual algorithms
  * NO accuracy - algorithms don't directly interact with users
- * Shows: uses, lastUsed, healthStatus
+ * Shows: uses count, lastUsed, healthStatus
  */
 function AlgorithmRow({ 
   data 
@@ -134,7 +134,6 @@ function AlgorithmRow({
           <p className="font-semibold text-white">
             {formatNumber(data.uses)}
           </p>
-          <p className="text-gray-500 text-xs">Использований</p>
         </div>
         <div>
           <p className="text-white text-sm">{data.name}</p>
