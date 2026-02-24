@@ -64,9 +64,6 @@ export default async function MonitoringPage() {
             <h2 className="text-2xl font-bold text-white">ML Мониторинг</h2>
           </div>
 
-          {/* Блок производительности алгоритмов */}
-          <AlgorithmPerformanceBlock />
-
           {/* Блок активных рекомендаций */}
           <Suspense fallback={<MLDashboardSkeleton />}>
             <ActiveRecommendationsBlock />
@@ -76,6 +73,9 @@ export default async function MonitoringPage() {
           <Suspense fallback={<MLDashboardSkeleton />}>
             <MLDashboard />
           </Suspense>
+
+          {/* Блок производительности алгоритмов */}
+          <AlgorithmPerformanceBlock />
 
           {/* Мониторинг системы */}
           <div className="mb-2 mt-8">
