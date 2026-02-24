@@ -11,6 +11,7 @@ export type OutcomeRating = number; // 1-10
 
 export interface TrackOutcomeParams {
   recommendationLogId: string;
+  userId: string;
   action: OutcomeAction;
   userRating?: OutcomeRating;
 }
@@ -29,16 +30,17 @@ export interface OutcomeData {
  */
 export async function trackOutcome(params: TrackOutcomeParams): Promise<void> {
   try {
-    const { recommendationLogId, action, userRating } = params;
+    const { recommendationLogId, userId, action, userRating } = params;
 
     // Create outcome event
     await prisma.recommendationEvent.create({
       data: {
         parentLogId: recommendationLogId,
+        userId,
         eventType: action,
         eventData: userRating ? { rating: userRating } : undefined,
         timestamp: new Date(),
-      },
+      } as any,
     });
 
     logger.info('Outcome tracked', {
