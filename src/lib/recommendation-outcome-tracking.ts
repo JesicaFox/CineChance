@@ -343,8 +343,7 @@ export async function getCombinedPerformanceStats(): Promise<{
   };
   algorithms: Array<{
     name: string;
-    returns: number;
-    accuracy: number;
+    uses: number;
     lastUsed: string | null;
     healthStatus: 'ok' | 'warning' | 'critical';
   }>;
@@ -422,8 +421,7 @@ export async function getCombinedPerformanceStats(): Promise<{
 
         return {
           name: algorithm,
-          returns,
-          accuracy: returns > 0 ? accepted / returns : 0,
+          uses: returns,
           lastUsed: lastLog ? lastLog.shownAt.toISOString() : null,
           healthStatus,
         };

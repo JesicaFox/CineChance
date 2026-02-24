@@ -6,9 +6,6 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Activity,
-  Cpu,
-  Globe
 } from 'lucide-react';
 
 interface ApiStats {
@@ -19,8 +16,7 @@ interface ApiStats {
 
 interface AlgorithmStats {
   name: string;
-  returns: number;
-  accuracy: number;
+  uses: number;
   lastUsed: string | null;
   healthStatus: 'ok' | 'warning' | 'critical';
 }
@@ -58,44 +54,45 @@ function formatLastUsed(dateStr: string | null): string {
   return `${diffDays}д назад`;
 }
 
+function getHealthIcon(status: 'ok' | 'warning' | 'critical') {
+  switch (status) {
+    case 'ok': return <CheckCircle className="w-3 h-3 text-green-400" />;
+    case 'warning': return <AlertCircle className="w-3 h-3 text-yellow-400" />;
+    case 'critical': return <XCircle className="w-3 h-3 text-red-400" />;
+  }
+}
+
+function getHealthLabel(status: 'ok' | 'warning' | 'critical') {
+  switch (status) {
+    case 'ok': return 'Ок';
+    case 'warning': return 'Тревога';
+    case 'critical': return 'Критично';
+  }
+}
+
+function getAccuracyColor(acc: number) {
+  if (acc >= 0.3) return 'text-green-400';
+  if (acc >= 0.1) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
+/**
+ * API Row - Shows metrics for API endpoints
+ * Has accuracy because user interactions are tracked at API level
+ */
 function ApiRow({ 
   name, 
   stats,
-  lastCall 
 }: { 
   name: string; 
   stats: ApiStats;
-  lastCall?: string | null;
 }) {
-  const getHealthIcon = (status: 'ok' | 'warning' | 'critical') => {
-    switch (status) {
-      case 'ok': return <CheckCircle className="w-3 h-3 text-green-400" />;
-      case 'warning': return <AlertCircle className="w-3 h-3 text-yellow-400" />;
-      case 'critical': return <XCircle className="w-3 h-3 text-red-400" />;
-    }
-  };
-
-  const getHealthLabel = (status: 'ok' | 'warning' | 'critical') => {
-    switch (status) {
-      case 'ok': return 'Ок';
-      case 'warning': return 'Тревога';
-      case 'critical': return 'Критично';
-    }
-  };
-
-  const getAccuracyColor = (acc: number) => {
-    if (acc >= 0.3) return 'text-green-400';
-    if (acc >= 0.1) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const healthStatus = (stats.calls > 0 ? 'ok' : 'critical') as 'ok' | 'warning' | 'critical';
-  const healthLabel = healthStatus === 'ok' ? 'Ок' : healthStatus === 'warning' ? 'Тревога' : 'Критично';
+  const healthStatus: 'ok' | 'warning' | 'critical' = stats.calls > 0 ? 'ok' : 'critical';
 
   return (
     <div className="flex items-center justify-between py-2 px-3 bg-gray-800/30 rounded-lg">
       <div className="flex items-center gap-3">
-        <div className="text-right">
+        <div className="text-right w-16">
           <p className={`font-semibold ${getAccuracyColor(stats.accuracy)}`}>
             {formatPercent(stats.accuracy)}
           </p>
@@ -106,16 +103,12 @@ function ApiRow({
           <p className="text-gray-400 text-xs">
             {formatNumber(stats.calls)} вызовов · {formatNumber(stats.returns)} возвращено
           </p>
-          <p className="text-gray-500 text-xs">
-            {lastCall ? formatLastUsed(lastCall) : 'Нет вызовов'}
-          </p>
         </div>
       </div>
       <div className="flex items-center gap-3">
         {getHealthIcon(healthStatus)}
         <span className={`text-xs ${
-          healthStatus === 'ok' ? 'text-green-400' : 
-          healthStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+          healthStatus === 'ok' ? 'text-green-400' : 'text-red-400'
         }`}>
           {getHealthLabel(healthStatus)}
         </span>
@@ -124,46 +117,29 @@ function ApiRow({
   );
 }
 
+/**
+ * Algorithm Row - Shows metrics for individual algorithms
+ * NO accuracy - algorithms don't directly interact with users
+ * Shows: uses, lastUsed, healthStatus
+ */
 function AlgorithmRow({ 
   data 
 }: { 
   data: AlgorithmStats;
 }) {
-  const getHealthIcon = (status: 'ok' | 'warning' | 'critical') => {
-    switch (status) {
-      case 'ok': return <CheckCircle className="w-3 h-3 text-green-400" />;
-      case 'warning': return <AlertCircle className="w-3 h-3 text-yellow-400" />;
-      case 'critical': return <XCircle className="w-3 h-3 text-red-400" />;
-    }
-  };
-
-  const getHealthLabel = (status: 'ok' | 'warning' | 'critical') => {
-    switch (status) {
-      case 'ok': return 'Ок';
-      case 'warning': return 'Тревога';
-      case 'critical': return 'Критично';
-    }
-  };
-
-  const getAccuracyColor = (acc: number) => {
-    if (acc >= 0.3) return 'text-green-400';
-    if (acc >= 0.1) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
   return (
     <div className="flex items-center justify-between py-2 px-3 bg-gray-800/30 rounded-lg">
       <div className="flex items-center gap-3">
-        <div className="text-right">
-          <p className={`font-semibold ${getAccuracyColor(data.accuracy)}`}>
-            {formatPercent(data.accuracy)}
+        <div className="text-right w-16">
+          <p className="font-semibold text-white">
+            {formatNumber(data.uses)}
           </p>
-          <p className="text-gray-500 text-xs">Точность</p>
+          <p className="text-gray-500 text-xs">Использований</p>
         </div>
         <div>
           <p className="text-white text-sm">{data.name}</p>
           <p className="text-gray-400 text-xs">
-            {formatNumber(data.returns)} возвратов · {formatLastUsed(data.lastUsed)}
+            {formatLastUsed(data.lastUsed)}
           </p>
         </div>
       </div>
@@ -243,13 +219,12 @@ export default function AlgorithmPerformanceBlock() {
 
   if (!stats) return null;
 
-  const hasActiveData = stats.apiStats.active.calls > 0;
-  const hasPassiveData = stats.apiStats.passive.calls > 0;
-  const allHealthy = stats.algorithmStats.every(a => a.healthStatus === 'ok');
+  // Check overall health - any algorithm with warning or critical
+  const hasIssues = stats.algorithmStats.some(a => a.healthStatus !== 'ok');
 
   return (
     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-      {/* Заголовок */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold text-white">Производительность алгоритмов</h3>
@@ -261,15 +236,15 @@ export default function AlgorithmPerformanceBlock() {
             <RefreshCw className="w-4 h-4 text-gray-400 hover:text-white" />
           </button>
         </div>
-        {allHealthy ? (
+        {hasIssues ? (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400/10 text-yellow-400 rounded-full text-xs border border-yellow-400/30">
+            <AlertCircle className="w-3.5 h-3.5" />
+            Есть проблемы
+          </span>
+        ) : (
           <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-400/10 text-green-400 rounded-full text-xs border border-green-400/30">
             <CheckCircle className="w-3.5 h-3.5" />
             Ок
-          </span>
-        ) : (
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-400/10 text-red-400 rounded-full text-xs border border-red-400/30">
-            <AlertCircle className="w-3.5 h-3.5" />
-            Есть проблемы
           </span>
         )}
       </div>
@@ -281,12 +256,10 @@ export default function AlgorithmPerformanceBlock() {
           <ApiRow
             name="/api/recommendations/random"
             stats={stats.apiStats.active}
-            lastCall={stats.apiStats.active.calls > 0 ? new Date().toISOString() : null}
           />
           <ApiRow
             name="/api/recommendations/patterns"
             stats={stats.apiStats.passive}
-            lastCall={stats.apiStats.passive.calls > 0 ? new Date().toISOString() : null}
           />
         </div>
       </div>
@@ -296,14 +269,14 @@ export default function AlgorithmPerformanceBlock() {
         <p className="text-gray-400 text-sm mb-3">Уровень алгоритмов:</p>
         <div className="space-y-2">
           {stats.algorithmStats
-            .sort((a, b) => b.returns - a.returns)
+            .sort((a, b) => b.uses - a.uses)
             .map((algo) => (
               <AlgorithmRow key={algo.name} data={algo} />
             ))}
         </div>
       </div>
 
-      {/* Время обновления */}
+      {/* Update time */}
       <p className="text-gray-500 text-xs text-right mt-4">
         Обновлено: {new Date().toLocaleTimeString('ru-RU')}
       </p>
