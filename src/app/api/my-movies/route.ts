@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+
 // src/app/api/my-movies/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
