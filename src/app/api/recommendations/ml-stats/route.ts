@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       totalDropped,
       totalHidden,
       allUsers,
+      uniqueUsersCount,
     ] = await Promise.all([
       // Passive recommendations - сгенерировано (source: 'patterns_api')
       prisma.recommendationLog.count({
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      
+       
       // Get all users with watch count
       prisma.user.findMany({
         select: {
@@ -127,7 +128,20 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+
+      // Unique users with passive recommendations
+      prisma.recommendationLog.groupBy({
+        by: ['userId'],
+        where: {
+          context: {
+            path: ['source'],
+            equals: 'patterns_api',
+          },
+        },
+      }),
     ]);
+
+    const uniqueUsersWithRecs = uniqueUsersCount.length;
 
     // Get first user ID for algorithm performance (fallback if no user)
     const firstUserId = allUsers.length > 0 ? allUsers[0].id : 'system';
@@ -189,6 +203,7 @@ export async function GET(request: NextRequest) {
         totalWatched,
         totalDropped,
         totalHidden,
+        uniqueUsersWithRecs,
         acceptanceRate,
         wantRate,
         watchRate,

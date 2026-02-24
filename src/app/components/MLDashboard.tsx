@@ -23,6 +23,7 @@ interface MLStatsData {
     totalWatched: number;
     totalDropped: number;
     totalHidden: number;
+    uniqueUsersWithRecs: number;
     acceptanceRate: number;
     wantRate: number;
     watchRate: number;
