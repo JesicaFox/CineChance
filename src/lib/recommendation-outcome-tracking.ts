@@ -344,6 +344,8 @@ export async function getCombinedPerformanceStats(): Promise<{
   algorithms: Array<{
     name: string;
     uses: number;
+    positive?: number;
+    negative?: number;
     lastUsed: string | null;
     healthStatus: 'ok' | 'warning' | 'critical';
   }>;
@@ -403,6 +405,13 @@ export async function getCombinedPerformanceStats(): Promise<{
           },
         });
 
+        const negative = await prisma.recommendationEvent.count({
+          where: {
+            eventType: { in: ['dropped', 'hidden'] },
+            parentLog: { algorithm },
+          },
+        });
+
         const lastLog = await prisma.recommendationLog.findFirst({
           where: { algorithm },
           orderBy: { shownAt: 'desc' },
@@ -422,6 +431,8 @@ export async function getCombinedPerformanceStats(): Promise<{
         return {
           name: algorithm,
           uses: returns,
+          positive: accepted,
+          negative: negative,
           lastUsed: lastLog ? lastLog.shownAt.toISOString() : null,
           healthStatus,
         };

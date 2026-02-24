@@ -17,6 +17,8 @@ interface ApiStats {
 interface AlgorithmStats {
   name: string;
   uses: number;
+  positive?: number;
+  negative?: number;
   lastUsed: string | null;
   healthStatus: 'ok' | 'warning' | 'critical';
 }
@@ -120,7 +122,7 @@ function ApiRow({
 /**
  * Algorithm Row - Shows metrics for individual algorithms
  * NO accuracy - algorithms don't directly interact with users
- * Shows: uses count, lastUsed, healthStatus
+ * Shows: uses count, positive/negative outcomes, lastUsed, healthStatus
  */
 function AlgorithmRow({ 
   data 
@@ -142,7 +144,17 @@ function AlgorithmRow({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 text-xs">
+        {data.positive !== undefined && data.positive > 0 && (
+          <span className="text-green-400">
+            +{formatNumber(data.positive)}
+          </span>
+        )}
+        {data.negative !== undefined && data.negative > 0 && (
+          <span className="text-red-400">
+            -{formatNumber(data.negative)}
+          </span>
+        )}
         {getHealthIcon(data.healthStatus)}
         <span className={`text-xs ${
           data.healthStatus === 'ok' ? 'text-green-400' : 
