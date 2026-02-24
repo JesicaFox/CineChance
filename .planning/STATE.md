@@ -9,9 +9,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Status
 
-- **Phase:** 17 (Outcome Tracking)
-- **Current Plan:** Not started
-- **Goal:** Enable outcome tracking from main page recommendations
+- **Phase:** 18 (Карта вкуса)
+- **Current Plan:** 01 completed
+- **Goal:** [To be planned]
 
 ## Progress
 
@@ -27,6 +27,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 | 15 | ML Feedback Loop | ● Complete | 1 |
 | 16 | ML Stats Security | ● Complete | 0 |
 | 17 | Outcome Tracking | ● Complete | 0 |
+| 18 | Карта вкуса | ○ Not planned | 0 |
 
 ---
 
@@ -63,6 +64,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 - **17-01:** Completed (5 min) - Outcome tracking for home page recommendations via logId passing through localStorage
 - **14-02:** Completed (5 min) - ML Dashboard component integrated into admin monitoring page with algorithm performance, user segments, and prediction discrepancy metrics
 - **14-01:** Completed (5 min) - RecommendationsGrid component integrated into main page with horizontal scroll, cold start messaging, and confidence scoring
+- **18-01:** Completed (6 min) - Taste Map API endpoint with 24h Redis caching and profile page card linking to /profile/taste-map
 
 ## Accumulated Context
 
@@ -70,6 +72,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 - Phase 7 added: Admin user statistics
 - Phase 8 added: Admin panel UI improvements
 - Phase 15 added: ML outcome tracking and algorithm performance metrics
+- Phase 18 added: Карта вкуса (Taste Map)
 
 ### Key Decisions (Phase 9)
 - ModelTraining is global (no userId) - tracks model versions, not per-user data
