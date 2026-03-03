@@ -384,6 +384,87 @@ export const fetchMediaDetails = async (
 };
 
 /**
+ * Получает топ-5 актёров и режиссёров для фильма/сериала из TMDB
+ * @param tmdbId - ID фильма в TMDB
+ * @param mediaType - тип медиа ('movie' или 'tv')
+ * @returns Объект с массивами topActors и topDirectors
+ */
+export const getMediaCredits = async (
+  tmdbId: number,
+  mediaType: 'movie' | 'tv'
+): Promise<{
+  topActors: Array<{ id: number; name: string; character?: string }>;
+  topDirectors: Array<{ id: number; name: string }>;
+} | null> => {
+  const cacheKey = `credits:${mediaType}:${tmdbId}`;
+  
+  // Check cache first
+  const cached = getTMDB<{
+    topActors: Array<{ id: number; name: string; character?: string }>;
+    topDirectors: Array<{ id: number; name: string }>;
+  }>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const url = new URL(`${BASE_URL}/${mediaType}/${tmdbId}/credits`);
+    url.searchParams.append('api_key', TMDB_API_KEY || '');
+    url.searchParams.append('language', 'ru-RU');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url.toString(), {
+      headers: { 'accept': 'application/json' },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      logger.debug('Ошибка TMDB credits', { status: response.status, context: 'TMDB' });
+      return null;
+    }
+
+    const data = await response.json();
+
+    // Extract top-5 actors
+    const topActors = (data.cast || [])
+      .slice(0, 5)
+      .map((actor: any) => ({
+        id: actor.id,
+        name: actor.name,
+        character: actor.character,
+      }));
+
+    // Extract top directors (crew with job === 'Director')
+    const topDirectors = (data.crew || [])
+      .filter((member: any) => member.job === 'Director')
+      .slice(0, 5)
+      .map((director: any) => ({
+        id: director.id,
+        name: director.name,
+      }));
+
+    const result = { topActors, topDirectors };
+
+    // Cache for 7 days
+    setTMDB(cacheKey, result);
+
+    return result;
+  } catch (error) {
+    logger.debug('Ошибка при получении кредитов медиа', {
+      error: error instanceof Error ? error.message : String(error),
+      tmdbId,
+      mediaType,
+      context: 'TMDB'
+    });
+    return null;
+  }
+};
+
+/**
  * Получает постер фильма из FANART_TV (резервный источник)
  * @param tmdbId - ID фильма в TMDB
  * @param mediaType - тип медиа ('movie' или 'tv')

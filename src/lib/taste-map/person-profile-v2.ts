@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getActorWeightedRating, getTopRatedPersons } from './actor-rating';
 import { MOVIE_STATUS_IDS } from '@/lib/movieStatusConstants';
+import { getMediaCredits } from '@/lib/tmdb';
 
 const COMPLETED_STATUS_IDS = [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED];
 const TOP_PERSONS_LIMIT = 50;
@@ -40,31 +41,37 @@ export async function ensureMoviePersonCacheExists(
       return; // Already cached
     }
 
-    // TODO: Fetch from TMDB API
-    // const movieDetails = await fetchMovieDetailsFromTMDB(tmdbId, mediaType);
-    // const topActors = movieDetails.credits?.cast?.slice(0, 5) || [];
-    // const topDirectors = movieDetails.credits?.crew
-    //   ?.filter(p => p.job === 'Director')
-    //   ?.slice(0, 5) || [];
+    // Fetch from TMDB API
+    const credits = await getMediaCredits(tmdbId, mediaType);
+    
+    if (!credits) {
+      // If can't fetch from TMDB, create empty cache to avoid repeated attempts
+      await prisma.moviePersonCache.create({
+        data: {
+          tmdbId,
+          mediaType,
+          topActors: [],
+          topDirectors: [],
+        },
+      });
+      return;
+    }
 
-    // For now, create empty cache
-    const topActors: Array<{ id: number; name: string }> = [];
-    const topDirectors: Array<{ id: number; name: string }> = [];
-
+    // Store in database
     await prisma.moviePersonCache.create({
       data: {
         tmdbId,
         mediaType,
-        topActors,
-        topDirectors,
+        topActors: credits.topActors,
+        topDirectors: credits.topDirectors,
       },
     });
 
     logger.info('Created movie person cache', {
       tmdbId,
       mediaType,
-      actorsCount: topActors.length,
-      directorsCount: topDirectors.length,
+      actorsCount: credits.topActors.length,
+      directorsCount: credits.topDirectors.length,
     });
   } catch (error) {
     logger.error('Error ensuring movie person cache', {
@@ -89,6 +96,26 @@ export async function computeUserPersonProfile(
       userId,
       personType,
     });
+
+    // First, ensure MoviePersonCache is populated for all user's movies
+    const userMovies = await prisma.watchList.findMany({
+      where: {
+        userId,
+        statusId: { in: COMPLETED_STATUS_IDS },
+      },
+      select: {
+        tmdbId: true,
+        mediaType: true,
+      },
+      distinct: ['tmdbId', 'mediaType'],
+    });
+
+    // Ensure cache exists for all movies (non-blocking)
+    await Promise.all(
+      userMovies.map((movie) =>
+        ensureMoviePersonCacheExists(movie.tmdbId, movie.mediaType as 'movie' | 'tv')
+      )
+    );
 
     // Get top-rated persons (already calculates weighted ratings)
     const topPersons = await getTopRatedPersons(

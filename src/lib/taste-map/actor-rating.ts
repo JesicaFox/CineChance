@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { MOVIE_STATUS_IDS } from '@/lib/movieStatusConstants';
 
 export interface ActorRatingResult {
   avgRating: number;
@@ -43,17 +44,19 @@ export async function getActorWeightedRating(
         SUM(COALESCE(wl."watchCount", 1))::INT as total_rewatches
       FROM "WatchList" wl
       WHERE wl."userId" = ${userId}
-        AND wl."statusId" IN ('watched', 'rewatched')
+        AND wl."statusId" IN (${MOVIE_STATUS_IDS.WATCHED}, ${MOVIE_STATUS_IDS.REWATCHED})
         AND EXISTS (
           SELECT 1 FROM "MoviePersonCache" mpc
           WHERE mpc."tmdbId" = wl."tmdbId"
             AND mpc."mediaType" = wl."mediaType"
             AND (
-              mpc."topActors"::jsonb @> jsonb_build_array(
-                jsonb_build_object('id', ${personTmdbId})
+              EXISTS (
+                SELECT 1 FROM jsonb_array_elements(mpc."topActors") elem
+                WHERE (elem->>'id')::INT = ${personTmdbId}
               )
-              OR mpc."topDirectors"::jsonb @> jsonb_build_array(
-                jsonb_build_object('id', ${personTmdbId})
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements(mpc."topDirectors") elem
+                WHERE (elem->>'id')::INT = ${personTmdbId}
               )
             )
         )
@@ -96,33 +99,64 @@ export async function getTopRatedPersons(
   }>
 > {
   try {
-    const jsonField = personType === 'actor' ? 'topActors' : 'topDirectors';
-
     // Extract all unique persons from user's cached movies
-    const personQuery = await prisma.$queryRaw<
-      Array<{
-        person_id: number;
-        person_name: string;
-        count: number;
-      }>
-    >`
-      SELECT DISTINCT
-        (person->>'id')::INT as person_id,
-        person->>'name' as person_name,
-        COUNT(*) as count
-      FROM "MoviePersonCache" mpc,
-        jsonb_array_elements(mpc."${personType === 'actor' ? 'topActors' : 'topDirectors'}") as person
-      WHERE EXISTS (
-        SELECT 1 FROM "WatchList" wl
-        WHERE wl."userId" = ${userId}
-          AND wl."statusId" IN ('watched', 'rewatched')
-          AND wl."tmdbId" = mpc."tmdbId"
-          AND wl."mediaType" = mpc."mediaType"
-      )
-      GROUP BY person_id, person_name
-      ORDER BY count DESC
-      LIMIT ${limit}
-    `;
+    let personQuery: Array<{
+      person_id: number;
+      person_name: string;
+      count: number;
+    }>;
+
+    if (personType === 'actor') {
+      personQuery = await prisma.$queryRaw<
+        Array<{
+          person_id: number;
+          person_name: string;
+          count: number;
+        }>
+      >`
+        SELECT DISTINCT
+          (person->>'id')::INT as person_id,
+          person->>'name' as person_name,
+          COUNT(*) as count
+        FROM "MoviePersonCache" mpc,
+          jsonb_array_elements(mpc."topActors") as person
+        WHERE EXISTS (
+          SELECT 1 FROM "WatchList" wl
+          WHERE wl."userId" = ${userId}
+            AND wl."statusId" IN (${MOVIE_STATUS_IDS.WATCHED}, ${MOVIE_STATUS_IDS.REWATCHED})
+            AND wl."tmdbId" = mpc."tmdbId"
+            AND wl."mediaType" = mpc."mediaType"
+        )
+        GROUP BY person_id, person_name
+        ORDER BY count DESC
+        LIMIT ${limit}
+      `;
+    } else {
+      personQuery = await prisma.$queryRaw<
+        Array<{
+          person_id: number;
+          person_name: string;
+          count: number;
+        }>
+      >`
+        SELECT DISTINCT
+          (person->>'id')::INT as person_id,
+          person->>'name' as person_name,
+          COUNT(*) as count
+        FROM "MoviePersonCache" mpc,
+          jsonb_array_elements(mpc."topDirectors") as person
+        WHERE EXISTS (
+          SELECT 1 FROM "WatchList" wl
+          WHERE wl."userId" = ${userId}
+            AND wl."statusId" IN (${MOVIE_STATUS_IDS.WATCHED}, ${MOVIE_STATUS_IDS.REWATCHED})
+            AND wl."tmdbId" = mpc."tmdbId"
+            AND wl."mediaType" = mpc."mediaType"
+        )
+        GROUP BY person_id, person_name
+        ORDER BY count DESC
+        LIMIT ${limit}
+      `;
+    }
 
     // For each person, calculate weighted rating
     const results = await Promise.all(
