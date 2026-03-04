@@ -281,7 +281,13 @@ Key models in `prisma/schema.prisma`:
 
 ### GSD Debug System (Primary Method)
 
-**When user reports a bug, use `/gsd-debug` command:**
+**CRITICAL: Follow L2 → L3 → L1 order before debugging!**
+
+**When using `/gsd-debug`, the agent MUST:**
+
+1. **ALWAYS check L2 first** - Search `.planning/debug/resolved/` for similar issues
+2. **Verify with L3** - Use Context7 for library APIs if needed  
+3. **Apply to L1** - Fix current code
 
 ```bash
 /gsd-debug "Description of the problem"
