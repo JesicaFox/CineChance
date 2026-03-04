@@ -532,13 +532,14 @@ export async function GET(request: NextRequest) {
     // Sort movies
     const sortedMovies = sortMovies(movies, sortBy, sortOrder);
 
-    // Paginate: use limit (not recordsToLoadPerPage) for slicing
+    // Paginate: use limit for slicing
     const pageStartIndex = (page - 1) * limit;
     const pageEndIndex = pageStartIndex + limit;
     const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
     
-    // hasMore: Check if there are more records after this page
-    const hasMore = pageEndIndex < sortedMovies.length;
+    // For hasMore, we need the TOTAL count, not the batch size
+    // totalCount was calculated earlier: either exact count or estimated
+    const hasMore = page * limit < totalCount;
 
     logger.debug('Pagination result', {
       context: 'my-movies',
