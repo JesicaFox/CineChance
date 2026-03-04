@@ -5,7 +5,9 @@ original_files:
   - 2026-02-13-pagination-duplicate-movies.md
   - 2026-02-14-pagination-missing-stats-pages.md
   - 2026-02-16-anime-cartoon-filters.md (pagination component)
+  - 2026-03-04-my-movies-pagination-fix.md
 merged_date: 2026-02-19
+latest_incident: 2026-03-04
 severity: high
 impact_pages:
   - /my-movies
@@ -306,8 +308,34 @@ export function classifyContent(movie: Movie): 'movie' | 'tv' | 'anime' | 'carto
 
 ---
 
+## Incident 4: 2026-03-04 - Pagination Regression (FIXED)
+
+### Symptoms
+- Only 1 movie loaded on scroll instead of 20
+- After fix: duplicates appeared on scroll
+
+### Root Cause
+Code used `page * limit * 1.5` for buffer size:
+- Page 1: take=30
+- Page 2: take=60 (DIFFERENT data!)
+- Duplicates and gaps
+
+### Fix Applied
+Changed to FIXED buffer based on filter presence:
+```typescript
+const BUFFER_SIZE = hasFilters ? 1000 : 100;
+take: BUFFER_SIZE,
+```
+
+### Key Lesson
+**Never use page-dependent buffer sizes.** Each request must fetch consistent data.
+
+---
+
 ## Final Notes
 
 This incident reveals a fundamental architectural debt: pagination was treated as "simple" and implemented ad-hoc in multiple places. The "simple" feature required 3 separate bug fixes over 3 days because the complexity was underestimated.
+
+**Updated 2026-03-04:** Added Incident 4 - same lesson reinforced about consistent data fetching.
 
 **Key Takeaway:** Even "simple" features need shared utilities and standardized patterns when they appear in multiple places.
