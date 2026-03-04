@@ -341,75 +341,46 @@ export async function GET(request: NextRequest) {
     let watchListRecords;
     let totalCount: number;
 
-    // When TMDB-based filters are active OR for reliable pagination,
-    // we need to fetch a buffer from the start and paginate in memory.
-    // This is the proven approach from 2026-02-19 fix.
-    const useMemoryPagination = hasTMDBFilters || page > 1;
+    // Always use memory pagination with buffer for reliable pagination.
+    // The buffer approach (fetch from start, then slice in memory) 
+    // is the proven solution from 2026-02-19 that handles both 
+    // filtering and pagination correctly.
+    const recordsNeeded = hasTMDBFilters 
+      ? 1000  // Max for filtered queries
+      : Math.ceil(page * limit * 1.5);  // 1.5x buffer for unfiltered
 
-    if (useMemoryPagination) {
-      // Fetch from start with buffer for filtering/pagination in memory
-      const recordsNeeded = hasTMDBFilters 
-        ? 1000  // Max for filtered queries
-        : Math.ceil(page * limit * 1.5);  // 1.5x buffer for unfiltered
+    logger.debug('Using memory pagination strategy', {
+      context: 'my-movies',
+      hasTMDBFilters,
+      page,
+      limit,
+      recordsNeeded
+    });
 
-      logger.debug('Using memory pagination strategy', {
-        context: 'my-movies',
-        hasTMDBFilters,
-        page,
-        limit,
-        recordsNeeded
-      });
+    watchListRecords = await prisma.watchList.findMany({
+      where: whereClauseWithRating,
+      select: {
+        id: true,
+        tmdbId: true,
+        mediaType: true,
+        title: true,
+        voteAverage: true,
+        userRating: true,
+        weightedRating: true,
+        addedAt: true,
+        statusId: true,
+        tags: { select: { id: true, name: true } },
+      },
+      orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
+      take: recordsNeeded,
+    });
 
-      watchListRecords = await prisma.watchList.findMany({
-        where: whereClauseWithRating,
-        select: {
-          id: true,
-          tmdbId: true,
-          mediaType: true,
-          title: true,
-          voteAverage: true,
-          userRating: true,
-          weightedRating: true,
-          addedAt: true,
-          statusId: true,
-          tags: { select: { id: true, name: true } },
-        },
-        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
-        take: recordsNeeded,
-      });
-
-      totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
-      logger.debug('Fetched records for memory pagination', {
-        context: 'my-movies',
-        fetchedCount: watchListRecords.length,
-        totalCount
-      });
-    } else {
-      // First page without filters - use efficient single query
-      const pageSkip = 0;
-      const pageTake = limit + 1; // +1 to detect hasMore
-
-      watchListRecords = await prisma.watchList.findMany({
-        where: whereClauseWithRating,
-        select: {
-          id: true,
-          tmdbId: true,
-          mediaType: true,
-          title: true,
-          voteAverage: true,
-          userRating: true,
-          weightedRating: true,
-          addedAt: true,
-          statusId: true,
-          tags: { select: { id: true, name: true } },
-        },
-        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
-        skip: pageSkip,
-        take: pageTake,
-      });
-
-      totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
-    }
+    totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
+    logger.debug('Fetched records for memory pagination', {
+      context: 'my-movies',
+      fetchedCount: watchListRecords.length,
+      totalCount
+    });
 
     // Early exit if no records
     if (watchListRecords.length === 0) {
@@ -543,7 +514,6 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       hasTMDBFilters,
-      useMemoryPagination,
       watchListRecordsLength: watchListRecords.length,
       sortedMoviesLength: sortedMovies.length,
       paginatedMoviesLength: paginatedMovies.length,
