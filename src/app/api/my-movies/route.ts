@@ -341,16 +341,23 @@ export async function GET(request: NextRequest) {
     let watchListRecords;
     let totalCount: number;
 
-    if (hasTMDBFilters) {
-      // When TMDB-based filters are active, we must fetch ALL matching records
-      // then filter and paginate in memory (to avoid duplicates/gaps)
-      logger.debug('Using fetch-all-then-filter strategy for filtered query', {
+    // When TMDB-based filters are active OR for reliable pagination,
+    // we need to fetch a buffer from the start and paginate in memory.
+    // This is the proven approach from 2026-02-19 fix.
+    const useMemoryPagination = hasTMDBFilters || page > 1;
+
+    if (useMemoryPagination) {
+      // Fetch from start with buffer for filtering/pagination in memory
+      const recordsNeeded = hasTMDBFilters 
+        ? 1000  // Max for filtered queries
+        : Math.ceil(page * limit * 1.5);  // 1.5x buffer for unfiltered
+
+      logger.debug('Using memory pagination strategy', {
         context: 'my-movies',
         hasTMDBFilters,
-        typesParam,
-        yearFrom,
-        yearTo,
-        genresParam
+        page,
+        limit,
+        recordsNeeded
       });
 
       watchListRecords = await prisma.watchList.findMany({
@@ -368,20 +375,19 @@ export async function GET(request: NextRequest) {
           tags: { select: { id: true, name: true } },
         },
         orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
+        take: recordsNeeded,
       });
 
-      totalCount = watchListRecords.length;
-      logger.debug('Fetched all records for filtering', {
+      totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
+      logger.debug('Fetched records for memory pagination', {
         context: 'my-movies',
+        fetchedCount: watchListRecords.length,
         totalCount
       });
     } else {
-      // No TMDB filters - use efficient DB pagination
-      // FIX: Use proper pagination with skip and fixed take
-      const pageSkip = (page - 1) * limit;
+      // First page without filters - use efficient single query
+      const pageSkip = 0;
       const pageTake = limit + 1; // +1 to detect hasMore
-
-      logger.debug('Pagination strategy', { context: 'my-movies', page, limit, pageSkip, pageTake });
 
       watchListRecords = await prisma.watchList.findMany({
         where: whereClauseWithRating,
@@ -402,15 +408,7 @@ export async function GET(request: NextRequest) {
         take: pageTake,
       });
 
-      // For hasMore calculation with DB pagination, we need total count
-      // Estimate: if we got more than limit, there might be more
-      const gotMoreThanLimit = watchListRecords.length > limit;
-      if (gotMoreThanLimit) {
-        // Get exact count for accurate hasMore
-        totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
-      } else {
-        totalCount = pageSkip + watchListRecords.length;
-      }
+      totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
     }
 
     // Early exit if no records
@@ -537,15 +535,15 @@ export async function GET(request: NextRequest) {
     const pageEndIndex = pageStartIndex + limit;
     const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
     
-    // For hasMore, we need the TOTAL count, not the batch size
-    // totalCount was calculated earlier: either exact count or estimated
-    const hasMore = page * limit < totalCount;
+    // hasMore: Check if there are more records in the filtered/sorted result
+    const hasMore = sortedMovies.length > pageEndIndex;
 
     logger.debug('Pagination result', {
       context: 'my-movies',
       page,
       limit,
       hasTMDBFilters,
+      useMemoryPagination,
       watchListRecordsLength: watchListRecords.length,
       sortedMoviesLength: sortedMovies.length,
       paginatedMoviesLength: paginatedMovies.length,
