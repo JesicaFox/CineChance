@@ -25,7 +25,7 @@ export default async function Home() {
           <LoaderSkeleton variant="full" text="Загрузка..." />
         </div>
       }>
-        <HorizontalMovieGridServer title="Рекомендации для вас" />
+        <HorizontalMovieGridServer title="Рекомендации для вас (временный дубликат)" />
       </Suspense>
       
       <div className="h-12"></div>
