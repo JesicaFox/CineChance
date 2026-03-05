@@ -12,5 +12,21 @@ export default defineConfig({
     globals: true,
     include: ['src/lib/__tests__/**/*.test.ts'],
     testTimeout: 30000
+  },
+  coverage: {
+    provider: 'v8',
+    reporter: ['text', 'json', 'html'],
+    thresholds: {
+      lines: 80,
+      functions: 80,
+      branches: 75,
+      statements: 80,
+      check: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80
+      }
+    }
   }
 });

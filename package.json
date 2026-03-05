@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "eslint",
     "lint:strict": "eslint . --max-warnings 0",
+    "test": "vitest",
     "test:ci": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "postinstall": "prisma generate",
     "seed": "ts-node prisma/seed.ts"
   },
@@ -47,6 +49,7 @@
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.23",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^8.57.1",
