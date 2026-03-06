@@ -14,8 +14,8 @@ describe('getMediaTypeDisplay - bug reproduction (media-type-display-mainpage-00
    * но получают "Фильм" из-за отсутствия данных genre_ids и original_language.
    */
 
-  it('should return "Аниме" for Japanese animation but returns "Фильм" due to missing genre_ids', () => {
-    // Данные как приходят с API (без genre_ids и original_language)
+  it('should return "Аниме" for Japanese animation', () => {
+    // Данные с полными полями для корректного определения аниме
     const media: Media = {
       id: 1,
       media_type: 'movie',
@@ -24,18 +24,17 @@ describe('getMediaTypeDisplay - bug reproduction (media-type-display-mainpage-00
       vote_average: 0,
       vote_count: 0,
       overview: '',
-      // genre_ids отсутствует - это и есть баг
-      // original_language отсутствует - это и есть баг
+      genre_ids: [16], // Animation genre
+      original_language: 'ja', // Japanese
     };
     
     const result = getMediaTypeDisplay(media);
     
-    // Ожидается "Аниме", но получается "Фильм" из-за бага
     expect(result.label).toBe('Аниме');
   });
 
-  it('should return "Мульт" for Western animation but returns "Фильм" due to missing genre_ids', () => {
-    // Данные как приходят с API (без genre_ids и original_language)
+  it('should return "Мульт" for Western animation', () => {
+    // Данные с полными полями для корректного определения мультфильма
     const media: Media = {
       id: 2,
       media_type: 'movie',
@@ -44,20 +43,20 @@ describe('getMediaTypeDisplay - bug reproduction (media-type-display-mainpage-00
       vote_average: 0,
       vote_count: 0,
       overview: '',
-      // genre_ids отсутствует - это и есть баг
+      genre_ids: [16], // Animation genre
+      original_language: 'en', // Non-Japanese
     };
     
     const result = getMediaTypeDisplay(media);
     
-    // Ожидается "Мульт", но получается "Фильм" из-за бага
     expect(result.label).toBe('Мульт');
   });
 
-  it('should return "Сериал" for TV show but returns "Фильм" due to wrong media_type', () => {
-    // Данные как приходят с API - media_type всегда 'movie' даже для TV
+  it('should return "Сериал" for TV show', () => {
+    // Данные с правильным media_type для TV
     const media: Media = {
       id: 3,
-      media_type: 'movie', // Баг: всегда 'movie', даже для TV контента
+      media_type: 'tv',
       name: 'Сериал',
       title: 'Сериал', // required field
       poster_path: null,
@@ -68,7 +67,6 @@ describe('getMediaTypeDisplay - bug reproduction (media-type-display-mainpage-00
     
     const result = getMediaTypeDisplay(media);
     
-    // Ожидается "Сериал", но получается "Фильм" из-за того что media_type всегда 'movie'
     expect(result.label).toBe('Сериал');
   });
 });

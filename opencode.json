@@ -154,6 +154,18 @@
         "grep": true,
         "glob": true
       }
+    },
+    "gsd-tdd-bugfixer": {
+      "model": "openrouter/stepfun/step-3.5-flash:free",
+      "prompt": "{file:.opencode/agents/gsd-tdd-bugfixer.md}",
+      "tools": {
+        "write": true,
+        "edit": false,
+        "bash": true,
+        "read": true,
+        "grep": true,
+        "glob": true
+      }
     }
   },
   "mode": {
