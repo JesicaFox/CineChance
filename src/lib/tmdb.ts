@@ -46,7 +46,14 @@ export interface TMDbListItem {
   overview: string;
 }
 
-// Helper to transform TMDB item to common Media format
+/**
+ * Transforms TMDB API response item to common Media format.
+ * Preserves genre_ids and original_language for media type detection.
+ * Correctly maps both movie and TV show fields.
+ * 
+ * @param item - Raw TMDB API response item
+ * @returns Media - Transformed media object with all required fields
+ */
 function transformToMedia(item: TMDBMovieResponse): Media {
   return {
     id: item.id,
@@ -103,6 +110,14 @@ if (HAS_NETWORK_ISSUES) {
   logger.info('Обнаружены проблемы с сетью в development, используем mock данные для TMDB', { context: 'TMDB' });
 }
 
+/**
+ * Fetches trending movies and TV shows from TMDB.
+ * Makes parallel requests to both /trending/movie/ and /trending/tv/ endpoints.
+ * Returns combined array with correct media_type, genre_ids, and original_language.
+ * 
+ * @param timeWindow - 'day' for today's trending, 'week' for weekly trending
+ * @returns Promise<Media[]> - Array of trending media (movies and TV shows)
+ */
 export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): Promise<Media[]> => {
   const cacheKey = `trending:${timeWindow}`;
   
@@ -189,6 +204,14 @@ export const fetchTrendingMovies = async (timeWindow: 'day' | 'week' = 'week'): 
   }
 };
 
+/**
+ * Fetches popular movies and TV shows from TMDB.
+ * Makes parallel requests to both /movie/popular and /tv/popular endpoints.
+ * Returns combined array with correct media_type, genre_ids, and original_language.
+ * 
+ * @param page - Page number for pagination (default: 1)
+ * @returns Promise<Media[]> - Array of popular media (movies and TV shows)
+ */
 export const fetchPopularMovies = async (page: number = 1): Promise<Media[]> => {
   const cacheKey = `popular:${page}`;
   
