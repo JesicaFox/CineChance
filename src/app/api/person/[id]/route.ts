@@ -4,6 +4,27 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 
+interface CreditRaw {
+  id: number;
+  media_type: 'movie' | 'tv';
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  vote_average: number;
+  vote_count: number;
+  release_date?: string;
+  first_air_date?: string;
+  overview: string;
+  popularity: number;
+  character?: string;
+  job?: string;
+  department?: string;
+}
+
+interface CreditItem extends CreditRaw {
+  role_type: 'cast' | 'crew';
+}
+
 export async function GET(
   request: Request,
   props: { params: Promise<{ id: string }> }
@@ -80,54 +101,54 @@ export async function GET(
       });
     }
 
-    const creditsData = await creditsRes.json();
+     const creditsData = await creditsRes.json() as { cast?: CreditRaw[]; crew?: CreditRaw[] };
 
-    // Фильтруем и сортируем фильмографию (включая cast и crew)
-    const seen = new Set<string>();
-    
-    // Объединяем cast и crew
-    const allCredits = [
-      ...(creditsData.cast || []).map((item: any) => ({ ...item, role_type: 'cast' })),
-      ...(creditsData.crew || []).map((item: any) => ({ ...item, role_type: 'crew' }))
-    ];
-    
-    const filmography = allCredits
-      ?.filter((item: any) => {
-        // Только с постером
-        if (!item.poster_path) return false;
-        
-        // Удаляем дубликаты (один и тот же id + media_type)
-        const key = `${item.media_type}_${item.id}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      ?.sort((a: any, b: any) => {
-        // Сначала сортируем по популярности, затем по дате
-        if (b.popularity !== a.popularity) {
-          return b.popularity - a.popularity;
-        }
-        // Для фильмов по дате выхода (новые сначала)
-        const dateA = a.release_date || a.first_air_date || '';
-        const dateB = b.release_date || b.first_air_date || '';
-        return dateB.localeCompare(dateA);
-      })
-      ?.map((item: any) => ({
-        id: item.id,
-        media_type: item.media_type,
-        title: item.title || item.name,
-        name: item.title || item.name,
-        poster_path: item.poster_path,
-        vote_average: item.vote_average || 0,
-        vote_count: item.vote_count || 0,
-        release_date: item.release_date || item.first_air_date || '',
-        overview: item.overview || '',
-        character: item.character || '',
-        job: item.job || '', // Должность для crew (режиссер, продюсер и т.д.)
-        department: item.department || '', // Отдел для crew
-        role_type: item.role_type,
-        popularity: item.popularity || 0,
-      })) || [];
+     // Фильтруем и сортируем фильмографию (включая cast и crew)
+     const seen = new Set<string>();
+     
+     // Объединяем cast и crew
+     const allCredits: CreditItem[] = [
+       ...(creditsData.cast || []).map((item: CreditRaw) => ({ ...item, role_type: 'cast' as const })),
+       ...(creditsData.crew || []).map((item: CreditRaw) => ({ ...item, role_type: 'crew' as const }))
+     ];
+     
+     const filmography = allCredits
+       ?.filter((item: CreditItem) => {
+         // Только с постером
+         if (!item.poster_path) return false;
+         
+         // Удаляем дубликаты (один и тот же id + media_type)
+         const key = `${item.media_type}_${item.id}`;
+         if (seen.has(key)) return false;
+         seen.add(key);
+         return true;
+       })
+       ?.sort((a: CreditItem, b: CreditItem) => {
+         // Сначала сортируем по популярности, затем по дате
+         if (b.popularity !== a.popularity) {
+           return b.popularity - a.popularity;
+         }
+         // Для фильмов по дате выхода (новые сначала)
+         const dateA = a.release_date || a.first_air_date || '';
+         const dateB = b.release_date || b.first_air_date || '';
+         return dateB.localeCompare(dateA);
+       })
+       ?.map((item: CreditItem) => ({
+         id: item.id,
+         media_type: item.media_type,
+         title: item.title || item.name,
+         name: item.title || item.name,
+         poster_path: item.poster_path,
+         vote_average: item.vote_average,
+         vote_count: item.vote_count,
+         release_date: item.release_date || item.first_air_date || '',
+         overview: item.overview,
+         character: item.character || '',
+         job: item.job || '',
+         department: item.department || '',
+         role_type: item.role_type,
+         popularity: item.popularity,
+       })) || [];
 
     return NextResponse.json({
       id: personData.id,

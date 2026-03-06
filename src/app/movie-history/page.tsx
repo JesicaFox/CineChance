@@ -105,8 +105,26 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
     },
   });
 
-  // Функция расчета взвешенной оценки согласно плану
-  const calculateWeightedRating = (ratingHistory: any[], watchCount: number) => {
+interface RatingHistoryEntry {
+  id: string;
+  userId: string;
+  tmdbId: number;
+  mediaType: string;
+  rating: number;
+  actionType: string;
+  createdAt: Date;
+  previousRating?: number | null;
+  ratingChange?: number | null;
+  ratingSource?: string | null;
+  recommendationLogId?: string | null;
+}
+
+interface EnrichedRatingHistoryEntry extends RatingHistoryEntry {
+  displayDate: Date | string;
+}
+
+// Функция расчета взвешенной оценки согласно плану
+const calculateWeightedRating = (ratingHistory: RatingHistoryEntry[], watchCount: number): number | null => {
     if (!ratingHistory.length) return null;
     
     // Сортируем по дате (старые сначала)
@@ -261,7 +279,7 @@ export default async function MovieHistoryPage({ searchParams }: PageProps) {
             <p className="text-gray-500 text-sm">Изменений оценок пока нет</p>
           ) : (
             <div className="space-y-3">
-              {enrichedRatingHistory.map((entry: any, index: number) => {
+               {enrichedRatingHistory.map((entry: EnrichedRatingHistoryEntry, index: number) => {
                 return (
                   <div key={entry.id} className="flex items-center gap-3 text-sm">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs font-bold">

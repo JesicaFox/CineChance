@@ -8,7 +8,7 @@ import { Media } from '@/lib/tmdb';
 import { logger } from '@/lib/logger';
 import { BlacklistProvider } from '../components/BlacklistContext';
 
-interface MyMoviesContentClientProps {
+interface EnhancedMoviesContentClientProps {
   userId: string;
   initialTab?: 'watched' | 'wantToWatch' | 'dropped' | 'hidden';
   initialCounts: {
@@ -27,6 +27,12 @@ interface AcceptedRecommendation {
   logId: string;
 }
 
+type EnhancedMovie = Media & {
+  userRating: number | null;
+  statusName: string;
+  isBlacklisted: boolean;
+};
+
 const STATUS_MAP: Record<string, 'want' | 'watched' | 'dropped' | 'rewatched' | null> = {
   'Хочу посмотреть': 'want',
   'Просмотрено': 'watched',
@@ -34,11 +40,11 @@ const STATUS_MAP: Record<string, 'want' | 'watched' | 'dropped' | 'rewatched' | 
   'Пересмотрено': 'rewatched',
 };
 
-export default function MyMoviesContentClient({
+export default function EnhancedMoviesContentClient({
   userId,
   initialTab = 'watched',
   initialCounts,
-}: MyMoviesContentClientProps) {
+}: EnhancedMoviesContentClientProps) {
   const [activeTab, setActiveTab] = useState<'watched' | 'wantToWatch' | 'dropped' | 'hidden'>(
     initialTab
   );
@@ -67,12 +73,12 @@ export default function MyMoviesContentClient({
       try {
         const tagsRes = await fetch('/api/user/tag-usage');
         if (tagsRes.ok) {
-          const tagsData = await tagsRes.json();
-          setUserTags((tagsData.tags || []).map((tag: any) => ({
-            id: tag.id,
-            name: tag.name,
-            count: tag.count
-          })));
+           const tagsData = await tagsRes.json();
+           setUserTags((tagsData.tags || []).map((tag: { id: string; name: string; count: number }) => ({
+             id: tag.id,
+             name: tag.name,
+             count: tag.count
+           })));
         }
       } catch (error) {
         logger.error('Error fetching tags', { error: error instanceof Error ? error.message : String(error) });
@@ -349,16 +355,16 @@ export default function MyMoviesContentClient({
             availableGenres={availableGenres}
             userTags={userTags}
             showRatingBadge={true}
-            getInitialRating={(movie) => (movie as any).userRating}
-            getInitialStatus={(movie) => {
-              const statusName = (movie as any).statusName;
+             getInitialRating={(movie) => (movie as EnhancedMovie).userRating}
+             getInitialStatus={(movie) => {
+               const statusName = (movie as EnhancedMovie).statusName;
               if (statusName === 'Пересмотрено') return 'rewatched';
               if (statusName === 'Просмотрено') return 'watched';
               if (statusName === 'Хочу посмотреть') return 'want';
               if (statusName === 'Брошено') return 'dropped';
               return initialStatus;
             }}
-            getInitialIsBlacklisted={(movie) => (movie as any).isBlacklisted === true}
+             getInitialIsBlacklisted={(movie) => (movie as EnhancedMovie).isBlacklisted === true}
             restoreView={isRestoreView}
             initialStatus={initialStatus}
             emptyMessage={

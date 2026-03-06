@@ -48,14 +48,14 @@ async function fetchMediaDetailsBatch(
   return results;
 }
 
-function isAnime(movie: any): boolean {
-  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isAnime(movie: { genres?: { id: number }[]; original_language?: string }): boolean {
+  const hasAnimeGenre = movie.genres?.some((g) => g.id === 16) ?? false;
   const isJapanese = movie.original_language === 'ja';
   return hasAnimeGenre && isJapanese;
 }
 
-function isCartoon(movie: any): boolean {
-  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isCartoon(movie: { genres?: { id: number }[]; original_language?: string }): boolean {
+  const hasAnimationGenre = movie.genres?.some((g) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
   return hasAnimationGenre && isNotJapanese;
 }
@@ -373,8 +373,8 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
-    const mediaFilter = searchParams.get('media');
-    const validMedia = ['movie', 'tv', 'cartoon', 'anime'].includes(mediaFilter) ? mediaFilter : null;
+     const mediaFilter = searchParams.get('media');
+     const validMedia = mediaFilter && ['movie', 'tv', 'cartoon', 'anime'].includes(mediaFilter) ? mediaFilter : null;
     const cacheKey = `user:${userId}:stats:${validMedia || 'all'}`;
 
     const responseData = await withCache(cacheKey, () => fetchStats(userId, validMedia), 3600);

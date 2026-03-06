@@ -1,10 +1,10 @@
 // Simple project logger used only for network/retry flows
 // This file is intentionally the only place in `src/` that uses raw `console`.
 export const networkLogger = {
-  debug: (...args: any[]) => console.debug('[NETWORK_RETRY]', ...args),
-  info: (...args: any[]) => console.info('[NETWORK_RETRY]', ...args),
-  warn: (...args: any[]) => console.warn('[NETWORK_RETRY]', ...args),
-  error: (...args: any[]) => console.error('[NETWORK_RETRY]', ...args),
+  debug: (...args: unknown[]) => console.debug('[NETWORK_RETRY]', ...args),
+  info: (...args: unknown[]) => console.info('[NETWORK_RETRY]', ...args),
+  warn: (...args: unknown[]) => console.warn('[NETWORK_RETRY]', ...args),
+  error: (...args: unknown[]) => console.error('[NETWORK_RETRY]', ...args),
 };
 
 export default networkLogger;
@@ -52,38 +52,38 @@ export class Logger {
     this.output = options.output || 'console';
   }
 
-  debug(msg: string, ...args: any[]) {
-    if (shouldLog('debug', this.level)) {
-      this._log('debug', msg, ...args);
-    }
-  }
-  info(msg: string, ...args: any[]) {
-    if (shouldLog('info', this.level)) {
-      this._log('info', msg, ...args);
-    }
-  }
-  warn(msg: string, ...args: any[]) {
-    if (shouldLog('warn', this.level)) {
-      this._log('warn', msg, ...args);
-    }
-  }
-  error(msg: string, ...args: any[]) {
-    if (shouldLog('error', this.level)) {
-      this._log('error', msg, ...args);
-    }
-  }
+   debug(msg: string, ...args: unknown[]) {
+     if (shouldLog('debug', this.level)) {
+       this._log('debug', msg, ...args);
+     }
+   }
+   info(msg: string, ...args: unknown[]) {
+     if (shouldLog('info', this.level)) {
+       this._log('info', msg, ...args);
+     }
+   }
+   warn(msg: string, ...args: unknown[]) {
+     if (shouldLog('warn', this.level)) {
+       this._log('warn', msg, ...args);
+     }
+   }
+   error(msg: string, ...args: unknown[]) {
+     if (shouldLog('error', this.level)) {
+       this._log('error', msg, ...args);
+     }
+   }
 
-  private _log(level: LogLevel, msg: string, ...args: any[]) {
-    const formatted = format(level, msg, this.context);
-    if (this.output === 'console') {
-       
-      if (level === 'error') console.error(formatted, ...args);
-      else if (level === 'warn') console.warn(formatted, ...args);
-      else if (level === 'info') console.info(formatted, ...args);
-      else console.debug(formatted, ...args);
-    }
-    // Можно добавить отправку во внешний сервис
-  }
+   private _log(level: LogLevel, msg: string, ...args: unknown[]) {
+     const formatted = format(level, msg, this.context);
+     if (this.output === 'console') {
+        
+       if (level === 'error') console.error(formatted, ...args);
+       else if (level === 'warn') console.warn(formatted, ...args);
+       else if (level === 'info') console.info(formatted, ...args);
+       else console.debug(formatted, ...args);
+     }
+     // Можно добавить отправку во внешний сервис
+   }
 }
 
 
@@ -94,7 +94,7 @@ export const logger = new Logger();
  * Централизованный сбор ошибок для ErrorBoundary и асинхронных ошибок.
  * Можно расширить для отправки ошибок во внешний сервис.
  */
-export function logError(context: string, error: any, errorInfo?: any) {
+export function logError(context: string, error: unknown, errorInfo?: unknown) {
   if (error instanceof Error) {
     logger.error(`[${context}] ${error.message}`, error.stack, errorInfo);
   } else {

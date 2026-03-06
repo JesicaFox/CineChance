@@ -7,7 +7,8 @@ import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 import { 
   TMDbSearchResult, 
-  TMDbListItem,
+  TMDbMediaBase,
+  TMDbSearchResponse,
   isSuccessfulSearchResult,
   isTMDBErrorResponse
 } from '@/lib/types/tmdb';
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Search service unavailable' }, { status: 500 });
     }
     
-     let allResults: TMDbListItem[] = [];
+     let allResults: TMDbMediaBase[] = [];
      let totalResults = 0;
      let totalPages = 1;
 
@@ -89,16 +90,13 @@ export async function GET(request: Request) {
         const url = new URL(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=ru-RU&page=${apiPage}&include_adult=${!shouldFilterAdult}`);
         url.searchParams.set('query', query);
 
-        const promise = fetch(url.toString(), { next: { revalidate: 3600 } })
+         const promise = fetch(url.toString(), { next: { revalidate: 3600 } })
           .then(async res => {
             if (!res.ok) {
               throw new Error(`TMDB API error: ${res.status} ${res.statusText}`);
             }
-            const data = await res.json() as TMDbSearchResult;
-            if (data.status_code) {
-              throw new Error(`TMDB API error: ${data.status_message}`);
-            }
-            return data;
+            const data = await res.json() as TMDbSearchResponse<TMDbMediaBase>;
+            return data; // Return for processing later
           })
           .catch(error => ({ error, page: apiPage })); // В случае ошибки возвращаем объект с ошибкой
         fetchPromises.push(promise);
@@ -154,7 +152,7 @@ export async function GET(request: Request) {
 
       // Дополнительная серверная фильтрация на случай, если TMDB не применил настройки
       if (shouldFilterAdult) {
-        allResults = allResults.filter((item: TMDbListItem) => !item.adult);
+        allResults = allResults.filter((item: TMDbMediaBase) => !item.adult);
       }
 
       // Filter results based on type
@@ -163,7 +161,7 @@ export async function GET(request: Request) {
       
        if (selectedTypes.length > 0 && !selectedTypes.includes('all')) {
          // Filter by multiple types
-         allResults = allResults.filter((item: TMDbListItem): boolean => {
+         allResults = allResults.filter((item: TMDbMediaBase): boolean => {
            const itemType = item.media_type;
            const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
            const isCartoon = (item.genre_ids?.includes(16) ?? false) && item.original_language !== 'ja';
@@ -214,13 +212,13 @@ export async function GET(request: Request) {
           blacklist.forEach(item => blacklistSet.add(item.tmdbId));
 
           // Map API media_type to database mediaType
-          const getDbMediaType = (apiType: string) => {
-            if (apiType === 'movie') return 'movie';
-            if (apiType === 'tv') return 'tv';
-            return apiType; // 'person' etc.
-          };
+           const getDbMediaType = (apiType: string | undefined): string => {
+             if (apiType === 'movie') return 'movie';
+             if (apiType === 'tv') return 'tv';
+             return apiType ?? '';
+           };
 
-           allResults = allResults.filter((item: TMDbListItem) => {
+           allResults = allResults.filter((item: TMDbMediaBase) => {
              const watchlistItem = watchlistMap.get(item.id);
              const isBlacklisted = blacklistSet.has(item.id);
              const dbMediaType = getDbMediaType(item.media_type);
@@ -268,7 +266,7 @@ export async function GET(request: Request) {
         if (yearMatch) {
          const y1 = parseInt(yearMatch[1]);
          const y2 = yearMatch[2] ? parseInt(yearMatch[2]) : y1;
-         allResults = allResults.filter((item: TMDbListItem) => {
+         allResults = allResults.filter((item: TMDbMediaBase) => {
            const releaseDate = item.release_date || item.first_air_date || '';
            const year = parseInt(releaseDate.split('-')[0]) || 0;
            return year >= y1 && year <= y2;
@@ -278,7 +276,7 @@ export async function GET(request: Request) {
 
        if (yearFrom) {
          const yFrom = parseInt(yearFrom);
-         allResults = allResults.filter((item: TMDbListItem) => {
+         allResults = allResults.filter((item: TMDbMediaBase) => {
            const releaseDate = item.release_date || item.first_air_date || '';
            const year = parseInt(releaseDate.split('-')[0]) || 0;
            return year >= yFrom;
@@ -287,7 +285,7 @@ export async function GET(request: Request) {
 
        if (yearTo) {
          const yTo = parseInt(yearTo);
-         allResults = allResults.filter((item: TMDbListItem) => {
+         allResults = allResults.filter((item: TMDbMediaBase) => {
            const releaseDate = item.release_date || item.first_air_date || '';
            const year = parseInt(releaseDate.split('-')[0]) || 0;
            return year <= yTo;
@@ -298,7 +296,7 @@ export async function GET(request: Request) {
       if (genresParam) {
          const genreIds = genresParam.split(',').map(Number).filter(n => !isNaN(n));
          if (genreIds.length > 0) {
-           allResults = allResults.filter((item: TMDbListItem) => {
+           allResults = allResults.filter((item: TMDbMediaBase) => {
              const itemGenres = item.genre_ids || [];
              return genreIds.some((gid: number) => itemGenres.includes(gid));
            });
@@ -307,7 +305,7 @@ export async function GET(request: Request) {
 
        // Filter by rating
        if (ratingFrom > 0 || ratingTo < 10) {
-         allResults = allResults.filter((item: TMDbListItem) => {
+         allResults = allResults.filter((item: TMDbMediaBase) => {
            const rating = item.vote_average || 0;
            return rating >= ratingFrom && rating <= ratingTo;
          });
@@ -315,7 +313,7 @@ export async function GET(request: Request) {
 
        // Sort results
        if (sortBy !== 'popularity') {
-         allResults.sort((a: TMDbListItem, b: TMDbListItem) => {
+         allResults.sort((a: TMDbMediaBase, b: TMDbMediaBase) => {
            const aVal = a.vote_average || 0;
            const bVal = b.vote_average || 0;
            const aDate = parseInt((a.release_date || a.first_air_date || '0').split('-')[0]) || 0;
@@ -331,7 +329,7 @@ export async function GET(request: Request) {
 
        // Deduplicate results by media_type and id
        const seen = new Set<string>();
-       allResults = allResults.filter((item: TMDbListItem) => {
+       allResults = allResults.filter((item: TMDbMediaBase) => {
          const key = `${item.media_type}_${item.id}`;
          if (seen.has(key)) {
            return false;
@@ -356,7 +354,7 @@ export async function GET(request: Request) {
     } else {
        // No query, use discover endpoint with filters
        const pagesToFetch = Math.ceil((page * limit) / 20) + 1;
-       let discoverResults: TMDbListItem[] = [];
+       let discoverResults: TMDbMediaBase[] = [];
 
       // Determine API endpoints and filters based on type
       const typeParam = type || 'all';
@@ -460,7 +458,7 @@ export async function GET(request: Request) {
            
            if (data.results && data.results.length > 0) {
              // Filter out anime and cartoon from movie results
-             const filteredResults = data.results.filter((item: TMDbListItem) => {
+             const filteredResults = data.results.filter((item: TMDbMediaBase) => {
                const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
                const isCartoon = (item.genre_ids?.includes(16) ?? false) && item.original_language !== 'ja';
                return (!isAnime || includeAnime) && (!isCartoon || includeCartoon);
@@ -551,12 +549,12 @@ export async function GET(request: Request) {
 
        // Дополнительная серверная фильтрация на случай, если TMDB не применил настройки
        if (shouldFilterAdult) {
-         discoverResults = discoverResults.filter((item: TMDbListItem) => !item.adult);
+         discoverResults = discoverResults.filter((item: TMDbMediaBase) => !item.adult);
        }
 
        // Filter by media type (movies, tv, anime, cartoon) if specific types are selected
        if (selectedTypes.length > 0 && !selectedTypes.includes('all')) {
-         discoverResults = discoverResults.filter((item: TMDbListItem): boolean => {
+         discoverResults = discoverResults.filter((item: TMDbMediaBase): boolean => {
            const itemType = item.media_type;
            const isAnime = (item.genre_ids?.includes(16) ?? false) && item.original_language === 'ja';
            const isCartoon = (item.genre_ids?.includes(16) ?? false) && item.original_language !== 'ja';
@@ -573,7 +571,7 @@ export async function GET(request: Request) {
 
        // Deduplicate results by media_type and id
        const seen = new Set<string>();
-       discoverResults = discoverResults.filter((item: TMDbListItem) => {
+       discoverResults = discoverResults.filter((item: TMDbMediaBase) => {
          const key = `${item.media_type}_${item.id}`;
          if (seen.has(key)) {
            return false;
@@ -584,7 +582,7 @@ export async function GET(request: Request) {
 
        // Filter by rating upper bound (TMDB doesn't support it in discover API)
        if (ratingTo < 10) {
-         discoverResults = discoverResults.filter((item: TMDbListItem) => {
+         discoverResults = discoverResults.filter((item: TMDbMediaBase) => {
            const rating = item.vote_average || 0;
            return rating <= ratingTo;
          });

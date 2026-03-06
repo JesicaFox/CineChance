@@ -5,6 +5,11 @@ import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+interface MovieStatus {
+  id: number;
+  name: string;
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -13,7 +18,7 @@ export async function GET() {
     }
 
     // Получаем все статусы из базы данных
-    const statuses = await prisma.$queryRaw`
+    const statuses = await prisma.$queryRaw<MovieStatus[]>`
       SELECT id, name 
       FROM "MovieStatus" 
       ORDER BY id
@@ -23,7 +28,7 @@ export async function GET() {
 
     // Считаем количество записей по каждому реальному статусу
     const counts = await Promise.all(
-      (statuses as unknown[]).map(async (status: any) => {
+      statuses.map(async (status: MovieStatus) => {
         const count = await prisma.watchList.count({
           where: {
             userId: session.user.id,
@@ -45,7 +50,7 @@ export async function GET() {
 
     // Получаем несколько записей для каждого статуса
     const sampleRecords = await Promise.all(
-      (statuses as unknown[]).map(async (status: any) => {
+      statuses.map(async (status: MovieStatus) => {
         const records = await prisma.watchList.findMany({
           where: {
             userId: session.user.id,
@@ -81,10 +86,10 @@ export async function GET() {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error checking real status IDs', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { error: 'Failed to check status IDs', details: error.message }, 
+      { error: 'Failed to check status IDs', details: error instanceof Error ? error.message : String(error) }, 
       { status: 500 }
     );
   }

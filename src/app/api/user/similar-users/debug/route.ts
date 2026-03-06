@@ -10,6 +10,43 @@ import {
 import { getTasteMap } from '@/lib/taste-map/redis';
 import { computeTasteMap } from '@/lib/taste-map/compute';
 
+interface CandidateDebug {
+  userId: string;
+  tasteSimilarity?: number;
+  ratingCorrelation?: number;
+  personOverlap?: number;
+  overallMatch?: number;
+  isSimilar?: boolean;
+  details?: {
+    tasteMap: {
+      genreProfile: Record<string, number>;
+      personProfiles: {
+        actorsCount: number;
+        directorsCount: number;
+      };
+    };
+  };
+  error?: string;
+}
+
+interface Analysis {
+  userId: string;
+  userTasteMap: {
+    genreProfile: Record<string, number>;
+    personProfiles: {
+      actorsCount: number;
+      directorsCount: number;
+    };
+  };
+  candidates: CandidateDebug[];
+  stats: {
+    totalAnalyzed: number;
+    passedThreshold: number;
+    failedThreshold: number;
+    errors: number;
+  };
+}
+
 /**
  * GET /api/user/similar-users/debug
  * 
@@ -59,23 +96,23 @@ export async function GET(request: NextRequest) {
       context: 'SimilarUsersDebug',
     });
 
-    const analysis = {
-      userId,
-      userTasteMap: {
-        genreProfile: userTasteMap.genreProfile,
-        personProfiles: {
-          actorsCount: Object.keys(userTasteMap.personProfiles.actors).length,
-          directorsCount: Object.keys(userTasteMap.personProfiles.directors).length,
-        },
-      },
-      candidates: [],
-      stats: {
-        totalAnalyzed: 0,
-        passedThreshold: 0,
-        failedThreshold: 0,
-        errors: 0,
-      },
-    };
+     const analysis: Analysis = {
+       userId,
+       userTasteMap: {
+         genreProfile: userTasteMap.genreProfile,
+         personProfiles: {
+           actorsCount: Object.keys(userTasteMap.personProfiles.actors).length,
+           directorsCount: Object.keys(userTasteMap.personProfiles.directors).length,
+         },
+       },
+       candidates: [],
+       stats: {
+         totalAnalyzed: 0,
+         passedThreshold: 0,
+         failedThreshold: 0,
+         errors: 0,
+       },
+     };
 
     for (const candidate of allUsers.slice(0, limit)) {
       analysis.stats.totalAnalyzed++;
@@ -83,14 +120,14 @@ export async function GET(request: NextRequest) {
       try {
         const result = await computeSimilarity(userId, candidate.id);
 
-        const candidateData: any = {
-          userId: candidate.id,
-          tasteSimilarity: Number((result.tasteSimilarity * 100).toFixed(2)),
-          ratingCorrelation: Number((result.ratingCorrelation * 100).toFixed(2)),
-          personOverlap: Number((result.personOverlap * 100).toFixed(2)),
-          overallMatch: Number((result.overallMatch * 100).toFixed(2)),
-          isSimilar: isSimilar(result),
-        };
+         const candidateData: CandidateDebug = {
+           userId: candidate.id,
+           tasteSimilarity: Number((result.tasteSimilarity * 100).toFixed(2)),
+           ratingCorrelation: Number((result.ratingCorrelation * 100).toFixed(2)),
+           personOverlap: Number((result.personOverlap * 100).toFixed(2)),
+           overallMatch: Number((result.overallMatch * 100).toFixed(2)),
+           isSimilar: isSimilar(result),
+         };
 
         if (showDetails) {
           const candidateTasteMap = await getTasteMap(candidate.id, () => computeTasteMap(candidate.id));

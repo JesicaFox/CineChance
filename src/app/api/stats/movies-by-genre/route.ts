@@ -7,32 +7,48 @@ import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusNameById } from '@/lib/movieStatusConstants';
 import { rateLimit } from '@/middleware/rateLimit';
 import { logger } from '@/lib/logger';
+import type { MovieDetails, TMDbMediaBase, TMDbGenre } from '@/lib/types/tmdb';
+
+interface WatchListSelect {
+  id: string;
+  tmdbId: number;
+  mediaType: string;
+  title: string;
+  voteAverage: number | null;
+  userRating: number | null;
+  weightedRating: number | null;
+  addedAt: Date;
+  statusId: number;
+}
+
+type MovieEntry = {
+  record: WatchListSelect;
+  tmdbData: MovieDetails | null;
+};
 
 // Вспомогательная функция для получения деталей с TMDB
-async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
+async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<MovieDetails | null> {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) return null;
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
-    return await res.json();
+    return await res.json() as MovieDetails;
   } catch {
     return null;
   }
 }
 
-function isAnime(movie: any): boolean {
-  const m = movie as { genres?: { id: number }[]; original_language?: string };
-  const hasAnimeGenre = m.genres?.some((g) => g.id === 16) ?? false;
-  const isJapanese = m.original_language === 'ja';
+function isAnime(movie: TMDbMediaBase): boolean {
+  const hasAnimeGenre = movie.genres?.some((g: TMDbGenre) => g.id === 16) ?? false;
+  const isJapanese = movie.original_language === 'ja';
   return hasAnimeGenre && isJapanese;
 }
 
-function isCartoon(movie: any): boolean {
-  const m = movie as { genres?: { id: number }[]; original_language?: string };
-  const hasAnimationGenre = m.genres?.some((g) => g.id === 16) ?? false;
-  const isNotJapanese = m.original_language !== 'ja';
+function isCartoon(movie: TMDbMediaBase): boolean {
+  const hasAnimationGenre = movie.genres?.some((g: TMDbGenre) => g.id === 16) ?? false;
+  const isNotJapanese = movie.original_language !== 'ja';
   return hasAnimationGenre && isNotJapanese;
 }
 
@@ -110,14 +126,12 @@ export async function GET(request: NextRequest) {
 
     // Если есть теги для фильтрации, добавляем их в where clause
     // Теги хранятся в поле tags как связь many-to-many
-    let tagsFilter: any = undefined;
+    let tagsFilter: { tags: { some: { id: { in: string[] } } } } | undefined = undefined;
     if (tagsArray.length > 0) {
       tagsFilter = {
-        some: {
-          tags: {
-            some: {
-              id: { in: tagsArray }
-            }
+        tags: {
+          some: {
+            id: { in: tagsArray }
           }
         }
       };
@@ -137,6 +151,8 @@ export async function GET(request: NextRequest) {
         userRating: true,
         addedAt: true,
         statusId: true,
+        voteAverage: true,
+        weightedRating: true,
       },
       orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
       skip,
@@ -145,7 +161,7 @@ export async function GET(request: NextRequest) {
 
     // Параллельная загрузка TMDB данных с батчингом
     const BATCH_SIZE = 5;
-    const moviesWithGenre: Array<{ record: any; tmdbData: any }> = [];
+    const moviesWithGenre: Array<{ record: WatchListSelect; tmdbData: MovieDetails | null }> = [];
     
     for (let i = 0; i < watchListRecords.length; i += BATCH_SIZE) {
       const batch = watchListRecords.slice(i, i + BATCH_SIZE);
@@ -158,11 +174,11 @@ export async function GET(request: NextRequest) {
         const record = batch[j];
         const tmdbData = batchResults[j];
         
-        if (!tmdbData?.genres?.some((g: any) => g.id === genreId)) continue;
+         if (!tmdbData?.genres?.some((g: TMDbGenre) => g.id === genreId)) continue;
         
         const tmdbRating = tmdbData?.vote_average || 0;
         const releaseYear = new Date(tmdbData?.release_date || tmdbData?.first_air_date || '').getFullYear();
-        const genres = tmdbData?.genres?.map((g: any) => g.id) || [];
+         const genres = tmdbData?.genres?.map((g: TMDbGenre) => g.id) || [];
 
         // Фильтрация по типу контента на основе TMDB данных
         const isAnimeItem = isAnime(tmdbData);
@@ -201,7 +217,7 @@ export async function GET(request: NextRequest) {
 
     // Загружаем теги только для записей, которые попадут в ответ
     const recordIdsForTags = paginatedMovies.map(m => m.record.id);
-    const tagsMap = new Map<string, unknown[]>();
+    const tagsMap = new Map<string, { id: string; name: string }[]>();
     
     if (recordIdsForTags.length > 0) {
       const tagsData = await prisma.watchList.findMany({
@@ -220,7 +236,7 @@ export async function GET(request: NextRequest) {
     // Формируем ответ
     const movies = paginatedMovies.map(({ record, tmdbData }) => ({
       id: record.tmdbId,
-      media_type: record.mediaType as 'movie' | 'tv' | 'anime',
+      media_type: record.mediaType,
       title: tmdbData?.title || tmdbData?.name || record.title || 'Unknown',
       name: tmdbData?.title || tmdbData?.name || record.title || 'Unknown',
       poster_path: tmdbData?.poster_path || null,
@@ -229,10 +245,10 @@ export async function GET(request: NextRequest) {
       release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
       first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
       overview: tmdbData?.overview || '',
-      genre_ids: tmdbData?.genres?.map((g: any) => g.id) || [],
+      genre_ids: tmdbData?.genres?.map((g: TMDbGenre) => g.id) || [],
       original_language: tmdbData?.original_language || '',
       userRating: record.userRating,
-      addedAt: record.addedAt?.toISOString() || '',
+      addedAt: record.addedAt.toISOString(),
       tags: tagsMap.get(record.id) || [],
       statusId: record.statusId,
       statusName: getStatusNameById(record.statusId) || 'Просмотрено',
@@ -285,10 +301,10 @@ export async function GET(request: NextRequest) {
 }
 
 function applySorting(
-  movies: Array<{ record: any; tmdbData: any }>,
+  movies: MovieEntry[],
   sortBy: string,
   sortOrder: string
-): Array<{ record: any; tmdbData: any }> {
+): MovieEntry[] {
   const order = sortOrder === 'asc' ? 1 : -1;
 
   return [...movies].sort((a, b) => {
@@ -319,9 +335,9 @@ function applySorting(
         comparison = new Date(b.record.addedAt || 0).getTime() - new Date(a.record.addedAt || 0).getTime();
     }
 
-    // Secondary sort by id for stable ordering
+    // Secondary sort by id for stable ordering (string comparison for cuid)
     if (comparison === 0) {
-      comparison = a.record.id - b.record.id;
+      comparison = a.record.id.localeCompare(b.record.id);
     }
 
     return comparison * order;

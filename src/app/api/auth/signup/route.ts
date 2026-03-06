@@ -6,6 +6,13 @@ import { NextResponse } from 'next/server';
 import { rateLimit } from '@/middleware/rateLimit';
 import { randomUUID } from 'crypto';
 
+interface Invitation {
+  id: string;
+  email: string;
+  usedAt: Date | null;
+  expiresAt: Date;
+}
+
 // Helper to get or generate request ID
 function getRequestId(headers: Headers): string {
   const existingId = headers.get('x-request-id');
@@ -66,8 +73,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Валидация приглашения
-    let invitation: any = null;
+     // Валидация приглашения
+     let invitation: Invitation | null = null;
     if (inviteToken) {
       invitation = await prisma.invitation.findUnique({
         where: { token: inviteToken },

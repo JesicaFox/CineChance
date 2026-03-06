@@ -29,7 +29,7 @@ export async function fetchWithRetry(input: RequestInfo, init?: RequestInit, opt
   const retries = options.retries ?? 3;
   const timeoutMs = options.timeoutMs ?? 0;
 
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     const attemptStart = Date.now();
@@ -39,9 +39,9 @@ export async function fetchWithRetry(input: RequestInfo, init?: RequestInit, opt
       const signal = controller.signal;
       const combinedInit: RequestInit = { ...(init ?? {}), signal };
 
-      let timeoutId: NodeJS.Timeout | undefined;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       if (timeoutMs > 0) {
-        timeoutId = setTimeout(() => controller.abort(), timeoutMs) as unknown as NodeJS.Timeout;
+        timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       }
 
       networkLogger.debug('Attempt', attempt, 'fetch', typeof input === 'string' ? input : '[RequestInfo]', 'options', { timeoutMs });

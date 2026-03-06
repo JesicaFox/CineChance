@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 
+// Minimal interface for Prisma models we need (count + findFirst)
+interface ModelWithDateField {
+  count: () => Promise<number>;
+  findFirst: (options: { orderBy: Record<string, 'asc' | 'desc'> }) => Promise<Record<string, unknown> | null>;
+}
+
 /**
  * API endpoint for recommendation system statistics
  * Returns record counts, date ranges, and cleanup status
@@ -96,23 +102,23 @@ export async function GET(request: NextRequest) {
 }
 
 async function getTableStats(
-  model: any,
+  model: ModelWithDateField,
   dateField: string
-) {
+): Promise<{ total: number; oldestDate: string | null; newestDate: string | null }> {
   const total = await model.count();
   
   const oldest = await model.findFirst({
     orderBy: { [dateField]: 'asc' as const },
-  }) as { [key: string]: string } | null;
+  }) as Record<string, unknown> | null;
   
   const newest = await model.findFirst({
     orderBy: { [dateField]: 'desc' as const },
-  }) as { [key: string]: string } | null;
+  }) as Record<string, unknown> | null;
 
   return {
     total,
-    oldestDate: oldest?.[dateField] || null,
-    newestDate: newest?.[dateField] || null,
+    oldestDate: oldest?.[dateField] as string | null ?? null,
+    newestDate: newest?.[dateField] as string | null ?? null,
   };
 }
 

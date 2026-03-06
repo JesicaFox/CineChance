@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 
+interface FanartPoster {
+  url: string;
+  thumb?: string;
+  lang?: string;
+}
+
 export async function GET(req: Request) {
   const { success } = await rateLimit(req, 'default');
   if (!success) {
@@ -46,13 +52,13 @@ export async function GET(req: Request) {
     const posters = data.movieposter || data.tvposter || [];
     
     if (posters.length > 0) {
-      // Sort by language (prefer original/en, then any available)
-      const sorted = posters.sort((a: any, b: any) => {
-        const langOrder = { en: 0, '': 1, default: 2 };
-        const aLang = langOrder[a.lang as keyof typeof langOrder] ?? 2;
-        const bLang = langOrder[b.lang as keyof typeof langOrder] ?? 2;
-        return aLang - bLang;
-      });
+       // Sort by language (prefer original/en, then any available)
+       const sorted = posters.sort((a: FanartPoster, b: FanartPoster) => {
+         const langOrder = { en: 0, '': 1, default: 2 };
+         const aLang = langOrder[a.lang as keyof typeof langOrder] ?? 2;
+         const bLang = langOrder[b.lang as keyof typeof langOrder] ?? 2;
+         return aLang - bLang;
+       });
 
       // Return the highest rated poster
       const bestPoster = sorted[0];

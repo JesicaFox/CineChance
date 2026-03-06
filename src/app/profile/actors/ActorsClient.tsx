@@ -96,7 +96,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
           throw new Error(`API Error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as { actors: ActorAchievement[] };
         
         logger.debug('Actors API response', { data });
         
@@ -109,7 +109,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
         logger.debug('Actors data received', { count: actorsData.length });
         
         // Выводим информацию о прогрессе для отладки
-        actorsData.forEach((actor: any, index: number) => {
+        actorsData.forEach((actor, index: number) => {
           logger.debug('Actor progress', { index: index + 1, name: actor.name, watched: actor.watched_movies, total: actor.total_movies, progress: actor.progress_percent });
         });
 

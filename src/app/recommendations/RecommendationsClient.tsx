@@ -12,7 +12,7 @@ import { logger } from '@/lib/logger';
 import { useDebounce } from './useDebounce';
 import { validateFilters, areFiltersValid, getFirstValidationError } from './filterValidation';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { ContentType, ListType } from '@/lib/recommendation-types';
+import { ContentType, ListType, FilterValue } from '@/lib/recommendation-types';
 import { AppErrorBoundary } from '@/app/components/ErrorBoundary';
 import { getUserTags } from '@/app/actions/tagsActions';
 
@@ -69,7 +69,7 @@ interface RecommendationResponse {
     dbRecords: number;
     cached: boolean;
     fetchDuration: number;
-    filters: any;
+    filters: FilterState;
   };
 }
 
@@ -86,6 +86,7 @@ interface RecommendationsClientProps {
 const ADMIN_USER_ID = 'cmkbc7sn2000104k3xd3zyf2a';
 
 interface AdditionalFilters {
+  [key: string]: unknown;
   minRating: number;
   yearFrom: string;
   yearTo: string;
@@ -95,14 +96,20 @@ interface AdditionalFilters {
 
 type ViewState = 'filters' | 'loading' | 'result' | 'error' | 'suggestions';
 
+type FilterState = {
+  types: ContentType[];
+  lists: ListType[];
+  additionalFilters?: AdditionalFilters;
+};
+
 // Типы для отслеживания
 interface FilterChange {
   timestamp: string;
   parameterName: string;
-  previousValue: any;
-  newValue: any;
+  previousValue: FilterValue;
+  newValue: FilterValue;
   changeSource: 'user_input' | 'preset' | 'api' | 'reset';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export default function RecommendationsClient({ userId }: RecommendationsClientProps) {

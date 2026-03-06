@@ -7,6 +7,12 @@
 export type ContentType = 'movie' | 'tv' | 'anime' | 'cartoon';
 export type ListType = 'want' | 'watched' | 'dropped';
 
+/**
+ * Union type for filter parameter values
+ * Can be primitive types, arrays, or complex objects
+ */
+export type FilterValue = number | string | boolean | number[] | string[] | Record<string, unknown> | null | undefined;
+
 // ============================================
 // Типы для RecommendationLog
 // ============================================
@@ -34,7 +40,7 @@ export interface FiltersSnapshot {
     selectedGenres?: number[];
     selectedTags?: string[];
   };
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -47,7 +53,7 @@ export interface CandidatePoolMetrics {
   afterAdditionalFilters: number;
   ratingDistribution?: Record<number, number>;
   genreDistribution?: Record<string, number>;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -60,7 +66,7 @@ export interface TemporalContext {
   hoursSinceLastSession?: number;
   sessionsLastWeek?: number;
   isWeekend: boolean;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -72,7 +78,7 @@ export interface MLFeatures {
   diversityScore: number;
   predictedAcceptanceProbability: number;
   predictedRating?: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -86,7 +92,7 @@ export interface RecommendationContext {
   timeSincePrevious?: number;
   userStatus?: string | null;
   filtersChanged?: boolean;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -106,7 +112,7 @@ export interface UserRecommendationStats {
   averageRatingGiven?: number;
   lastActivityAt?: Date;
   streakDays?: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -127,7 +133,7 @@ export interface UserPreferencesSnapshot {
   preferredGenres?: number[];
   averageRatingThreshold?: number;
   preferredDecade?: string;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -140,10 +146,10 @@ export interface UserPreferencesSnapshot {
 export interface FilterChange {
   timestamp: Date;
   parameterName: string;
-  previousValue: any;
-  newValue: any;
+  previousValue: FilterValue;
+  newValue: FilterValue;
   changeReason?: 'user_initiated' | 'recommendation_rejected' | 'api_update';
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -156,7 +162,7 @@ export interface FilterSessionResultMetrics {
   historyResetUsed: boolean;
   forcedCooldownUsed: boolean;
   outcome: 'success' | 'partial' | 'abandoned' | 'error';
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -165,9 +171,9 @@ export interface FilterSessionResultMetrics {
 export interface AbandonedFilter {
   recommendationId: string;
   previousFilter: string;
-  filterValue: any;
+  filterValue: FilterValue;
   timestamp: Date;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -186,7 +192,7 @@ export interface DeviceContext {
   isTouch: boolean;
   connectionType?: string;
   language?: string;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -201,7 +207,7 @@ export interface SessionFlow {
   recommendationsSkipped: number;
   historyResetCount: number;
   errorsCount: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -212,7 +218,7 @@ export interface SessionOutcomeMetrics {
   timeToAcceptMs?: number;
   timeToFilterChangeMs?: number;
   finalFilters?: FiltersSnapshot;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -224,10 +230,10 @@ export interface SessionOutcomeMetrics {
  */
 export interface FilterChangeEventData {
   parameterName: string;
-  previousValue: any;
-  newValue: any;
+  previousValue: FilterValue;
+  newValue: FilterValue;
   changeSource: 'user_input' | 'preset' | 'api' | 'reset';
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -237,7 +243,7 @@ export interface ActionClickEventData {
   action: 'accept' | 'skip' | 'open_details' | 'back_to_filters';
   timeSinceShownMs: number;
   interfaceState: Record<string, unknown>;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -247,7 +253,7 @@ export interface HoverEventData {
   elementType: 'poster' | 'title' | 'rating' | 'genres' | 'description';
   elementPosition: { x: number; y: number; viewportPercentage: number };
   hoverDurationMs: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -258,7 +264,7 @@ export interface RecommendationEventData {
   action_click?: ActionClickEventData;
   hover_start?: HoverEventData;
   hover_end?: HoverEventData;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -273,7 +279,7 @@ export interface ElementContext {
   elementPosition: { x: number; y: number; viewportPercentage: number };
   elementVisibility: number;
   zIndex?: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -284,7 +290,7 @@ export interface SignalTemporalContext {
   timeSinceSessionStartMs: number;
   timeOfDay: number;
   dayOfWeek: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -295,7 +301,7 @@ export interface PredictedIntent {
   acceptanceProbability: number;
   skipProbability: number;
   explorationProbability: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -311,7 +317,7 @@ export interface ContextualFactors {
   timeOfDay: number;
   sessionDuration: number;
   recommendationsInSession: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -322,7 +328,7 @@ export interface CorrectiveAction {
   suggestedFilterAdjustment?: Record<string, unknown>;
   confidence: number;
   applied: boolean;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -342,7 +348,7 @@ export interface TargetingCriteria {
   languages?: string[];
   geoAllow?: string[];
   geoDeny?: string[];
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -365,7 +371,7 @@ export interface SuccessMetrics {
   primaryThreshold: number;
   secondaryMetrics?: string[];
   guardRailMetrics?: string[];
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -382,7 +388,7 @@ export interface ExperimentResults {
   winner?: string;
   lift?: number;
   recommendation?: string;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -396,7 +402,7 @@ export interface SimilarityCache {
   topSimilar: Array<{ tmdbId: number; mediaType: string; similarity: number }>;
   genreSimilarity: Record<string, number>;
   castSimilarity: Record<string, number>;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -412,7 +418,7 @@ export interface TrainingDataInfo {
   validationSetSize: number;
   features: string[];
   trainingDate: Date;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================
@@ -428,7 +434,7 @@ export interface Percentiles {
   p75: number;
   p90: number;
   p95: number;
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 /**
@@ -439,7 +445,7 @@ export interface PeriodComparison {
   changeAbsolute: number;
   changePercent: number;
   trendDirection: 'up' | 'down' | 'stable';
-  [key: string]: any;
+   [key: string]: unknown;
 }
 
 // ============================================

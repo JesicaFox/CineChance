@@ -6,7 +6,7 @@ import { useMemo, useCallback } from 'react';
 import { Media } from '@/lib/tmdb';
 import { logger } from '@/lib/logger';
 
-interface BatchData {
+export interface BatchData {
   [key: string]: {
     status?: string;
     isBlacklisted?: boolean;

@@ -2,23 +2,17 @@ import { useCallback, useRef } from 'react';
 
 /**
  * Хук для дебаунсинга функций
- * @param callback Функция для дебаунсинга
- * @param delay Задержка в миллисекундах
- * @returns Дебаунсенная функция
  */
-export function useDebounce<T extends (...args: any[]) => void>(
+export function useDebounce<T extends (...args: unknown[]) => void>(
   callback: T,
   delay: number
 ): T {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   return useCallback((...args: Parameters<T>) => {
-    // Отменяем предыдущий таймаут
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-
-    // Устанавливаем новый таймаут
     timeoutRef.current = setTimeout(() => {
       callback(...args);
     }, delay);
@@ -27,11 +21,8 @@ export function useDebounce<T extends (...args: any[]) => void>(
 
 /**
  * Хук для дебаунсинга асинхронных функций
- * @param callback Асинхронная функция для дебаунсинга
- * @param delay Задержка в миллисекундах
- * @returns Дебаунсенная функция
  */
-export function useAsyncDebounce<T extends (...args: any[]) => Promise<any>>(
+export function useAsyncDebounce<T extends (...args: unknown[]) => Promise<unknown>>(
   callback: T,
   delay: number
 ): T {
@@ -39,13 +30,10 @@ export function useAsyncDebounce<T extends (...args: any[]) => Promise<any>>(
   const isPendingRef = useRef(false);
 
   return useCallback((...args: Parameters<T>) => {
-    return new Promise<ReturnType<T>>((resolve, reject) => {
-      // Отменяем предыдущий таймаут
+    return new Promise<unknown>((resolve, reject) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-
-      // Устанавливаем новый таймаут
       timeoutRef.current = setTimeout(async () => {
         try {
           if (!isPendingRef.current) {

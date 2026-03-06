@@ -2,6 +2,7 @@
 // In-memory cache for TMDB API responses with 24-hour TTL
 
 import { logger } from '@/lib/logger';
+import type { MovieDetails } from '@/lib/tmdb';
 
 interface CacheEntry<T> {
   data: T;
@@ -165,16 +166,16 @@ export default tmdbCache;
 /**
  * @deprecated Use getTMDB instead
  */
-export function getCachedMediaDetails(tmdbId: number, mediaType: string): any | null {
+export function getCachedMediaDetails(tmdbId: number, mediaType: string): MovieDetails | null {
   if (!mediaType) return null;
   const key = `${mediaType}:${tmdbId}`;
-  return tmdbCache.get(key);
+  return tmdbCache.get<MovieDetails>(key);
 }
 
 /**
  * @deprecated Use setTMDB instead
  */
-export function setCachedMediaDetails(tmdbId: number, mediaType: string, data: any): void {
+export function setCachedMediaDetails(tmdbId: number, mediaType: string, data: MovieDetails): void {
   if (!mediaType) return;
   const key = `${mediaType}:${tmdbId}`;
   // Cache for 24 hours by default

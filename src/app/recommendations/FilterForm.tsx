@@ -5,6 +5,7 @@ import { ContentType, ListType } from '@/lib/recommendation-types';
 import TagCloudFilter from '@/app/my-movies/TagCloudFilter';
 
 interface AdditionalFilters {
+  [key: string]: unknown;
   minRating: number;
   yearFrom: string;
   yearTo: string;

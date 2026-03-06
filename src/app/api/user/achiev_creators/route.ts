@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS } from '@/lib/movieStatusConstants';
 import { withCache } from '@/lib/redis';
 import { logger } from '@/lib/logger';
+import type { TMDbMediaBase, TMDbGenre } from '@/lib/types/tmdb';
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
@@ -41,7 +42,7 @@ function _calculateCreatorScore(creator: {
   return (qualityBonus * 0.35) + (progressBonus * 0.25) + (volumeBonus * 0.15) + (watchedCountBonus * 0.15);
 }
 
-const creatorCreditsCache = new Map<number, { data: any; timestamp: number }>();
+const creatorCreditsCache = new Map<number, { data: unknown; timestamp: number }>();
 const CACHE_DURATION = 86400000;
 
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
@@ -57,14 +58,14 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
   }
 }
 
-function isAnime(movie: any): boolean {
-  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isAnime(movie: TMDbMediaBase): boolean {
+  const hasAnimeGenre = movie.genres?.some((g: TMDbGenre) => g.id === 16) ?? false;
   const isJapanese = movie.original_language === 'ja';
   return hasAnimeGenre && isJapanese;
 }
 
-function isCartoon(movie: any): boolean {
-  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isCartoon(movie: TMDbMediaBase): boolean {
+  const hasAnimationGenre = movie.genres?.some((g: TMDbGenre) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
   return hasAnimationGenre && isNotJapanese;
 }
@@ -121,7 +122,7 @@ async function fetchPersonCredits(personId: number): Promise<TMDBPersonCredits |
   const now = Date.now();
   
   if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-    return cached.data;
+    return cached.data as TMDBPersonCredits;
   }
 
   try {
@@ -134,9 +135,11 @@ async function fetchPersonCredits(personId: number): Promise<TMDBPersonCredits |
       next: { revalidate: 86400, tags: ['person-credits'] },
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
-    const data = await response.json();
+    const data = await response.json() as TMDBPersonCredits;
     creatorCreditsCache.set(personId, { data, timestamp: now });
     return data;
   } catch {
@@ -415,10 +418,10 @@ export async function GET(request: Request) {
                   .map(({ movie }) => movie);
               }
               
-              const relevantCrew = filteredCrew.filter((m: any) => {
-                const jobType = getJobType(m.job, m.department);
-                return jobType && creator.job_types.includes(jobType);
-              });
+               const relevantCrew = filteredCrew.filter((m: { job: string; department: string }) => {
+                 const jobType = getJobType(m.job, m.department);
+                 return jobType && creator.job_types.includes(jobType);
+               });
               
               const totalMovies = relevantCrew.length;
               const watchedMovies = creator.watched_movies;

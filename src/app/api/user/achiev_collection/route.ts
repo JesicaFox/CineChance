@@ -192,26 +192,26 @@ export async function GET(request: Request) {
 
       const achievements = await Promise.all(achievementsPromises);
 
-      const achievementsWithScore = achievements.map((collection) => {
-        const calculateCollectionScore = (collection: any) => {
-          const avgRating = collection.average_rating || 0;
-          const watchedMovies = collection.watched_movies || 0;
-          const progress = collection.progress_percent || 0;
-          
-          const qualityScore = avgRating;
-          const volumeBonus = Math.log10(Math.max(1, watchedMovies)) * 0.05;
-          const progressBonus = (progress / 100) * 0.15;
-          
-          const finalScore = qualityScore + volumeBonus + progressBonus;
-          
-          return Math.max(0, Math.min(10, finalScore));
-        };
-        
-        return {
-          ...collection,
-          calculated_score: calculateCollectionScore(collection)
-        };
-      });
+       const achievementsWithScore = achievements.map((collection) => {
+         const calculateCollectionScore = (c: _CollectionProgress) => {
+           const avgRating = c.average_rating || 0;
+           const watchedMovies = c.watched_movies || 0;
+           const progress = c.progress_percent || 0;
+           
+           const qualityScore = avgRating;
+           const volumeBonus = Math.log10(Math.max(1, watchedMovies)) * 0.05;
+           const progressBonus = (progress / 100) * 0.15;
+           
+           const finalScore = qualityScore + volumeBonus + progressBonus;
+           
+           return Math.max(0, Math.min(10, finalScore));
+         };
+         
+         return {
+           ...collection,
+           calculated_score: calculateCollectionScore(collection)
+         };
+       });
 
       achievementsWithScore.sort((a, b) => {
         if (b.calculated_score !== a.calculated_score) {

@@ -4,7 +4,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import MovieList from './MovieList';
 import SearchFilters, { FilterState } from './SearchFilters';
-import { useSearch, useBatchData } from '@/hooks';
+import { useSearch } from '@/hooks/useSearch';
+import { useBatchData, type BatchData } from '@/hooks/useBatchData';
 import { Media } from '@/lib/tmdb';
 import { useSession } from 'next-auth/react';
 import LoaderSkeleton from '@/app/components/LoaderSkeleton';
@@ -48,7 +49,7 @@ function SearchContent({ initialQuery }: { initialQuery: string }) {
 
   // Scroll tracking
   const scrollYRef = useRef(0);
-  const batchDataRef = useRef<Record<string, unknown>>({});
+   const batchDataRef = useRef<BatchData>({});
 
   // Build search params
   const buildSearchParams = () => {

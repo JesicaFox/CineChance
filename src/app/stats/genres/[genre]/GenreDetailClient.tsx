@@ -35,11 +35,11 @@ export default function GenreDetailClient({ userId, genreId, genreName }: GenreD
         const tagsRes = await fetch('/api/user/tag-usage');
         if (tagsRes.ok) {
           const tagsData = await tagsRes.json();
-          setUserTags((tagsData.tags || []).map((tag: any) => ({
-            id: tag.id,
-            name: tag.name,
-            count: tag.count
-          })));
+           setUserTags((tagsData.tags || []).map((tag: { id: string; name: string; count: number }) => ({
+             id: tag.id,
+             name: tag.name,
+             count: tag.count
+           })));
         }
       } catch (error) {
         logger.error('Error fetching tags', { error: error instanceof Error ? error.message : String(error) });

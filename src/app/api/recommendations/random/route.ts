@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { fetchMediaDetails } from '@/lib/tmdb';
 import { getCachedMediaDetails, setCachedMediaDetails } from '@/lib/tmdbCache';
 import { logger } from '@/lib/logger';
@@ -19,6 +20,26 @@ import {
   ContentType,
   ListType,
 } from '@/lib/recommendation-types';
+import type { TMDbMovie, TMDbTV } from '@/lib/types/tmdb';
+import type { MovieDetails } from '@/lib/tmdb';
+
+// Local types for this module
+interface WatchListItem {
+  id: string;
+  tmdbId: number;
+  mediaType: string;
+  title: string;
+  voteAverage: number;
+  addedAt: Date;
+  userRating: number | null;
+  statusId: number;
+}
+
+interface CandidateItem extends WatchListItem {
+  combinedRating: number;
+}
+
+type TMDBMedia = TMDbMovie | TMDbTV;
 
 // Helper to get or generate request ID
 function getRequestId(headers: Headers): string {
@@ -38,16 +59,16 @@ function formatRecLog(requestId: string, endpoint: string, userId: string, actio
   return parts.join(' - ');
 }
 
-// Константы алгоритма
-const RECOMMENDATION_COOLDOWN_DAYS = 7;
-const _MIN_RATING_THRESHOLD = 6.5;
-
 // Функция для отправки прогресса (если доступно)
-function sendProgress(stage: string, progress: number, details?: any) {
+function sendProgress(stage: string, progress: number, details?: unknown) {
   // В будущем здесь будет интеграция с SSE
   // Пока просто логируем для отладки
   logger.info('Progress update', { stage, progress, details });
 }
+
+// Константы алгоритма
+const RECOMMENDATION_COOLDOWN_DAYS = 7;
+const _MIN_RATING_THRESHOLD = 6.5;
 
 // Типы фильтров
 interface FilterParams {
@@ -112,10 +133,11 @@ function parseFilterParams(url: URL): FilterParams {
 /**
  * Проверка является ли фильм аниме
  */
-function isAnime(tmdbData: any): boolean {
-  const isAnimation = (tmdbData.genre_ids?.includes(16) || 
-    tmdbData.genres?.some((g: any) => g.id === 16));
-  const isJapanese = tmdbData.original_language === 'ja';
+function isAnime(tmdbData: unknown): boolean {
+  if (typeof tmdbData !== 'object' || tmdbData === null) return false;
+  const data = tmdbData as Record<string, unknown>;
+  const isAnimation = (data.genre_ids as number[] | undefined)?.includes(16) ?? false;
+  const isJapanese = data.original_language === 'ja';
   return isAnimation && isJapanese;
 }
 
@@ -123,17 +145,18 @@ function isAnime(tmdbData: any): boolean {
  * Проверка является ли фильм мультфильмом (не аниме)
  * Мультфильмы - это анимационные фильмы НЕ японского происхождения
  */
-function isCartoon(tmdbData: any): boolean {
+function isCartoon(tmdbData: unknown): boolean {
+  if (typeof tmdbData !== 'object' || tmdbData === null) return false;
+  const data = tmdbData as Record<string, unknown>;
+  
   let hasAnimationGenre = false;
   
-  if (Array.isArray(tmdbData.genre_ids)) {
-    hasAnimationGenre = tmdbData.genre_ids.includes(16);
-  } else if (Array.isArray(tmdbData.genres)) {
-    hasAnimationGenre = tmdbData.genres.some((g: any) => g.id === 16);
+  if (Array.isArray(data.genre_ids)) {
+    hasAnimationGenre = data.genre_ids.includes(16);
   }
   
   // Мультфильмы: есть жанр анимации (16) И НЕ японский язык
-  return hasAnimationGenre && tmdbData.original_language !== 'ja';
+  return hasAnimationGenre && data.original_language !== 'ja';
 }
 
 /**
@@ -162,8 +185,8 @@ function calculateCandidatePoolMetrics(
   afterTypeFilter: number,
   afterCooldown: number,
   afterAdditionalFilters: number,
-  watchListItems: any[],
-  filteredItems: any[]
+  watchListItems: WatchListItem[],
+  filteredItems: unknown[]
 ): CandidatePoolMetrics {
   // Расчёт распределения рейтингов
   const ratingDistribution: Record<number, number> = {};
@@ -171,7 +194,7 @@ function calculateCandidatePoolMetrics(
   
   // Статистика по рейтингам
   for (const item of watchListItems) {
-    const roundedRating = Math.floor(item.voteAverage);
+    const roundedRating = Math.floor(item.voteAverage ?? 0);
     ratingDistribution[roundedRating] = (ratingDistribution[roundedRating] || 0) + 1;
   }
   
@@ -190,8 +213,8 @@ function calculateCandidatePoolMetrics(
  */
 function calculateMLFeatures(
   userId: string,
-  selectedMovie: any,
-  watchListItems: any[]
+  selectedMovie: WatchListItem,
+  watchListItems: WatchListItem[]
 ): MLFeatures {
   // Базовая схожесть с ранее принятыми рекомендациями
   const similarityScore = 0.5; // TODO: Рассчитывать на основе истории
@@ -211,7 +234,7 @@ function calculateMLFeatures(
     noveltyScore: Math.max(0, Math.min(1, noveltyScore)),
     diversityScore: Math.max(0, Math.min(1, diversityScore)),
     predictedAcceptanceProbability,
-    predictedRating: selectedMovie.userRating || null,
+    predictedRating: selectedMovie.userRating ?? undefined,
   };
 }
 
@@ -304,13 +327,13 @@ export async function GET(req: Request) {
     const _preferHighRating = settings?.preferHighRating ?? true;
 
     // 2. Получаем дату рождения пользователя для фильтрации контента
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { birthDate: true } as any,
-    });
+     const user = await prisma.user.findUnique({
+       where: { id: userId },
+       select: { birthDate: true },
+     });
 
     // Проверяем, нужно ли фильтровать взрослый контент
-    const filterAdult = shouldFilterAdult((user as any)?.birthDate ?? null, true);
+     const filterAdult = shouldFilterAdult(user?.birthDate ? user.birthDate.toISOString() : null, true);
 
     // 3. Формируем условия для статусов используя ID вместо имен
     const statusIds = getRecommendationStatusIds(lists);
@@ -431,7 +454,7 @@ export async function GET(req: Request) {
             }
             
             // Сначала проверяем кэш
-            let details: any = getCachedMediaDetails(item.tmdbId, item.mediaType);
+             let details: MovieDetails | null = getCachedMediaDetails(item.tmdbId, item.mediaType);
             
             if (!details) {
               // Если в кэше нет, запрашиваем из TMDB
@@ -649,10 +672,10 @@ export async function GET(req: Request) {
       };
     }));
     
-    // Фильтруем по комбинированному рейтингу
-    candidates = candidatesWithRatings.filter(item => {
-      return item.combinedRating >= userMinRating;
-    });
+     // Фильтруем по комбинированному рейтингу
+     candidates = candidatesWithRatings.filter(item => {
+       return item.combinedRating >= userMinRating;
+     }) as CandidateItem[];
 
     // Применяем фильтры по году и жанрам из TMDB данных
     if (yearFrom || yearTo || (genres && genres.length > 0) || (tags && tags.length > 0)) {
@@ -870,18 +893,18 @@ export async function GET(req: Request) {
 
     // 9. Логируем показ с расширенными данными
     const logEntry = await prisma.recommendationLog.create({
-      data: {
-        userId,
-        tmdbId: selected.tmdbId,
-        mediaType: selected.mediaType,
-        algorithm: 'random_v1',
-        action: 'shown',
-        context: extendedContext as any,
-        filtersSnapshot: filtersSnapshot as any,
-        candidatePoolMetrics: candidatePoolMetrics as any,
-        temporalContext: temporalContext as any,
-        mlFeatures: mlFeatures as any,
-      },
+       data: {
+         userId,
+         tmdbId: selected.tmdbId,
+         mediaType: selected.mediaType,
+         algorithm: 'random_v1',
+         action: 'shown',
+         context: extendedContext as Prisma.InputJsonObject,
+         filtersSnapshot: filtersSnapshot as Prisma.InputJsonObject,
+         candidatePoolMetrics: candidatePoolMetrics as Prisma.InputJsonObject,
+         temporalContext: temporalContext as Prisma.InputJsonObject,
+         mlFeatures: mlFeatures as Prisma.InputJsonObject,
+       },
     });
 
     // 10. Обновляем счётчики в WatchList

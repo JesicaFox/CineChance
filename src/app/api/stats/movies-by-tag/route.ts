@@ -7,29 +7,68 @@ import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusNameById } from '@/lib/movieStatusConstants';
 import { rateLimit } from '@/middleware/rateLimit';
 import { logger } from '@/lib/logger';
+import type { MovieDetails, TMDbMediaBase, TMDbGenre } from '@/lib/types/tmdb';
+
+interface WatchListItem {
+  id: string;
+  tmdbId: number;
+  mediaType: string;
+  title: string;
+  userRating: number | null;
+  statusId: number;
+  addedAt: Date;
+  tags: Array<{ id: string; name: string }>;
+}
+
+interface ResultMovie {
+  id: number;
+  media_type: string;
+  title: string;
+  name: string;
+  poster_path: string | null;
+  vote_average: number;
+  vote_count: number;
+  release_date: string;
+  first_air_date: string;
+  overview: string;
+  genre_ids: number[];
+  original_language: string;
+  userRating: number | null;
+  statusId: number;
+  statusName: string;
+  addedAt: string;
+  tags: { id: string; name: string }[];
+}
+
+interface StatsWhereInput {
+  userId: string;
+  statusId: { in: number[] };
+  mediaType: { in: string[] };
+  tags?: { some: { id: { in: string[] } | string } };
+}
 
 // Вспомогательная функция для получения деталей с TMDB
-async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
+async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<MovieDetails | null> {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) return null;
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
-    return await res.json();
+    return await res.json() as MovieDetails;
   } catch {
     return null;
   }
 }
 
-function isAnime(movie: any): boolean {
-  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isAnime(movie: TMDbMediaBase): boolean {
+  const hasAnimeGenre = movie.genres?.some((g: TMDbGenre) => g.id === 16) ?? false;
   const isJapanese = movie.original_language === 'ja';
   return hasAnimeGenre && isJapanese;
 }
 
-function isCartoon(movie: any): boolean {
-  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isCartoon(movie: TMDbMediaBase): boolean {
+  const hasAnimationGenre = movie.genres?.some((g: TMDbGenre) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
   return hasAnimationGenre && isNotJapanese;
 }
@@ -104,109 +143,107 @@ export async function GET(request: NextRequest) {
     // Парсим теги если переданы
     const tagsArray = tagsParam ? tagsParam.split(',').filter(t => t.length > 0) : [];
 
-    // Получаем фильмы с данным тегом
-    const whereClause: Record<string, unknown> = {
-      tags: {
-        some: {
-          id: tagIdParam,
-        },
-      },
-      statusId: {
-        in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED, MOVIE_STATUS_IDS.WANT_TO_WATCH, MOVIE_STATUS_IDS.DROPPED],
-      },
-      mediaType: { in: mediaTypes },
-    };
 
-    // Если есть дополнительные теги для фильтрации (кроме основного тега)
-    if (tagsArray.length > 0) {
-      whereClause.tags = {
-        some: {
-          id: {
-            in: [tagIdParam, ...tagsArray], // Включаем основной тег и дополнительные теги
-          },
-        },
-      };
-    }
 
-    // Считаем всего (для будущего использования)
-    const _totalCount = await prisma.watchList.count({
-      where: whereClause,
-    });
+     // Строим where clause
+     const whereClause: StatsWhereInput = {
+       userId,
+       tags: {
+         some: {
+           id: tagIdParam,
+         },
+       },
+       statusId: {
+         in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED, MOVIE_STATUS_IDS.WANT_TO_WATCH, MOVIE_STATUS_IDS.DROPPED],
+       },
+       mediaType: { in: mediaTypes },
+     };
 
-    // Получаем страницу
-    const watchListRecords = await prisma.watchList.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        tmdbId: true,
-        mediaType: true,
-        title: true,
-        userRating: true,
-        statusId: true,
-        addedAt: true,
-        tags: { select: { id: true, name: true } },
-      },
-      orderBy: getBenefitsOrder(sortByParam, sortOrderParam),
-      skip,
-      take,
-    });
+     // Если есть дополнительные теги для фильтрации (кроме основного тега)
+     if (tagsArray.length > 0) {
+       whereClause.tags = {
+         some: {
+           id: {
+             in: [tagIdParam, ...tagsArray], // Включаем основной тег и дополнительные теги
+           },
+         },
+       };
+     }
 
-    // Получаем детали TMDB для каждого фильма
-    const movies = await Promise.all(
-      watchListRecords.map(async (record) => {
-        const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+     // Получаем записи
+     const watchListRecords = await prisma.watchList.findMany({
+       where: whereClause,
+       select: {
+         id: true,
+         tmdbId: true,
+         mediaType: true,
+         title: true,
+         userRating: true,
+         statusId: true,
+         addedAt: true,
+         tags: { select: { id: true, name: true } },
+       },
+       orderBy: getBenefitsOrder(sortByParam, sortOrderParam),
+       skip,
+       take,
+     }) as WatchListItem[];
 
-        // Применяем фильтры по рейтингу TMDB, году и жанрам
-        const tmdbRating = tmdbData?.vote_average || 0;
-        const releaseYear = new Date(tmdbData?.release_date || tmdbData?.first_air_date || '').getFullYear();
-        const genres = tmdbData?.genres?.map((g: any) => g.id) || [];
+     const movies: (ResultMovie | null)[] = await Promise.all(
+       watchListRecords.map(async (record) => {
+         const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+         if (!tmdbData) return null;
 
-        // Фильтрация по типу контента на основе TMDB данных
-        const isAnimeItem = isAnime(tmdbData);
-        const isCartoonItem = isCartoon(tmdbData);
-        const isRegularContent = !isAnimeItem && !isCartoonItem;
-        
-        // Показываем аниме только если включен showAnime
-        if (isAnimeItem && !showAnimeParam) return null;
-        // Показываем мульты только если включен showCartoon  
-        if (isCartoonItem && !showCartoonParam) return null;
-        // Показываем обычные фильмы/сериалы только если включены showMovies или showTv
-        if (isRegularContent && !showMoviesParam && record.mediaType === 'movie') return null;
-        if (isRegularContent && !showTvParam && record.mediaType === 'tv') return null;
+         // Применяем фильтры по рейтингу TMDB, году и жанрам
+         const tmdbRating = tmdbData.vote_average;
+         const releaseYear = new Date(tmdbData.release_date || tmdbData.first_air_date || '').getFullYear();
+         const genres = tmdbData.genres?.map((g: TMDbGenre) => g.id) || [];
 
-        // Проверяем фильтры
-        if (tmdbRating < minRatingParam || tmdbRating > maxRatingParam) return null;
-        if (yearFromParam && releaseYear < parseInt(yearFromParam, 10)) return null;
-        if (yearToParam && releaseYear > parseInt(yearToParam, 10)) return null;
-        if (genresArray.length > 0 && !genres.some((g: number) => genresArray.includes(g))) return null;
+         // Фильтрация по типу контента на основе TMDB данных
+         const isAnimeItem = isAnime(tmdbData);
+         const isCartoonItem = isCartoon(tmdbData);
+         const isRegularContent = !isAnimeItem && !isCartoonItem;
+         
+         // Показываем аниме только если включен showAnime
+         if (isAnimeItem && !showAnimeParam) return null;
+         // Показываем мульты только если включен showCartoon  
+         if (isCartoonItem && !showCartoonParam) return null;
+         // Показываем обычные фильмы/сериалы только если включены showMovies или showTv
+         if (isRegularContent && !showMoviesParam && record.mediaType === 'movie') return null;
+         if (isRegularContent && !showTvParam && record.mediaType === 'tv') return null;
 
-        return {
-          id: record.tmdbId,
-          media_type: record.mediaType as 'movie' | 'tv' | 'anime',
-          title: tmdbData?.title || tmdbData?.name || record.title || 'Unknown',
-          name: tmdbData?.title || tmdbData?.name || record.title || 'Unknown',
-          poster_path: tmdbData?.poster_path || null,
-          vote_average: tmdbData?.vote_average || 0,
-          vote_count: tmdbData?.vote_count || 0,
-          release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
-          first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
-          overview: tmdbData?.overview || '',
-          genre_ids: genres,
-          original_language: tmdbData?.original_language || '',
-          userRating: record.userRating,
-          statusId: record.statusId,
-          statusName: getStatusNameById(record.statusId) || 'Просмотрено',
-          addedAt: record.addedAt?.toISOString() || '',
-          tags: record.tags || [],
-        };
-      })
-    );
+         // Проверяем фильтры
+         if (tmdbRating < minRatingParam || tmdbRating > maxRatingParam) return null;
+         if (yearFromParam && releaseYear < parseInt(yearFromParam, 10)) return null;
+         if (yearToParam && releaseYear > parseInt(yearToParam, 10)) return null;
+         if (genresArray.length > 0 && !genres.some((g: number) => genresArray.includes(g))) return null;
+
+         return {
+           id: record.tmdbId,
+           media_type: record.mediaType,
+           title: tmdbData.title || tmdbData.name || record.title || 'Unknown',
+           name: tmdbData.title || tmdbData.name || record.title || 'Unknown',
+           poster_path: tmdbData.poster_path || null,
+           vote_average: tmdbData.vote_average,
+           vote_count: tmdbData.vote_count,
+           release_date: tmdbData.release_date || tmdbData.first_air_date || '',
+           first_air_date: tmdbData.release_date || tmdbData.first_air_date || '',
+           overview: tmdbData.overview || '',
+           genre_ids: genres,
+           original_language: tmdbData.original_language || '',
+           userRating: record.userRating,
+           statusId: record.statusId,
+           statusName: getStatusNameById(record.statusId) || 'Просмотрено',
+           addedAt: record.addedAt.toISOString(),
+           tags: record.tags,
+         };
+       })
+     );
 
     // Фильтруем null значения (из-за несовпадения фильтров)
     const filteredMovies = movies.filter((m): m is Exclude<typeof m, null> => m !== null);
 
-    // Сортируем отфильтрованные результаты по выбранному критерию
-    const sortedMovies = filteredMovies.sort((a: any, b: any) => {
+     // Сортируем отфильтрованные результаты по выбранному критерию
+     const sortedMovies = filteredMovies.sort((a: ResultMovie, b: ResultMovie) => {
       let comparison = 0;
 
       switch (sortByParam) {
@@ -294,7 +331,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function getBenefitsOrder(sortBy: string, sortOrder: string): any[] {
+function getBenefitsOrder(sortBy: string, sortOrder: string): Array<{ [key: string]: string }> {
   const order = sortOrder === 'asc' ? 'asc' : 'desc';
   
   switch (sortBy) {

@@ -8,8 +8,24 @@ import { logger } from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
 
+// Cache entry structure
+interface CacheEntry {
+  data: {
+    success: boolean;
+    userId: string;
+    tmdbId: number;
+    mediaType: string;
+    weightedRating: number | null;
+    totalReviews: number;
+    calculationDetails: unknown; // Pass-through, not inspected here
+    cached: boolean;
+    cacheAge?: number;
+  };
+  timestamp: number;
+}
+
 // Кэш для хранения результатов на 1 час
-const cache = new Map<string, { data: any; timestamp: number }>();
+const cache = new Map<string, CacheEntry>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 час
 
 export async function GET(req: NextRequest) {

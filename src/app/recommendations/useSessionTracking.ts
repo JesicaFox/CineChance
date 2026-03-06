@@ -11,16 +11,16 @@ interface SessionFlow {
   actionsCount: number;
   recommendationsAccepted: number;
   recommendationsSkipped: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface FilterChange {
   timestamp: string;
   parameterName: string;
-  previousValue: any;
-  newValue: any;
+  previousValue: unknown;
+  newValue: unknown;
   changeSource: 'user_input' | 'preset' | 'api' | 'reset';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface EventPayload {
@@ -44,16 +44,16 @@ interface SignalPayload {
 
 // Батч-отправитель для оптимизации запросов
 class BatchSender {
-  private queue: Array<{ payload: any; endpoint: string; method: string }> = [];
+  private queue: Array<{ payload: EventPayload | SignalPayload; endpoint: string; method: string }> = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly batchWindowMs = 100; // Окно батчинга в мс
   private readonly maxBatchSize = 10;
 
   constructor(
-    private onSend: (payloads: Array<{ payload: any; endpoint: string; method: string }>) => Promise<void>
+    private onSend: (payloads: Array<{ payload: EventPayload | SignalPayload; endpoint: string; method: string }>) => Promise<void>
   ) {}
 
-  add(payload: any, endpoint: string, method: string = 'POST') {
+  add(payload: EventPayload | SignalPayload, endpoint: string, method: string = 'POST') {
     this.queue.push({ payload, endpoint, method });
     
     if (this.queue.length >= this.maxBatchSize) {
@@ -285,12 +285,12 @@ export function useSessionTracking(userId: string, logId: string | null) {
     }
   }, [userId, sessionId, filterSessionId]);
 
-  // Оптимизированное отслеживание изменений фильтров
-  const trackFilterChange = useCallback((
-    parameterName: string,
-    previousValue: any,
-    newValue: any
-  ) => {
+   // Оптимизированное отслеживание изменений фильтров
+   const trackFilterChange = useCallback((
+     parameterName: string,
+     previousValue: unknown,
+     newValue: unknown
+   ) => {
     if (!sessionId) return;
 
     const change: FilterChange = {

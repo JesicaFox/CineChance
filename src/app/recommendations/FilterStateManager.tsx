@@ -2,9 +2,10 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { ContentType, ListType } from '@/lib/recommendation-types';
+import { ContentType, ListType, FilterValue } from '@/lib/recommendation-types';
 
 interface AdditionalFilters {
+  [key: string]: unknown;
   minRating: number;
   yearFrom: string;
   yearTo: string;
@@ -21,7 +22,7 @@ export interface FilterState {
 interface FilterStateManagerProps {
   initialFilters?: Partial<FilterState>;
   onFiltersChange: (filters: FilterState) => void;
-  onFilterChange?: (parameterName: string, previousValue: any, newValue: any) => void;
+  onFilterChange?: (parameterName: string, previousValue: FilterValue, newValue: FilterValue) => void;
   children: (state: {
     filters: FilterState;
     updateFilter: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void;
@@ -87,50 +88,50 @@ export default function FilterStateManager({
   }, [onFilterChange]);
 
   // Добавляем функцию для обновления вложенных свойств additionalFilters
-  const updateAdditionalFilter = useCallback(<K extends keyof AdditionalFilters>(
-    key: K,
-    value: AdditionalFilters[K]
-  ) => {
-    setFilters(prev => {
-      const previousValue = prev.additionalFilters?.[key];
-      const newValue = value;
-      
-      // Вызываем onFilterChange если он предоставлен
-      if (onFilterChange && JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
-        onFilterChange(`additionalFilters.${key}`, previousValue, newValue);
-      }
-      
-      return {
-        ...prev,
-        additionalFilters: {
-          ...prev.additionalFilters,
-          ...defaultFilters.additionalFilters,
-          [key]: value
-        }
-      } as FilterState;
-    });
-  }, [onFilterChange]);
+   const updateAdditionalFilter = useCallback(<K extends keyof AdditionalFilters>(
+     key: K,
+     value: AdditionalFilters[K]
+   ) => {
+     setFilters(prev => {
+       const previousValue = prev.additionalFilters?.[key];
+       const newValue = value;
+       
+       // Вызываем onFilterChange если он предоставлен
+       if (onFilterChange && JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
+         onFilterChange(`additionalFilters.${key}`, previousValue as FilterValue, newValue as FilterValue);
+       }
+       
+       return {
+         ...prev,
+         additionalFilters: {
+           ...prev.additionalFilters,
+           ...defaultFilters.additionalFilters,
+           [key]: value
+         }
+       } as FilterState;
+     });
+   }, [onFilterChange]);
 
   const resetFilters = useCallback(() => {
     setFilters(defaultFilters);
   }, []);
 
-  const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
-    const defaultValue = defaultFilters[key as keyof FilterState];
-    if (Array.isArray(value)) {
-      return value.length !== (defaultValue as any)?.length;
-    }
-    if (key === 'additionalFilters') {
-      const additional = value as AdditionalFilters;
-      const defaultAdditional = defaultValue as AdditionalFilters;
-      return additional.minRating !== defaultAdditional.minRating ||
-             additional.yearFrom !== defaultAdditional.yearFrom ||
-             additional.yearTo !== defaultAdditional.yearTo ||
-             additional.selectedGenres.length !== defaultAdditional.selectedGenres.length ||
-             additional.selectedTags.length !== defaultAdditional.selectedTags.length;
-    }
-    return JSON.stringify(value) !== JSON.stringify(defaultValue);
-  });
+   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
+     const defaultValue = defaultFilters[key as keyof FilterState];
+     if (Array.isArray(value) && Array.isArray(defaultValue)) {
+       return value.length !== defaultValue.length;
+     }
+     if (key === 'additionalFilters') {
+       const additional = value as AdditionalFilters;
+       const defaultAdditional = defaultValue as AdditionalFilters;
+       return additional.minRating !== defaultAdditional.minRating ||
+              additional.yearFrom !== defaultAdditional.yearFrom ||
+              additional.yearTo !== defaultAdditional.yearTo ||
+              additional.selectedGenres.length !== defaultAdditional.selectedGenres.length ||
+              additional.selectedTags.length !== defaultAdditional.selectedTags.length;
+     }
+     return JSON.stringify(value) !== JSON.stringify(defaultValue);
+   });
 
   useEffect(() => {
     onFiltersChange(filters);

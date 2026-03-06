@@ -6,15 +6,15 @@ import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/mo
 import { calculateCineChanceScore } from '@/lib/calculateCineChanceScore';
 
 // Вспомогательная функция для получения деталей с TMDB
-async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
+async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<import('@/lib/types/tmdb').MovieDetails | null> {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) return null;
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
     const res = await fetch(url, { next: { revalidate: 86400 } }); // 24 часа
     if (!res.ok) return null;
-    return await res.json();
-  } catch (error) {
+    return await res.json() as import('@/lib/types/tmdb').MovieDetails;
+  } catch {
     return null;
   }
 }
@@ -76,6 +76,25 @@ export interface SortState {
 
 const ITEMS_PER_PAGE = 20;
 
+type WatchListRecord = {
+  id: string;
+  tmdbId: number;
+  mediaType: string;
+  title: string;
+  voteAverage: number | null;
+  userRating: number | null;
+  addedAt: Date;
+  statusId: number;
+  tags: Array<{ id: string; name: string }>;
+};
+
+type BlacklistRecord = {
+  id: string;
+  tmdbId: number;
+  mediaType: string;
+  createdAt: Date;
+};
+
 export async function fetchMoviesByStatus(
   userId: string,
   statusName: string | string[] | null, // Может быть массивом для watched (Просмотрено + Пересмотрено)
@@ -131,45 +150,44 @@ export async function fetchMoviesByStatus(
   const pageTmdbIds = watchListRecords.map(r => r.tmdbId);
   const cineChanceRatings = await fetchCineChanceRatings(pageTmdbIds);
 
-  // 4. Получаем детали TMDB только для текущей страницы
-  const moviesWithStatus = await Promise.all(
-    watchListRecords.map(async (record: any) => {
-      const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType);
-      const cineChanceData = cineChanceRatings.get(record.tmdbId);
-      const cineChanceRating = cineChanceData?.averageRating || null;
-      const cineChanceVotes = cineChanceData?.count || 0;
+     const moviesWithStatus = await Promise.all(
+       watchListRecords.map(async (record) => {
+         const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+         const cineChanceData = cineChanceRatings.get(record.tmdbId);
+         const cineChanceRating = cineChanceData?.averageRating || null;
+         const cineChanceVotes = cineChanceData?.count || 0;
 
-      const combinedRating = calculateCineChanceScore({
-        tmdbRating: tmdbData?.vote_average || 0,
-        tmdbVotes: tmdbData?.vote_count || 0,
-        cineChanceRating,
-        cineChanceVotes,
-      });
+         const combinedRating = calculateCineChanceScore({
+           tmdbRating: tmdbData?.vote_average || 0,
+           tmdbVotes: tmdbData?.vote_count || 0,
+           cineChanceRating,
+           cineChanceVotes,
+         });
 
-      const statusName = getStatusNameById(record.statusId);
-      return {
-        id: record.tmdbId,
-        media_type: record.mediaType as 'movie' | 'tv',
-        title: tmdbData?.title || tmdbData?.name || record.title,
-        name: tmdbData?.title || tmdbData?.name || record.title,
-        poster_path: tmdbData?.poster_path || null,
-        vote_average: tmdbData?.vote_average || 0,
-        vote_count: tmdbData?.vote_count || 0,
-        release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
-        first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
-        overview: tmdbData?.overview || '',
-        genre_ids: tmdbData?.genres?.map((g: any) => g.id) || [],
-        original_language: tmdbData?.original_language || '',
-        statusName: statusName || 'Unknown',
-        combinedRating,
-        averageRating: cineChanceRating,
-        ratingCount: cineChanceVotes,
-        addedAt: record.addedAt?.toISOString() || '',
-        userRating: record.userRating,
-        tags: record.tags || [],
-      };
-    })
-  );
+         const statusName = getStatusNameById(record.statusId);
+         return {
+           id: record.tmdbId,
+           media_type: record.mediaType as 'movie' | 'tv',
+           title: tmdbData?.title || tmdbData?.name || record.title,
+           name: tmdbData?.title || tmdbData?.name || record.title,
+           poster_path: tmdbData?.poster_path || null,
+           vote_average: tmdbData?.vote_average || 0,
+           vote_count: tmdbData?.vote_count || 0,
+           release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+           first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+           overview: tmdbData?.overview || '',
+           genre_ids: tmdbData?.genres?.map((g: { id: number }) => g.id) || [],
+           original_language: tmdbData?.original_language || '',
+           statusName: statusName || 'Unknown',
+           combinedRating,
+           averageRating: cineChanceRating,
+           ratingCount: cineChanceVotes,
+           addedAt: record.addedAt?.toISOString() || '',
+           userRating: record.userRating,
+           tags: record.tags || [],
+         };
+       })
+     );
 
   // 5. Сортируем только полученные записи
   const sortedMovies = sortMoviesOnServer(moviesWithStatus, sortBy, sortOrder);
@@ -195,45 +213,45 @@ export async function fetchMoviesByStatus(
     const blacklistTmdbIds = blacklistRecords.map(r => r.tmdbId);
     const blacklistRatings = await fetchCineChanceRatings(blacklistTmdbIds);
 
-    hiddenMovies = await Promise.all(
-      blacklistRecords.map(async (record: any) => {
-        const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType);
-        const cineChanceData = blacklistRatings.get(record.tmdbId);
-        const cineChanceRating = cineChanceData?.averageRating || null;
-        const cineChanceVotes = cineChanceData?.count || 0;
+     hiddenMovies = await Promise.all(
+       blacklistRecords.map(async (record) => {
+         const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+         const cineChanceData = blacklistRatings.get(record.tmdbId);
+         const cineChanceRating = cineChanceData?.averageRating || null;
+         const cineChanceVotes = cineChanceData?.count || 0;
 
-        const combinedRating = calculateCineChanceScore({
-          tmdbRating: tmdbData?.vote_average || 0,
-          tmdbVotes: tmdbData?.vote_count || 0,
-          cineChanceRating,
-          cineChanceVotes,
-        });
+         const combinedRating = calculateCineChanceScore({
+           tmdbRating: tmdbData?.vote_average || 0,
+           tmdbVotes: tmdbData?.vote_count || 0,
+           cineChanceRating,
+           cineChanceVotes,
+         });
 
-        return {
-          id: record.tmdbId,
-          media_type: record.mediaType as 'movie' | 'tv',
-          title: tmdbData?.title || tmdbData?.name || 'Без названия',
-          name: tmdbData?.title || tmdbData?.name || 'Без названия',
-          poster_path: tmdbData?.poster_path || null,
-          vote_average: tmdbData?.vote_average || 0,
-          vote_count: tmdbData?.vote_count || 0,
-          release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
-          first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
-          overview: tmdbData?.overview || '',
-          genre_ids: tmdbData?.genres?.map((g: any) => g.id) || [],
-          original_language: tmdbData?.original_language || '',
-          combinedRating,
-          averageRating: cineChanceRating,
-          ratingCount: cineChanceVotes,
-          addedAt: record.createdAt?.toISOString() || '',
-          userRating: null,
-          isBlacklisted: true,
-        };
-      })
-    );
+         return {
+           id: record.tmdbId,
+           media_type: record.mediaType as 'movie' | 'tv',
+           title: tmdbData?.title || tmdbData?.name || 'Без названия',
+           name: tmdbData?.title || tmdbData?.name || 'Без названия',
+           poster_path: tmdbData?.poster_path || null,
+           vote_average: tmdbData?.vote_average || 0,
+           vote_count: tmdbData?.vote_count || 0,
+           release_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+           first_air_date: tmdbData?.release_date || tmdbData?.first_air_date || '',
+           overview: tmdbData?.overview || '',
+           genre_ids: tmdbData?.genres?.map((g: { id: number }) => g.id) || [],
+           original_language: tmdbData?.original_language || '',
+           combinedRating,
+           averageRating: cineChanceRating,
+           ratingCount: cineChanceVotes,
+           addedAt: record.createdAt?.toISOString() || '',
+           userRating: null,
+           tags: [],
+          };
+        })
+      );
+    }
 
     hiddenMovies = sortMoviesOnServer(hiddenMovies, sortBy, sortOrder);
-  }
 
   return {
     movies: statusName ? paginatedMovies : hiddenMovies,

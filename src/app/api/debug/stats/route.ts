@@ -6,12 +6,13 @@ import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { MOVIE_STATUS_IDS, getStatusIdByName, getStatusNameById } from '@/lib/movieStatusConstants';
 import { logger } from '@/lib/logger';
+import type { TMDbMovie, TMDbTV } from '@/lib/types/tmdb';
 
 export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
 
 // Вспомогательная функция для получения деталей с TMDB
-async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
+async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TMDbMovie | TMDbTV | null> {
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) {
     return null;
@@ -32,22 +33,22 @@ async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
       return null;
     }
     const data = await res.json();
-    return data;
+    return data as TMDbMovie | TMDbTV;
   } catch {
     return null;
   }
 }
 
 // Helper function to check if movie is anime
-function isAnime(movie: any): boolean {
-  const hasAnimeGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isAnime(movie: TMDbMovie | TMDbTV): boolean {
+  const hasAnimeGenre = movie.genres?.some((g: { id: number }) => g.id === 16) ?? false;
   const isJapanese = movie.original_language === 'ja';
   return hasAnimeGenre && isJapanese;
 }
 
 // Helper function to check if movie is cartoon (animation but not anime)
-function isCartoon(movie: any): boolean {
-  const hasAnimationGenre = movie.genres?.some((g: any) => g.id === 16) ?? false;
+function isCartoon(movie: TMDbMovie | TMDbTV): boolean {
+  const hasAnimationGenre = movie.genres?.some((g: { id: number }) => g.id === 16) ?? false;
   const isNotJapanese = movie.original_language !== 'ja';
   return hasAnimationGenre && isNotJapanese;
 }
@@ -165,17 +166,17 @@ export async function GET() {
       const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
       
       if (tmdbData) {
-        const analysis = {
-          tmdbId: record.tmdbId,
-          mediaType: record.mediaType,
-          statusId: record.statusId,
-          title: tmdbData.title || tmdbData.name,
-          original_language: tmdbData.original_language,
-          genres: tmdbData.genres?.map((g: any) => ({ id: g.id, name: g.name })) || [],
-          hasAnimationGenre: tmdbData.genres?.some((g: any) => g.id === 16) ?? false,
-          isJapanese: tmdbData.original_language === 'ja',
-          finalType: null as unknown,
-        };
+         const analysis = {
+           tmdbId: record.tmdbId,
+           mediaType: record.mediaType,
+           statusId: record.statusId,
+           title: tmdbData.title || tmdbData.name,
+           original_language: tmdbData.original_language,
+           genres: tmdbData.genres?.map((g: { id: number; name: string }) => ({ id: g.id, name: g.name })) || [],
+           hasAnimationGenre: tmdbData.genres?.some((g: { id: number }) => g.id === 16) ?? false,
+           isJapanese: tmdbData.original_language === 'ja',
+           finalType: null as unknown,
+         };
 
         if (isAnime(tmdbData)) {
           typeCounts.anime++;
@@ -228,10 +229,10 @@ export async function GET() {
 
     return NextResponse.json(debugInfo);
 
-  } catch (error: any) {
+   } catch (error) {
     logger.error('Debug endpoint error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { error: 'Debug endpoint failed', details: error.message }, 
+      { error: 'Debug endpoint failed', details: error instanceof Error ? error.message : 'Unknown error' }, 
       { status: 500 }
     );
   }

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { Prisma } from '@prisma/client';
 
 /**
  * Outcome tracking module for ML feedback loop.
@@ -32,15 +33,20 @@ export async function trackOutcome(params: TrackOutcomeParams): Promise<void> {
   try {
     const { recommendationLogId, userId, action, userRating } = params;
 
-    // Create outcome event
+    // Build event data
+    const eventData = userRating !== undefined ? { rating: userRating } : undefined;
+
+    // Use unchecked create input to allow direct parentLogId assignment
+    const createInput: Prisma.RecommendationEventUncheckedCreateInput = {
+      userId,
+      eventType: action,
+      timestamp: new Date(),
+      parentLogId: recommendationLogId,
+      ...(eventData !== undefined && { eventData }),
+    };
+
     await prisma.recommendationEvent.create({
-      data: {
-        parentLogId: recommendationLogId,
-        userId,
-        eventType: action,
-        eventData: userRating ? { rating: userRating } : undefined,
-        timestamp: new Date(),
-      } as any,
+      data: createInput,
     });
 
     logger.info('Outcome tracked', {
@@ -68,35 +74,28 @@ export async function calculateAcceptanceRate(
   dateRange?: { start: Date; end: Date }
 ): Promise<{ overallRate: number; accepted: number; shown: number }> {
   try {
-    const where: any = {
+    // Build where clause for events (added/rated)
+    const eventWhere: Prisma.RecommendationEventWhereInput = {
       userId,
-      eventType: { in: ['added', 'rated'] },
+      eventType: { in: ['added', 'rated'] as const },
+      ...(algorithm && { parentLog: { algorithm } }),
+      ...(dateRange && {
+        timestamp: { gte: dateRange.start, lte: dateRange.end }
+      }),
     };
 
-    if (algorithm) {
-      where.parentLog = { algorithm };
-    }
-
-    if (dateRange) {
-      where.timestamp = {
-        gte: dateRange.start,
-        lte: dateRange.end,
-      };
-    }
-
-    // Get recommendation logs shown to user
-    const shownWhere: any = {
+    // Build where clause for shown logs
+    const shownWhere: Prisma.RecommendationLogWhereInput = {
       userId,
-      shownAt: dateRange ? { gte: dateRange.start, lte: dateRange.end } : undefined,
+      ...(algorithm && { algorithm }),
+      ...(dateRange && {
+        shownAt: { gte: dateRange.start, lte: dateRange.end }
+      }),
     };
-
-    if (algorithm) {
-      shownWhere.algorithm = algorithm;
-    }
 
     const [shownCount, eventCount] = await Promise.all([
       prisma.recommendationLog.count({ where: shownWhere }),
-      prisma.recommendationEvent.count({ where }),
+      prisma.recommendationEvent.count({ where: eventWhere }),
     ]);
 
     const overallRate = shownCount > 0 ? (eventCount / shownCount) * 100 : 0;
@@ -131,11 +130,13 @@ export async function getAlgorithmPerformance(
     shown: number;
   }>;
 }> {
-  try {
+   try {
     // Get shown recommendations for this user
-    const where: any = {
+    const where: Prisma.RecommendationLogWhereInput = {
       userId,
-      shownAt: dateRange ? { gte: dateRange.start, lte: dateRange.end } : undefined,
+      ...(dateRange && {
+        shownAt: { gte: dateRange.start, lte: dateRange.end }
+      }),
     };
 
     const shownLogs = await prisma.recommendationLog.findMany({
@@ -486,17 +487,14 @@ export async function getOutcomeStats(
     total: number;
   }>
 > {
-  try {
+   try {
     const startDate = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : undefined;
 
-    const where: any = {
+    const where: Prisma.RecommendationEventWhereInput = {
       userId,
-      timestamp: startDate ? { gte: startDate } : undefined,
+      ...(startDate && { timestamp: { gte: startDate } }),
+      ...(algorithm && { parentLog: { algorithm } }),
     };
-
-    if (algorithm) {
-      where.parentLog = { algorithm };
-    }
 
     // Group events by date and type
     const events = await prisma.recommendationEvent.findMany({

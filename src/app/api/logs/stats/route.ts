@@ -18,10 +18,10 @@ interface LogsData {
   databaseChecks: {
     individualCounts: Record<string, number>;
     combinedCounts: Record<string, number>;
-    sampleRecords: any;
+    sampleRecords: Record<string, unknown>;
   };
-  apiComparison: any;
-  sampleRecords: any;
+  apiComparison: Record<string, unknown>;
+  sampleRecords: unknown[];
 }
 
 export async function GET(request: NextRequest) {
@@ -53,21 +53,21 @@ export async function GET(request: NextRequest) {
         'Просмотрено': getStatusIdByName('Просмотрено'),
         'Пересмотрено': getStatusIdByName('Пересмотрено'),
       },
-      databaseChecks: {
-        individualCounts: {} as Record<string, number>,
-        combinedCounts: {} as Record<string, number>,
-        sampleRecords: [] as unknown[]
-      },
-      apiComparison: {} as Record<string, unknown>,
-      sampleRecords: [] as unknown[]
-    };
+       databaseChecks: {
+         individualCounts: {} as Record<string, number>,
+         combinedCounts: {} as Record<string, number>,
+         sampleRecords: {} as Record<string, unknown>
+       },
+       apiComparison: {} as Record<string, unknown>,
+       sampleRecords: [] as unknown[]
+     };
 
-    // Подробная проверка базы данных
-    logs.databaseChecks = {
-      individualCounts: {},
-      combinedCounts: {},
-      sampleRecords: []
-    };
+     // Подробная проверка базы данных
+     logs.databaseChecks = {
+       individualCounts: {},
+       combinedCounts: {},
+       sampleRecords: {}
+     };
 
     // Считаем по каждому статусу индивидуально
     const individualCounts = await Promise.all([
@@ -189,10 +189,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(logs);
 
-  } catch (error: any) {
-    logger.error('Logs endpoint error', { error: error instanceof Error ? error.message : String(error) });
+  } catch (error: unknown) {
+    logger.error('Error checking real status IDs', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
-      { error: 'Failed to fetch logs', details: error.message }, 
+      { error: 'Failed to check status IDs', details: error instanceof Error ? error.message : String(error) }, 
       { status: 500 }
     );
   }

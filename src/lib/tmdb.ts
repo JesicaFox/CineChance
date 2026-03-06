@@ -2,6 +2,7 @@
 import { logger } from '@/lib/logger';
 import { fetchTrendingMoviesMock, fetchPopularMoviesMock, searchMediaMock } from './tmdb-mock';
 import { getTMDB, setTMDB } from './tmdbCache';
+import { TMDbCast, TMDBCrew, TMDbPerson } from './types/tmdb';
 
 export interface Media {
   id: number;
@@ -46,17 +47,17 @@ export interface TMDbListItem {
 }
 
 // Helper to cast unknown to TMDbListItem
-export function asTMDbItem(item: any): TMDbListItem {
+export function asTMDbItem(item: unknown): TMDbListItem {
   return item as TMDbListItem;
 }
 
 // Helper for casting array items from TMDB API responses
-export function castArrayItems<T>(arr: any[], _caster: (item: any) => T): T[] {
-  return arr.map(_caster);
+export function castArrayItems<T>(arr: unknown[], caster: (item: unknown) => T): T[] {
+  return arr.map(caster);
 }
 
 // Generic cast function
-export function cast<T>(value: any): T {
+export function cast<T>(value: unknown): T {
   return value as T;
 }
 
@@ -429,23 +430,23 @@ export const getMediaCredits = async (
 
     const data = await response.json();
 
-    // Extract top-5 actors
-    const topActors = (data.cast || [])
-      .slice(0, 5)
-      .map((actor: any) => ({
-        id: actor.id,
-        name: actor.name,
-        character: actor.character,
-      }));
+     // Extract top-5 actors
+     const topActors = (data.cast || [])
+       .slice(0, 5)
+       .map((actor: TMDbCast) => ({
+         id: actor.id,
+         name: actor.name,
+         character: actor.character,
+       }));
 
-    // Extract top directors (crew with job === 'Director')
-    const topDirectors = (data.crew || [])
-      .filter((member: any) => member.job === 'Director')
-      .slice(0, 5)
-      .map((director: any) => ({
-        id: director.id,
-        name: director.name,
-      }));
+     // Extract top directors (crew with job === 'Director')
+     const topDirectors = (data.crew || [])
+       .filter((member: TMDBCrew) => member.job === 'Director')
+       .slice(0, 5)
+       .map((director: TMDBCrew) => ({
+         id: director.id,
+         name: director.name,
+       }));
 
     const result = { topActors, topDirectors };
 

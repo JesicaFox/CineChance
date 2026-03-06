@@ -1,8 +1,8 @@
 // src/app/actions/tagsActions.ts
 'use server';
 
-
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
 import { revalidatePath } from 'next/cache';
@@ -378,7 +378,7 @@ export async function updateMovieNote(
 }
 
 // Вспомогательная функция для upsert с инкрементом
-async function upsertTagWithIncrement(tx: any, userId: string, name: string) {
+async function upsertTagWithIncrement(tx: Prisma.TransactionClient, userId: string, name: string) {
   const existingTag = await tx.tag.findUnique({
     where: { userId_name: { userId, name } },
     select: { id: true, usageCount: true },
