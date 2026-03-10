@@ -705,7 +705,7 @@ export default function MovieCard({
             onMouseLeave={handlePosterMouseLeave}
           >
             {index !== undefined && (
-              <div className="absolute top-0 left-0 z-10 bg-amber-900/40 text-amber-100/90 text-xs px-1.5 py-0.5 rounded shadow-sm">
+              <div className="absolute top-0 right-2 z-20 bg-amber-900/40 text-amber-100/90 text-xs px-1.5 py-0.5 rounded shadow-sm">
                 <span>{Math.floor(index) + 1}</span>
               </div>
             )}
