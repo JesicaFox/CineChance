@@ -197,6 +197,17 @@ export default function RecommendationsClient({ userId }: RecommendationsClientP
       setIsLoadingSettings(true);
       try {
         const response = await fetch('/api/user/settings');
+        
+        // Handle 429 specifically - show error notification
+        if (response.status === 429) {
+          logger.warn('Rate limit exceeded when fetching user settings', {
+            context: 'RecommendationsClient'
+          });
+          // Keep default values and show subtle indicator that settings couldn't be loaded
+          setIsLoadingSettings(false);
+          return;
+        }
+        
         if (response.ok) {
           const data = await response.json();
           // API возвращает 5.0 если значение null или undefined

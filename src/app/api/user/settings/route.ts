@@ -9,14 +9,17 @@ import { rateLimit } from '@/middleware/rateLimit';
 
 // GET /api/user/settings - Получить настройки пользователя
 export async function GET(req: Request) {
-  const { success } = await rateLimit(req, '/api/user');
+  // Get session first to determine userId for rate limiting
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+
+  // Pass userId to rateLimit - if authenticated, use userId; otherwise fall back to IP
+  const { success } = await rateLimit(req, '/api/user', userId);
   if (!success) {
     return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
   }
 
   try {
-    const session = await getServerSession(authOptions);
-
     if (!session || !session.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -101,14 +104,17 @@ export async function GET(req: Request) {
 
 // PUT /api/user/settings - Обновить настройки пользователя
 export async function PUT(req: Request) {
-  const { success } = await rateLimit(req, '/api/user');
+  // Get session first to determine userId for rate limiting
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+
+  // Pass userId to rateLimit - if authenticated, use userId; otherwise fall back to IP
+  const { success } = await rateLimit(req, '/api/user', userId);
   if (!success) {
     return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
   }
 
   try {
-    const session = await getServerSession(authOptions);
-
     if (!session || !session.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
