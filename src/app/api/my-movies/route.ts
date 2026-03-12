@@ -13,6 +13,7 @@ import { trackOutcome } from '@/lib/recommendation-outcome-tracking';
 import type { TMDbMovie, TMDbTV } from '@/lib/types/tmdb';
 
 const ITEMS_PER_PAGE = 20;
+const BUFFER_SIZE = 5000; // Sufficient buffer for filtered datasets
 
 // Interface for movies that need to be sorted (only fields used in sorting)
 interface SortableMovie {
@@ -336,41 +337,69 @@ export async function GET(request: NextRequest) {
 
     let watchListRecords;
     let totalCount: number;
+    let useBufferStrategy = false;
+    let responseTotalCount: number;
 
-    // Use FIXED buffer based on whether filters are active, NOT page number.
-    // Each page request is independent, so we need consistent data.
-    // This is the proven approach from 2026-02-19 fix.
-    const hasFilters = hasTMDBFilters || minRating > 0 || maxRating < 10 || yearFrom || yearTo;
-    const BUFFER_SIZE = hasFilters ? 1000 : 100; // Fixed buffer, not page-dependent
+    // Determine strategy: if TMDB-based filters are active, we need to fetch all then filter client-side
+    const useBuffer = hasTMDBFilters; // Only TMDB filters require buffer strategy
 
-    logger.debug('Using fixed buffer pagination', {
-      context: 'my-movies',
-      hasFilters,
-      page,
-      limit,
-      bufferSize: BUFFER_SIZE
-    });
+    if (useBuffer) {
+      logger.debug('Using buffer strategy for TMDB filters', {
+        context: 'my-movies',
+        bufferSize: BUFFER_SIZE,
+      });
+      // Fetch all (up to buffer) from DB
+      watchListRecords = await prisma.watchList.findMany({
+        where: whereClauseWithRating,
+        select: {
+          id: true,
+          tmdbId: true,
+          mediaType: true,
+          title: true,
+          voteAverage: true,
+          userRating: true,
+          weightedRating: true,
+          addedAt: true,
+          statusId: true,
+          tags: { select: { id: true, name: true } },
+        },
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
+        take: BUFFER_SIZE,
+      });
+      totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
+      useBufferStrategy = true;
+    } else {
+      logger.debug('Using DB pagination (skip/take)', {
+        context: 'my-movies',
+        page,
+        limit,
+      });
+      // Proper pagination with skip/take
+      const pageSkip = (page - 1) * limit;
+      const pageTake = limit + 1; // +1 for hasMore detection
 
-    // Always fetch from start with fixed buffer
-    watchListRecords = await prisma.watchList.findMany({
-      where: whereClauseWithRating,
-      select: {
-        id: true,
-        tmdbId: true,
-        mediaType: true,
-        title: true,
-        voteAverage: true,
-        userRating: true,
-        weightedRating: true,
-        addedAt: true,
-        statusId: true,
-        tags: { select: { id: true, name: true } },
-      },
-      orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
-      take: BUFFER_SIZE,
-    });
+      totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
 
-    totalCount = await prisma.watchList.count({ where: whereClauseWithRating });
+      watchListRecords = await prisma.watchList.findMany({
+        where: whereClauseWithRating,
+        select: {
+          id: true,
+          tmdbId: true,
+          mediaType: true,
+          title: true,
+          voteAverage: true,
+          userRating: true,
+          weightedRating: true,
+          addedAt: true,
+          statusId: true,
+          tags: { select: { id: true, name: true } },
+        },
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
+        skip: pageSkip,
+        take: pageTake,
+      });
+      useBufferStrategy = false;
+    }
 
     // Early exit if no records
     if (watchListRecords.length === 0) {
@@ -491,13 +520,25 @@ export async function GET(request: NextRequest) {
     // Sort movies
     const sortedMovies = sortMovies(movies, sortBy, sortOrder);
 
-    // Paginate: use limit for slicing
+    // Paginate results according to strategy
+    let paginatedMovies;
+    let hasMore: boolean;
+
+    // Compute indices for logging and potential use
     const pageStartIndex = (page - 1) * limit;
     const pageEndIndex = pageStartIndex + limit;
-    const paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
-    
-    // hasMore: Check if there are more records in the filtered/sorted result
-    const hasMore = sortedMovies.length > pageEndIndex;
+
+    if (useBufferStrategy) {
+      // Buffer case: sortedMovies is the full filtered set (up to buffer)
+      paginatedMovies = sortedMovies.slice(pageStartIndex, pageEndIndex);
+      hasMore = sortedMovies.length > pageEndIndex;
+      responseTotalCount = sortedMovies.length;
+    } else {
+      // DB pagination case: sortedMovies already contains the requested page (+1 extra)
+      paginatedMovies = sortedMovies.slice(0, limit);
+      hasMore = sortedMovies.length > limit;
+      responseTotalCount = totalCount;
+    }
 
     logger.debug('Pagination result', {
       context: 'my-movies',
@@ -515,7 +556,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       movies: paginatedMovies,
       hasMore,
-      totalCount: sortedMovies.length,
+      totalCount: responseTotalCount,
     });
   } catch (error) {
     logger.error('Error fetching my movies', { error: error instanceof Error ? error.message : String(error) });

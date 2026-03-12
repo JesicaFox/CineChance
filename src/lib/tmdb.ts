@@ -468,15 +468,15 @@ export const getMediaCredits = async (
   tmdbId: number,
   mediaType: 'movie' | 'tv'
 ): Promise<{
-  topActors: Array<{ id: number; name: string; character?: string }>;
-  topDirectors: Array<{ id: number; name: string }>;
+  topActors: Array<{ id: number; name: string; character?: string; profile_path: string | null }>;
+  topDirectors: Array<{ id: number; name: string; profile_path: string | null }>;
 } | null> => {
   const cacheKey = `credits:${mediaType}:${tmdbId}`;
   
   // Check cache first
   const cached = getTMDB<{
-    topActors: Array<{ id: number; name: string; character?: string }>;
-    topDirectors: Array<{ id: number; name: string }>;
+    topActors: Array<{ id: number; name: string; character?: string; profile_path: string | null }>;
+    topDirectors: Array<{ id: number; name: string; profile_path: string | null }>;
   }>(cacheKey);
   if (cached) {
     return cached;
@@ -511,6 +511,7 @@ export const getMediaCredits = async (
          id: actor.id,
          name: actor.name,
          character: actor.character,
+         profile_path: actor.profile_path,
        }));
 
      // Extract top directors (crew with job === 'Director')
@@ -520,6 +521,7 @@ export const getMediaCredits = async (
        .map((director: TMDBCrew) => ({
          id: director.id,
          name: director.name,
+         profile_path: director.profile_path,
        }));
 
     const result = { topActors, topDirectors };

@@ -8,11 +8,13 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     globals: true,
+    setupFiles: ['./vitest.setup.ts'],
     include: [
       'src/lib/__tests__/**/*.test.ts',
-      '.planning/phases/*/tdd/*.test.ts'
+      'src/app/components/__tests__/**/*.test.{ts,tsx}',
+      '.planning/phases/*/tdd/*.test.{ts,tsx}'
     ],
     testTimeout: 30000,
     coverage: {

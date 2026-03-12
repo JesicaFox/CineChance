@@ -8,9 +8,15 @@ import { Media } from '@/lib/tmdb';
 import { logger } from '@/lib/logger';
 import { BlacklistProvider } from '../components/BlacklistContext';
 
+/**
+ * Props for EnhancedMoviesContentClient component.
+ */
 interface EnhancedMoviesContentClientProps {
+  /** The ID of the user whose movies are being displayed */
   userId: string;
+  /** The initial active tab. Defaults to 'watched' */
   initialTab?: 'watched' | 'wantToWatch' | 'dropped' | 'hidden';
+  /** Initial counts for each tab */
   initialCounts: {
     watched: number;
     wantToWatch: number;
@@ -56,6 +62,8 @@ export default function EnhancedMoviesContentClient({
   const [showWatchedPopup, setShowWatchedPopup] = useState(false);
   const [acceptedRecommendation, setAcceptedRecommendation] = useState<AcceptedRecommendation | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  /** Состояние видимости кнопки "Наверх" - показывается при прокрутке более 300px */
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Загружаем доступные жанры и теги пользователя
   useEffect(() => {
@@ -87,6 +95,16 @@ export default function EnhancedMoviesContentClient({
 
     fetchData();
   }, [userId]);
+
+  // Scroll to top button - отслеживаем позицию скролла
+  // Паттерн скопирован из SearchClient - показываем кнопку когда пользователь прокрутил страницу вниз
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Проверка: пришел ли пользователь со страницы рекомендаций
   useEffect(() => {
@@ -372,8 +390,33 @@ export default function EnhancedMoviesContentClient({
                 ? 'Добавляйте фильмы в черный список на главной странице'
                 : 'В этом списке пока ничего нет'
             }
+            showIndex={false}
           />
         </BlacklistProvider>
+
+        {/* Кнопка "Наверх" - появляется при прокрутке страницы вниз */}
+        {showScrollTop && (
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-50"
+            aria-label="Наверх"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 10l7-7m0 0l7 7m-7-7v18"
+              />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

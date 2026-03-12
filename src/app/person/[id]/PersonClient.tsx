@@ -72,13 +72,32 @@ export default function PersonClient({ personId }: PersonClientProps) {
   useEffect(() => {
     const fetchPerson = async () => {
       try {
+        logger.debug('PersonClient: Starting fetch', { personId });
         const res = await fetch(`/api/person/${personId}`);
-        if (!res.ok) throw new Error('Failed to fetch person');
+        
+        if (!res.ok) {
+          logger.error('PersonClient: API error', { 
+            personId,
+            status: res.status,
+            statusText: res.statusText,
+          });
+          throw new Error(`API returned ${res.status}: ${res.statusText}`);
+        }
+        
         const data = await res.json();
+        logger.debug('PersonClient: Data fetched successfully', { 
+          personId,
+          filmographyCount: data.filmography?.length || 0 
+        });
         setPerson(data);
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         setError('Failed to load person');
-        logger.error('Person data error', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('PersonClient: Fetch failed', { 
+          personId,
+          error: errorMsg,
+          errorType: err instanceof Error ? err.constructor.name : typeof err,
+        });
       } finally {
         setLoading(false);
       }

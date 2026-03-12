@@ -47,13 +47,32 @@ const CACHE_DURATION = 86400000;
 
 async function fetchMediaDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
   const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    logger.warn('fetchMediaDetails: TMDB_API_KEY not configured', { tmdbId, mediaType });
+    return null;
+  }
   const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${apiKey}&language=ru-RU`;
   try {
-    const res = await fetch(url, { next: { revalidate: 86400 } });
-    if (!res.ok) return null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5sec timeout per request
+    
+    const res = await fetch(url, { 
+      next: { revalidate: 86400 },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      logger.warn('fetchMediaDetails failed', { tmdbId, mediaType, status: res.status });
+      return null;
+    }
     return await res.json();
-  } catch {
+  } catch (error) {
+    logger.error('fetchMediaDetails error', {
+      error: error instanceof Error ? error.message : String(error),
+      tmdbId,
+      mediaType,
+    });
     return null;
   }
 }
@@ -83,10 +102,18 @@ interface TMDBMovieCredits {
 
 interface TMDBPersonCredits {
   id: number;
-  crew: Array<{
+  cast: Array<{
     id: number;
     title: string;
     release_date: string;
+    character: string;
+  }>;
+  crew: Array<{
+    id: number;
+    title: string;
+    release_date?: string;
+    first_air_date?: string;
+    media_type?: string;
     job: string;
     department: string;
   }>;
@@ -100,19 +127,37 @@ function getJobType(job: string, _department: string): CreatorJobType | null {
 }
 
 async function fetchMovieCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TMDBMovieCredits | null> {
+  if (!TMDB_API_KEY) {
+    logger.warn('fetchMovieCredits: TMDB_API_KEY not configured', { tmdbId, mediaType });
+    return null;
+  }
+  
   try {
     const url = new URL(`${BASE_URL}/${mediaType}/${tmdbId}/credits`);
-    url.searchParams.append('api_key', TMDB_API_KEY || '');
+    url.searchParams.append('api_key', TMDB_API_KEY);
     url.searchParams.append('language', 'ru-RU');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5sec timeout
 
     const response = await fetch(url.toString(), {
       headers: { 'accept': 'application/json' },
       next: { revalidate: 86400, tags: [`${mediaType}-credits`] },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      logger.warn('fetchMovieCredits failed', { tmdbId, mediaType, status: response.status });
+      return null;
+    }
     return await response.json();
-  } catch {
+  } catch (error) {
+    logger.error('fetchMovieCredits error', {
+      error: error instanceof Error ? error.message : String(error),
+      tmdbId,
+      mediaType,
+    });
     return null;
   }
 }
@@ -122,32 +167,58 @@ async function fetchPersonCredits(personId: number): Promise<TMDBPersonCredits |
   const now = Date.now();
   
   if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+    logger.debug('fetchPersonCredits: cache hit', { personId });
     return cached.data as TMDBPersonCredits;
   }
 
+  if (!TMDB_API_KEY) {
+    logger.warn('fetchPersonCredits: TMDB_API_KEY not configured', { personId });
+    return null;
+  }
+
   try {
+    logger.debug('fetchPersonCredits: starting fetch', { personId });
+    
     const url = new URL(`${BASE_URL}/person/${personId}/combined_credits`);
-    url.searchParams.append('api_key', TMDB_API_KEY || '');
+    url.searchParams.append('api_key', TMDB_API_KEY);
     url.searchParams.append('language', 'ru-RU');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5sec timeout
 
     const response = await fetch(url.toString(), {
       headers: { 'accept': 'application/json' },
       next: { revalidate: 86400, tags: ['person-credits'] },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
+      logger.warn('fetchPersonCredits failed', { personId, status: response.status });
       return null;
     }
 
     const data = await response.json() as TMDBPersonCredits;
+    logger.info('fetchPersonCredits: success', { 
+      personId, 
+      castCount: data.cast?.length || 0,
+      crewCount: data.crew?.length || 0 
+    });
     creatorCreditsCache.set(personId, { data, timestamp: now });
     return data;
-  } catch {
+  } catch (error) {
+    logger.error('fetchPersonCredits error', {
+      error: error instanceof Error ? error.message : String(error),
+      personId,
+    });
     return null;
   }
 }
 
 export async function GET(request: Request) {
+  const startTime = Date.now();
+  logger.info('AchievCreatorsAPI: Request started', { timestamp: new Date().toISOString() });
+  
   try {
     const session = await getServerSession(authOptions);
     
@@ -162,6 +233,8 @@ export async function GET(request: Request) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '24'), 50);
     const offset = Math.max(parseInt(searchParams.get('offset') || '0'), 0);
     const singleLoad = searchParams.get('singleLoad') === 'true';
+
+    logger.info('AchievCreatorsAPI: Parameters loaded', { userId, targetUserId, limit, offset, singleLoad });
 
     const cacheKey = `user:${targetUserId}:achiev_creators:${limit}:${offset}:${singleLoad}`;
 
@@ -214,10 +287,6 @@ export async function GET(request: Request) {
         
         const results = await Promise.all(
           batch.map(async (movie) => {
-            const mediaDetails = await fetchMediaDetails(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
-            if (mediaDetails && (isAnime(mediaDetails) || isCartoon(mediaDetails))) {
-              return { credits: null, rating: movie.userRating };
-            }
             const credits = await fetchMovieCredits(movie.tmdbId, movie.mediaType as 'movie' | 'tv');
             return { credits, rating: movie.userRating };
           })
@@ -358,7 +427,7 @@ export async function GET(request: Request) {
           name: creatorData.name,
           profile_path: creatorData.profile_path,
           job_types: Array.from(creatorData.job_types),
-          watched_movies: creatorData.watchedIds.size + creatorData.rewatchedIds.size,
+          watched_movies: creatorData.watchedIds.size,
           rewatched_movies: creatorData.rewatchedIds.size,
           dropped_movies: creatorData.droppedIds.size,
           total_movies: 0,
@@ -383,30 +452,71 @@ export async function GET(request: Request) {
             try {
               const credits = await fetchPersonCredits(creator.id);
               
+              if (!credits) {
+                logger.warn('Creator: fetchPersonCredits returned null', { 
+                  creatorId: creator.id,
+                  name: creator.name,
+                });
+              }
+              
               let filteredCrew = credits?.crew || [];
+              let filteredCrewDetails: any[] = [];
+              
+              logger.debug('Creator crew data fetched', {
+                creatorId: creator.id,
+                name: creator.name,
+                totalCrewRecords: filteredCrew.length,
+                hasCrewData: !!credits?.crew,
+                crewSample: filteredCrew.slice(0, 3).map((c: any) => ({
+                  id: c.id,
+                  title: c.title,
+                  job: c.job,
+                  department: c.department,
+                  release_date: c.release_date,
+                  first_air_date: c.first_air_date,
+                })),
+              });
               
               if (filteredCrew.length > 0) {
-                const moviesToProcess = filteredCrew.slice(0, 500);
+                // Limit to first 100 movies, same as actors
+                const moviesToProcess = filteredCrew.slice(0, 100);
                 
                 const FETCH_BATCH_SIZE = 5;
-                const filteredCrewDetails = [];
                 
                 for (let j = 0; j < moviesToProcess.length; j += FETCH_BATCH_SIZE) {
                   const movieBatch = moviesToProcess.slice(j, j + FETCH_BATCH_SIZE);
                   
                   const batchResults = await Promise.all(
                     movieBatch.map(async (movie) => {
-                      const mediaType = movie.release_date ? 'movie' : 'tv';
+                      // Определяем тип медиа по наличию дат
+                      // В TMDB crew might have either release_date (movies) или first_air_date (TV)
+                      let mediaType: 'movie' | 'tv' = 'movie';
+                      if (movie.media_type === 'tv' || movie.first_air_date) {
+                        mediaType = 'tv';
+                      }
+                      // movie.media_type === 'movie' или release_date
                       const mediaDetails = await fetchMediaDetails(movie.id, mediaType);
                       return {
                         movie,
+                        mediaType,
                         isAnime: mediaDetails ? isAnime(mediaDetails) : false,
                         isCartoon: mediaDetails ? isCartoon(mediaDetails) : false,
+                        fetchSuccess: !!mediaDetails,
                       };
                     })
                   );
                   
                   filteredCrewDetails.push(...batchResults);
+                  
+                  logger.debug('Creator crew batch processed', {
+                    creatorId: creator.id,
+                    batchIndex: Math.floor(j / FETCH_BATCH_SIZE),
+                    batchSize: movieBatch.length,
+                    successfulFetches: batchResults.filter((r: any) => r.fetchSuccess).length,
+                    animeCount: batchResults.filter((r: any) => r.isAnime).length,
+                    cartoonCount: batchResults.filter((r: any) => r.isCartoon).length,
+                    validCount: batchResults.filter((r: any) => !r.isAnime && !r.isCartoon).length,
+                  });
                   
                   if (j + FETCH_BATCH_SIZE < moviesToProcess.length) {
                     await new Promise(resolve => setTimeout(resolve, 10));
@@ -418,24 +528,51 @@ export async function GET(request: Request) {
                   .map(({ movie }) => movie);
               }
               
-               const relevantCrew = filteredCrew.filter((m: { job: string; department: string }) => {
-                 const jobType = getJobType(m.job, m.department);
-                 return jobType && creator.job_types.includes(jobType);
-               });
+              logger.debug('Creator crew after anime filter', {
+                creatorId: creator.id,
+                name: creator.name,
+                totalDetailsProcessed: filteredCrewDetails.length,
+                crewRecordsAfterFilter: filteredCrew.length,
+                animeFiltered: filteredCrewDetails.filter((r: any) => r.isAnime).length,
+                cartoonFiltered: filteredCrewDetails.filter((r: any) => r.isCartoon).length,
+                fetchFailures: filteredCrewDetails.filter((r: any) => !r.fetchSuccess).length,
+              });
               
-              const totalMovies = relevantCrew.length;
+              // Считаем УНИКАЛЬНЫЕ фильмы по их ID (независимо от job-ов)
+              // Один фильм может иметь несколько job-ов (режиссер, продюсер, и т.д.)
+              const uniqueMovieIds = new Set<number>();
+              for (const crew of filteredCrew) {
+                uniqueMovieIds.add(crew.id);
+              }
+              
+              const totalMovies = uniqueMovieIds.size; // Количество уникальных фильмов
               const watchedMovies = creator.watched_movies;
               
               const progressPercent = totalMovies > 0 
                 ? Math.round((watchedMovies / totalMovies) * 100)
                 : 0;
 
+              logger.info('Creator filmography calculated', {
+                creatorId: creator.id,
+                name: creator.name,
+                originalCrewRecords: credits?.crew?.length || 0,
+                afterAnimeFilter: filteredCrew.length,
+                uniqueMoviesCount: totalMovies,
+                watchedMovies,
+                progressPercent,
+              });
+
               return {
                 ...creator,
                 total_movies: totalMovies,
                 progress_percent: progressPercent,
               };
-            } catch {
+            } catch (error) {
+              logger.error('Error processing creator filmography', {
+                creatorId: creator.id,
+                name: creator.name,
+                error: error instanceof Error ? error.message : String(error),
+              });
               return {
                 ...creator,
                 total_movies: creator.watched_movies,
@@ -506,8 +643,57 @@ export async function GET(request: Request) {
     };
 
     const result = await withCache(cacheKey, fetchCreators, 3600);
-    return NextResponse.json(result);
+    
+    // Add creator_score for each creator
+    const creatorsWithScores = result.creators.map((creator: any) => ({
+      ...creator,
+      creator_score: _calculateCreatorScore(creator),
+    }));
 
+    // Save to PersonProfile if singleLoad
+    if (singleLoad && creatorsWithScores.length > 0) {
+      try {
+        await prisma.personProfile.upsert({
+          where: {
+            userId_personType: {
+              userId: targetUserId,
+              personType: 'director',
+            },
+          },
+          update: {
+            topPersons: creatorsWithScores,
+          },
+          create: {
+            userId: targetUserId,
+            personType: 'director',
+            topPersons: creatorsWithScores,
+          },
+        });
+        logger.info('AchievCreatorsAPI: PersonProfile saved', { 
+          userId: targetUserId,
+          count: creatorsWithScores.length,
+        });
+      } catch (dbError) {
+        logger.error('AchievCreatorsAPI: Failed to save PersonProfile', {
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+          userId: targetUserId,
+        });
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    logger.info('AchievCreatorsAPI: Request completed successfully', {
+      duration: `${duration}ms`,
+      creatorCount: creatorsWithScores.length,
+      singleLoad,
+      hasMore: result.hasMore,
+      total: result.total,
+    });
+
+    return NextResponse.json({
+      ...result,
+      creators: creatorsWithScores,
+    });
   } catch (error) {
     logger.error('Ошибка при получении создателей', { 
       error: error instanceof Error ? error.message : String(error),

@@ -10,6 +10,56 @@ import FilmFilters, { FilmFilterState, SortState, AdditionalFilters } from '@/ap
 import { Media } from '@/lib/tmdb';
 import { logger } from '@/lib/logger';
 
+const DEFAULT_FILTER_VALUES = {
+  showMovies: true,
+  showTv: true,
+  showAnime: true,
+  showCartoon: true,
+};
+
+const DEFAULT_SORT_VALUES = {
+  sortBy: 'rating',
+  sortOrder: 'desc',
+};
+
+const DEFAULT_ADDITIONAL_FILTERS = {
+  minRating: 0,
+  maxRating: 10,
+  yearFrom: '',
+  yearTo: '',
+};
+
+const INFINITE_SCROLL_CONFIG = {
+  root: null,
+  rootMargin: '400px',
+  threshold: 0.1,
+};
+
+const createFilterObject = (
+  page: number,
+  limit: number,
+  filmFilters: typeof DEFAULT_FILTER_VALUES,
+  sort: { sortBy: string; sortOrder: 'asc' | 'desc' },
+  additionalFilters: typeof DEFAULT_ADDITIONAL_FILTERS,
+  genres: number[],
+  tags: string[]
+): FilmGridFilters => ({
+  page,
+  limit,
+  showMovies: filmFilters.showMovies,
+  showTv: filmFilters.showTv,
+  showAnime: filmFilters.showAnime,
+  showCartoon: filmFilters.showCartoon,
+  sortBy: sort.sortBy,
+  sortOrder: sort.sortOrder,
+  minRating: additionalFilters.minRating,
+  maxRating: additionalFilters.maxRating,
+  yearFrom: additionalFilters.yearFrom,
+  yearTo: additionalFilters.yearTo,
+  genres,
+  tags,
+});
+
 export interface FilmGridWithFiltersProps {
   /** Функция для загрузки фильмов. Должна вернуть {movies, hasMore} */
   fetchMovies: (page: number, filters: FilmGridFilters) => Promise<{ movies: Media[]; hasMore: boolean }>;
@@ -55,6 +105,12 @@ export interface FilmGridWithFiltersProps {
   
   /** Скрывать ли блок фильтрации по жанрам */
   hideGenresFilter?: boolean;
+  
+  /** Показывать ли порядковый номер (индекс).
+   * @default true - по умолчанию индекс показывается в сетке.
+   * @example showIndex={false} - скрыть индекс в "Моих фильмах", где нумерация не нужна.
+   */
+  showIndex?: boolean;
 }
 
 export interface FilmGridFilters {
@@ -90,6 +146,7 @@ export default function FilmGridWithFilters({
   hideRatingFilter = false,
   hideTagsFilter = false,
   hideGenresFilter = false,
+  showIndex = true,
 }: FilmGridWithFiltersProps) {
   const [movies, setMovies] = useState<Media[]>([]);
   const [isLoading, setIsLoading] = useState(initialLoading);
@@ -126,22 +183,15 @@ export default function FilmGridWithFilters({
   const handleFetchMovies = useCallback(
     async (page: number) => {
       try {
-        const filters: FilmGridFilters = {
+        const filters = createFilterObject(
           page,
-          limit: pageSize,
-          showMovies: filmFilters.showMovies,
-          showTv: filmFilters.showTv,
-          showAnime: filmFilters.showAnime,
-          showCartoon: filmFilters.showCartoon,
-          sortBy: sort.sortBy,
-          sortOrder: sort.sortOrder,
-          minRating: additionalFilters.minRating,
-          maxRating: additionalFilters.maxRating,
-          yearFrom: additionalFilters.yearFrom,
-          yearTo: additionalFilters.yearTo,
-          genres: selectedGenres,
-          tags: selectedTags,
-        };
+          pageSize,
+          filmFilters,
+          sort,
+          additionalFilters,
+          selectedGenres,
+          selectedTags
+        );
 
         const data = await fetchMovies(page, filters);
         const newMovies = data.movies || [];
@@ -283,7 +333,7 @@ export default function FilmGridWithFilters({
           setAdditionalFilters(filters);
           setSelectedGenres(genres);
           // Извлекаем selectedTags из filters если они присутствуют
-          const tagsFromFilters = (filters as any).selectedTags || [];
+          const tagsFromFilters = filters.selectedTags || [];
           setSelectedTags(tagsFromFilters);
         }}
         availableGenres={availableGenres}
@@ -296,6 +346,7 @@ export default function FilmGridWithFilters({
       {movies.length > 0 ? (
         <>
           {/* Сетка фильмов */}
+          {/* Sequential numbering: each MovieCard receives its 0-based index for order number display */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
             {movies.map((movie, index) => (
               <div key={`${movie.id || 'unknown'}-${movie.media_type || 'unknown'}-${index}`} className="p-1">
@@ -310,6 +361,7 @@ export default function FilmGridWithFilters({
                     initialAverageRating={movie.vote_average}
                     initialRatingCount={movie.vote_count}
                     initialUserRating={getInitialRating ? getInitialRating(movie) : undefined}
+                    index={showIndex ? index : undefined} // Передаем undefined вместо -1, чтобы MovieCard скрыл индекс полностью
                   />
                 </MovieCardErrorBoundary>
               </div>
