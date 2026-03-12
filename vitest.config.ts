@@ -14,6 +14,7 @@ export default defineConfig({
     include: [
       'src/lib/__tests__/**/*.test.ts',
       'src/app/components/__tests__/**/*.test.{ts,tsx}',
+      'src/app/api/**/__tests__/**/*.test.ts',
       '.planning/phases/*/tdd/*.test.{ts,tsx}'
     ],
     testTimeout: 30000,
