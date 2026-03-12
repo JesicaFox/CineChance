@@ -84,7 +84,7 @@ export default function ActorsClient({ userId }: ActorsClientProps) {
 
         // Добавляем таймаут для предотвращения зависания
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 секунд таймаут (было 60)
 
         const response = await fetch(`/api/user/achiev_actors?limit=${TOP_ACTORS_COUNT}&singleLoad=true`, {
           signal: controller.signal,

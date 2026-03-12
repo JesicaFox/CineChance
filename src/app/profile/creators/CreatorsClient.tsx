@@ -76,7 +76,7 @@ export default function CreatorsClient({ userId }: CreatorsClientProps) {
         }, 200);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         const response = await fetch(`/api/user/achiev_creators?limit=${TOP_CREATORS_COUNT}&singleLoad=true`, {
           signal: controller.signal,

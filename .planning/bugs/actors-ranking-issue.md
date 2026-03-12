@@ -1,5 +1,6 @@
 # Bug: Actors ranking incorrect and slow loading on /profile/actors
-Date: 2026-03-11
+Date: 2026-03-11  
+**Status**: ✅ FIXED - See [2026-03-11-actors-ranking-fixed.md](2026-03-11-actors-ranking-fixed.md)
 
 ## Description
 Users experience:

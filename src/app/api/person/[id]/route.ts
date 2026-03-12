@@ -38,18 +38,24 @@ export async function GET(
     const { id } = await props.params;
     const personId = parseInt(id);
     
-    if (!personId) {
-      return NextResponse.json({ error: 'Missing person ID' }, { status: 400 });
+    logger.debug('PersonAPI: Request started', { personId, rawId: id });
+    
+    if (!personId || isNaN(personId)) {
+      logger.warn('PersonAPI: Invalid person ID', { id, personId });
+      return NextResponse.json({ error: 'Missing or invalid person ID' }, { status: 400 });
     }
 
     const apiKey = process.env.TMDB_API_KEY;
     if (!apiKey) {
+      logger.error('PersonAPI: TMDB API key not configured', {});
       return NextResponse.json({ error: 'TMDB API key not configured' }, { status: 500 });
     }
 
     // Получаем информацию об актере
     const personController = new AbortController();
     const personTimeoutId = setTimeout(() => personController.abort(), 15000);
+    
+    logger.debug('PersonAPI: Fetching person details', { personId });
     
     const personRes = await fetch(
       `https://api.themoviedb.org/3/person/${personId}?api_key=${apiKey}&language=ru-RU`,
@@ -63,6 +69,7 @@ export async function GET(
 
     if (!personRes.ok) {
       const status = personRes.status;
+      logger.warn('PersonAPI: Person fetch failed', { personId, status, statusText: personRes.statusText });
       if (status === 404) {
         return NextResponse.json({ error: 'Person not found' }, { status: 404 });
       }
@@ -70,10 +77,13 @@ export async function GET(
     }
 
     const personData = await personRes.json();
+    logger.debug('PersonAPI: Person details fetched', { personId, name: personData.name });
 
     // Получаем фильмографию актера
     const creditsController = new AbortController();
     const creditsTimeoutId = setTimeout(() => creditsController.abort(), 15000);
+    
+    logger.debug('PersonAPI: Fetching credits', { personId });
     
     const creditsRes = await fetch(
       `https://api.themoviedb.org/3/person/${personId}/combined_credits?api_key=${apiKey}&language=ru-RU`,
@@ -86,6 +96,10 @@ export async function GET(
     clearTimeout(creditsTimeoutId);
 
     if (!creditsRes.ok) {
+      logger.warn('PersonAPI: Credits fetch failed, returning person without filmography', { 
+        personId, 
+        status: creditsRes.status 
+      });
       // Если не удалось получить фильмографию, возвращаем данные актера без неё
       return NextResponse.json({
         id: personData.id,
@@ -102,6 +116,11 @@ export async function GET(
     }
 
      const creditsData = await creditsRes.json() as { cast?: CreditRaw[]; crew?: CreditRaw[] };
+     logger.debug('PersonAPI: Credits fetched', { 
+       personId, 
+       castCount: creditsData.cast?.length || 0,
+       crewCount: creditsData.crew?.length || 0
+     });
 
      // Фильтруем и сортируем фильмографию (включая cast и crew)
      const seen = new Set<string>();
@@ -164,15 +183,25 @@ export async function GET(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const isAbort = errorMessage.includes('abort') || errorMessage.includes('timed out');
+    const errorName = error instanceof Error ? error.name : 'Unknown';
     
-    // Не логируем таймауты - это ожидаемое поведение при проблемах с сетью
-    if (!isAbort) {
-      logger.error('Person API error', { 
+    if (isAbort) {
+      logger.warn('PersonAPI: Request timeout', { 
         error: errorMessage,
+        errorName,
+        context: 'Person'
+      });
+    } else {
+      logger.error('PersonAPI: Request failed', { 
+        error: errorMessage,
+        errorName,
+        errorType: typeof error,
         context: 'Person'
       });
     }
     
-    return NextResponse.json({ error: 'Failed to fetch person data' }, { status: 500 });
+    return NextResponse.json({ 
+      error: isAbort ? 'Request timeout' : 'Failed to fetch person data' 
+    }, { status: isAbort ? 504 : 500 });
   }
 }
