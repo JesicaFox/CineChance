@@ -703,19 +703,35 @@ export async function GET(request: Request) {
                  fetchFailures: filteredCrewDetails.filter(r => !r.fetchSuccess).length,
                });
               
-              // Считаем УНИКАЛЬНЫЕ фильмы по их ID (независимо от job-ов)
-              // Один фильм может иметь несколько job-ов (режиссер, продюсер, и т.д.)
-              const uniqueMovieIds = new Set<number>();
-              for (const crew of filteredCrew) {
-                uniqueMovieIds.add(crew.id);
-              }
-              
-              const totalMovies = uniqueMovieIds.size; // Количество уникальных фильмов
-              const watchedMovies = creator.watched_movies;
-              
-              const progressPercent = totalMovies > 0 
-                ? Math.round((watchedMovies / totalMovies) * 100)
-                : 0;
+               // Считаем УНИКАЛЬНЫЕ фильмы по их ID (независимо от job-ов)
+               // Один фильм может иметь несколько job-ов (режиссер, продюсер, и т.д.)
+               const uniqueMovieIds = new Set<number>();
+               for (const crew of filteredCrew) {
+                 uniqueMovieIds.add(crew.id);
+               }
+               
+               const totalMovies = uniqueMovieIds.size; // Количество уникальных фильмов (после фильтрации аниме/мультфильмов)
+               
+               // Создаем множества ID фильмов из watchlist пользователя для пересечения
+               const watchedMovieIds = new Set(watchedMoviesData.map(m => m.tmdbId));
+               const rewatchedMovieIds = new Set(rewatchedMoviesData.map(m => m.tmdbId));
+               const droppedMovieIds = new Set(droppedMoviesData.map(m => m.tmdbId));
+               
+               // Пересекаем с отфильтрованной фильмографией (исключаем аниме/мультфильмы)
+               // Теперь watched_movies, rewatched_movies, dropped_movies согласованы с total_movies
+               let watchedMovies = 0;
+               let rewatchedMovies = 0;
+               let droppedMovies = 0;
+               
+               for (const movieId of uniqueMovieIds) {
+                 if (watchedMovieIds.has(movieId)) watchedMovies++;
+                 if (rewatchedMovieIds.has(movieId)) rewatchedMovies++;
+                 if (droppedMovieIds.has(movieId)) droppedMovies++;
+               }
+               
+               const progressPercent = totalMovies > 0 
+                 ? Math.round((watchedMovies / totalMovies) * 100)
+                 : 0;
 
               logger.info('Creator filmography calculated', {
                 creatorId: creator.id,
@@ -724,12 +740,17 @@ export async function GET(request: Request) {
                 afterAnimeFilter: filteredCrew.length,
                 uniqueMoviesCount: totalMovies,
                 watchedMovies,
+                rewatchedMovies,
+                droppedMovies,
                 progressPercent,
               });
 
               return {
                 ...creator,
                 total_movies: totalMovies,
+                watched_movies: watchedMovies,
+                rewatched_movies: rewatchedMovies,
+                dropped_movies: droppedMovies,
                 progress_percent: progressPercent,
               };
             } catch (error) {
@@ -741,6 +762,7 @@ export async function GET(request: Request) {
               return {
                 ...creator,
                 total_movies: creator.watched_movies,
+                watched_movies: creator.watched_movies,
                 progress_percent: creator.watched_movies > 0 ? 100 : 0,
               };
             }
