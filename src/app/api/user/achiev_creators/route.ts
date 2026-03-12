@@ -102,6 +102,12 @@ interface TMDBMovieCredits {
 
 interface TMDBPersonCredits {
   id: number;
+  cast: Array<{
+    id: number;
+    title: string;
+    release_date: string;
+    character: string;
+  }>;
   crew: Array<{
     id: number;
     title: string;
