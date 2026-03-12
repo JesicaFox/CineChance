@@ -466,25 +466,66 @@ export async function GET(request: Request) {
                   .map(({ movie }) => movie);
               }
               
-              const totalMovies = filteredCast.length;
-              const watchedMovies = actor.watched_movies;
+              // Создаем Set ID отфильтрованных фильмов
+              const filteredMovieIds = new Set<number>();
+              for (const cast of filteredCast) {
+                filteredMovieIds.add(cast.id);
+              }
+              
+              const totalMovies = filteredMovieIds.size;
+              
+              // Пересчитываем watched/rewatched/dropped по отфильтрованному списку
+              // originalEntry содержит Sets с ID фильмов
+              const originalEntry = actorMap.get(actor.id)!;
+              
+              let watchedMovies = 0;
+              let rewatchedMovies = 0;
+              let droppedMovies = 0;
+              const filteredRatings: number[] = [];
+              
+              for (const movieId of filteredMovieIds) {
+                if (originalEntry.watched_ids.has(movieId)) {
+                  watchedMovies++;
+                  const rating = originalEntry.ratings_map.get(movieId);
+                  if (rating !== undefined) filteredRatings.push(rating);
+                }
+                if (originalEntry.rewatched_ids.has(movieId)) {
+                  rewatchedMovies++;
+                  const rating = originalEntry.ratings_map.get(movieId);
+                  if (rating !== undefined) filteredRatings.push(rating);
+                }
+                if (originalEntry.dropped_ids.has(movieId)) droppedMovies++;
+              }
+              
+              // Пересчитываем average_rating только по отфильтрованным фильмам
+              const averageRating = filteredRatings.length > 0
+                ? Number((filteredRatings.reduce((a, b) => a + b, 0) / filteredRatings.length).toFixed(1))
+                : null;
               
               const progressPercent = totalMovies > 0 
                 ? Math.round((watchedMovies / totalMovies) * 100)
                 : 0;
 
-              const originalEntry = actorMap.get(actor.id)!;
               logger.debug('Actor processed for singleLoad', {
                 actorId: actor.id,
                 name: actor.name,
                 totalMovies,
+                watchedMovies,
+                averageRating,
                 duration: Date.now() - startActorTime,
               });
               
               return {
                 ...originalEntry,
+                id: actor.id,
+                name: actor.name,
+                profile_path: actor.profile_path,
+                watched_movies: watchedMovies,
+                rewatched_movies: rewatchedMovies,
+                dropped_movies: droppedMovies,
                 total_movies: totalMovies,
                 progress_percent: progressPercent,
+                average_rating: averageRating,
               };
             } catch (error) {
               logger.error('Error fetching person credits in singleLoad', {
@@ -494,6 +535,12 @@ export async function GET(request: Request) {
               const originalEntry = actorMap.get(actor.id)!;
               return {
                 ...originalEntry,
+                id: actor.id,
+                name: actor.name,
+                profile_path: actor.profile_path,
+                watched_movies: actor.watched_movies,
+                rewatched_movies: actor.rewatched_movies,
+                dropped_movies: actor.dropped_movies,
                 total_movies: actor.watched_movies,
                 progress_percent: actor.watched_movies > 0 ? 100 : 0,
               };
@@ -510,37 +557,55 @@ export async function GET(request: Request) {
 
         const allActorsWithFullData = (await Promise.all(achievementsPromises)).flat();
         
-        const actorsWithScores = allActorsWithFullData.map(actor => {
-          const watched = actor.watched_ids.size;
-          const rewatched = actor.rewatched_ids.size;
-          const dropped = actor.dropped_ids.size;
-          const ratings = Array.from(actor.ratings_map.values());
-          const average_rating = ratings.length > 0
-            ? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1))
-            : null;
-
+        // Filter out actors with 0 watched movies (after filtering anime/cartoons)
+        const filteredActors = allActorsWithFullData.filter(a => a.watched_movies > 0);
+        
+        // Пересчитываем actor_score для каждого актера
+        const actorsWithScores = filteredActors.map(actor => {
           return {
             id: actor.id,
             name: actor.name,
             profile_path: actor.profile_path,
-            watched_movies: watched,
-            rewatched_movies: rewatched,
-            dropped_movies: dropped,
+            watched_movies: actor.watched_movies,
+            rewatched_movies: actor.rewatched_movies,
+            dropped_movies: actor.dropped_movies,
             total_movies: actor.total_movies,
             progress_percent: actor.progress_percent,
-            average_rating,
+            average_rating: actor.average_rating,
             actor_score: calculateActorScore({
-              average_rating,
-              watched_movies: watched,
-              rewatched_movies: rewatched,
-              dropped_movies: dropped,
+              average_rating: actor.average_rating,
+              watched_movies: actor.watched_movies,
+              rewatched_movies: actor.rewatched_movies,
+              dropped_movies: actor.dropped_movies,
               total_movies: actor.total_movies,
               progress_percent: actor.progress_percent,
             }),
           };
         });
         
-        actorsWithScores.sort((a, b) => b.actor_score - a.actor_score);
+        // Sort by average_rating first, then by progress_percent
+        actorsWithScores.sort((a, b) => {
+          // Primary: average_rating descending (nulls last)
+          if (a.average_rating !== null && b.average_rating !== null) {
+            if (b.average_rating !== a.average_rating) {
+              return b.average_rating - a.average_rating;
+            }
+          } else if (a.average_rating === null && b.average_rating !== null) {
+            return 1;
+          } else if (a.average_rating !== null && b.average_rating === null) {
+            return -1;
+          }
+          // Tie-breaker 1: progress_percent descending
+          if (b.progress_percent !== a.progress_percent) {
+            return b.progress_percent - a.progress_percent;
+          }
+          // Tie-breaker 2: actor_score descending
+          if (b.actor_score !== a.actor_score) {
+            return b.actor_score - a.actor_score;
+          }
+          // Tie-breaker 3: name alphabetical (Russian locale)
+          return a.name.localeCompare(b.name, 'ru');
+        });
 
         const result = actorsWithScores.slice(0, limit);
 
