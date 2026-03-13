@@ -12,7 +12,12 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { success } = await rateLimit(req, 'default');
+  // Get session FIRST for userId-based rate limiting
+const session = await getServerSession(authOptions);
+const userId = session?.user?.id;
+
+// Rate limit with userId if authenticated, IP if not
+const { success } = await rateLimit(req, '/api/collection', userId);
   if (!success) {
     return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
   }
@@ -56,9 +61,7 @@ export async function GET(
 
     const data = await res.json();
 
-    // Получаем сессию пользователя
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
+    
 
     // Получаем все blacklist IDs пользователя одним запросом
     let blacklistedIds: Set<number> = new Set();
@@ -110,8 +113,7 @@ export async function GET(
         first_air_date: movie.release_date,
         overview: movie.overview,
         isBlacklisted,
-        genre_ids: tmdbDetails?.genre_ids || [],
-        original_language: tmdbDetails?.original_language || '',
+        
       };
 
       // Добавляем status и userRating только если фильм в watchlist
