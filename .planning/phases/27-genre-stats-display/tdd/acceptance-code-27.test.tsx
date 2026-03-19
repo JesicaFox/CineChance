@@ -154,9 +154,10 @@ describe('Acceptance 27: "Ваши жанры" Block', () => {
         <TasteMapClient tasteMap={mockWithMissingRatings} userId="user-123" />
       );
 
-      // Genres without ratings should show dash
-      expect(html).toContain('Western —');
-      expect(html).toContain('Documentary —');
+      // Genres without ratings should show dash, but count still visible
+      // Western count = 1, Documentary count = 2
+      expect(html).toContain('Western (1) —');
+      expect(html).toContain('Documentary (2) —');
     });
   });
 
