@@ -27,7 +27,7 @@ import {
 // Completed status IDs from MovieStatus table
 const COMPLETED_STATUS_IDS = [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED];
 
-// TMDB has 19 movie genres
+/** Number of official TMDB movie genres used for diversity calculation */
 const TMDB_GENRE_COUNT = 19 as const;
 
 /**
@@ -257,7 +257,17 @@ export async function computeBehaviorProfile(
 }
 
 /**
- * Compute metrics from genre profile and rating distribution
+ * Compute derived metrics from genre profile and rating distribution.
+ *
+ * Calculates four key metrics:
+ * - positiveIntensity: percentage of high ratings (8-10)
+ * - negativeIntensity: percentage of low ratings (1-4)
+ * - consistency: percentage of medium ratings (5-7) - higher = more consistent
+ * - diversity: percentage of unique genres out of 19 TMDB genres
+ *
+ * @param genreProfile - User's genre preferences (keys are genre names)
+ * @param ratingDistribution - User's rating distribution breakdown
+ * @returns Computed metrics normalized to 0-100 scale
  */
 export function computeMetrics(
   genreProfile: GenreProfile,
