@@ -44,6 +44,7 @@ import {
   computeRatingDistribution,
   computeAverageRating,
   computeMetrics,
+  computeGenreCounts,
 } from '@/lib/taste-map/compute';
 import type { WatchListItemFull } from '@/lib/taste-map/types';
 
@@ -117,6 +118,54 @@ describe('computeGenreProfile', () => {
   it('handles movie with no genres', () => {
     const movies = [createMovie({ userRating: 8, genres: [] })];
     expect(computeGenreProfile(movies)).toEqual({});
+  });
+});
+
+describe('computeGenreCounts', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('handles empty array', () => {
+    expect(computeGenreCounts([])).toEqual({});
+  });
+
+  it('counts single movie with one genre', () => {
+    const movies = [createMovie({ genres: [{ id: 28, name: 'Action' }] })];
+    expect(computeGenreCounts(movies)).toEqual({ Action: 1 });
+  });
+
+  it('counts single movie with multiple genres', () => {
+    const movies = [createMovie({
+      genres: [{ id: 28, name: 'Action' }, { id: 12, name: 'Adventure' }],
+    })];
+    const result = computeGenreCounts(movies);
+    expect(result.Action).toBe(1);
+    expect(result.Adventure).toBe(1);
+  });
+
+  it('sums counts for multiple movies with overlapping genres', () => {
+    const movies = [
+      createMovie({ genres: [{ id: 28, name: 'Action' }] }),
+      createMovie({ genres: [{ id: 28, name: 'Action' }, { id: 18, name: 'Drama' }] }),
+    ];
+    const result = computeGenreCounts(movies);
+    expect(result.Action).toBe(2);
+    expect(result.Drama).toBe(1);
+  });
+
+  it('handles movies with no genres gracefully', () => {
+    const movies = [
+      createMovie({ genres: [] }),
+      createMovie({ genres: [{ id: 28, name: 'Action' }] }),
+    ];
+    expect(computeGenreCounts(movies)).toEqual({ Action: 1 });
+  });
+
+  it('counts each movie once per genre', () => {
+    const movies = [
+      createMovie({ genres: [{ id: 28, name: 'Action' }, { id: 28, name: 'Action' }] }),
+    ];
+    // A movie with duplicate genre entries should count once
+    expect(computeGenreCounts(movies)).toEqual({ Action: 1 });
   });
 });
 
@@ -279,14 +328,19 @@ describe('computeMetrics', () => {
     expect(result.consistency).toBe(30);
   });
 
-  it('computes diversity based on genres with weight > 20', () => {
+  it('computes diversity as percentage of unique genres', () => {
     const genreProfile = { Action: 50, Drama: 10, Comedy: 30, Thriller: 5 };
     const result = computeMetrics(genreProfile, { high: 0, medium: 100, low: 0 });
-    expect(result.diversity).toBe(10);
+    expect(result.diversity).toBe(21);
   });
 
-  it('caps diversity at 100 even with many genres', () => {
-    const genreProfile = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`Genre${i}`, 30]));
+  it('caps diversity at 100 when all 19 genres present', () => {
+    const genreProfile = {
+      Action: 50, Adventure: 50, Animation: 50, Comedy: 50, Crime: 50,
+      Documentary: 50, Drama: 50, Family: 50, Fantasy: 50, History: 50,
+      Horror: 50, Music: 50, Mystery: 50, Romance: 50, 'Science Fiction': 50,
+      'TV Movie': 50, Thriller: 50, War: 50, Western: 50,
+    };
     const result = computeMetrics(genreProfile, { high: 0, medium: 100, low: 0 });
     expect(result.diversity).toBe(100);
   });
@@ -347,6 +401,7 @@ describe('Async Functions', () => {
       const result = await computeTasteMap('user123');
       expect(result.userId).toBe('user123');
       expect(result.genreProfile).toEqual({});
+      expect(result.genreCounts).toEqual({});
       expect(result.ratingDistribution).toEqual({ high: 0, medium: 0, low: 0 });
       expect(result.averageRating).toBe(0);
     });
@@ -375,6 +430,8 @@ describe('Async Functions', () => {
 
       expect(result.genreProfile['Action']).toBe(90);
       expect(result.genreProfile['Drama']).toBe(70);
+      expect(result.genreCounts['Action']).toBe(1);
+      expect(result.genreCounts['Drama']).toBe(1);
       // Actor A appears in both movies: (9+7)/2 = 8 -> 80
       expect(result.personProfiles.actors['Actor A']).toBe(80);
       // Director X appears in both movies due to mock returning same crew for both, average (9+7)/2=8 -> 80

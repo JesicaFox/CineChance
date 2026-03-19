@@ -27,6 +27,32 @@ import {
 // Completed status IDs from MovieStatus table
 const COMPLETED_STATUS_IDS = [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED];
 
+/** Number of official TMDB movie genres used for diversity calculation */
+const TMDB_GENRE_COUNT = 19 as const;
+
+/**
+ * Compute genre counts from watched movies
+ * Counts how many times each genre appears across all watched movies
+ * Each movie contributes once per genre (deduplicates within the same movie)
+ * @param watchedMovies - Array of watched movies with genres
+ * @returns Record mapping genre names to occurrence counts
+ */
+export function computeGenreCounts(watchedMovies: WatchListItemFull[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const movie of watchedMovies) {
+    const genres = movie.genres || [];
+    // Deduplicate genres within the same movie
+    const uniqueGenres = new Set<string>();
+    for (const genre of genres) {
+      uniqueGenres.add(genre.name);
+    }
+    for (const name of uniqueGenres) {
+      counts[name] = (counts[name] || 0) + 1;
+    }
+  }
+  return counts;
+}
+
 /**
  * Compute genre profile from watched movies
  * Aggregates ratings by genre, returns 0-100 scale
@@ -254,7 +280,17 @@ export async function computeBehaviorProfile(
 }
 
 /**
- * Compute metrics from genre profile and rating distribution
+ * Compute derived metrics from genre profile and rating distribution.
+ *
+ * Calculates four key metrics:
+ * - positiveIntensity: percentage of high ratings (8-10)
+ * - negativeIntensity: percentage of low ratings (1-4)
+ * - consistency: percentage of medium ratings (5-7) - higher = more consistent
+ * - diversity: percentage of unique genres out of 19 TMDB genres
+ *
+ * @param genreProfile - User's genre preferences (keys are genre names)
+ * @param ratingDistribution - User's rating distribution breakdown
+ * @returns Computed metrics normalized to 0-100 scale
  */
 export function computeMetrics(
   genreProfile: GenreProfile,
@@ -270,10 +306,9 @@ export function computeMetrics(
   // High medium % = high consistency
   const consistency = ratingDistribution.medium;
 
-  // Diversity: number of genres with significant presence (>20)
-  const genreCount = Object.values(genreProfile).filter(v => v > 20).length;
-  // Scale to 0-100 (cap at 20 genres for 100%)
-  const diversity = Math.min(100, genreCount * 5);
+  // Diversity: percentage of unique genres out of 19 TMDB genres
+  const genreCount = Object.keys(genreProfile).length;
+  const diversity = Math.round((genreCount / TMDB_GENRE_COUNT) * 100);
 
   return { positiveIntensity, negativeIntensity, consistency, diversity };
 }
@@ -353,6 +388,7 @@ export async function computeTasteMap(userId: string): Promise<TasteMap> {
     return {
       userId,
       genreProfile: {},
+      genreCounts: {},
       ratingDistribution: { high: 0, medium: 0, low: 0 },
       averageRating: 0,
       personProfiles: { actors: {}, directors: {} },
@@ -371,6 +407,7 @@ export async function computeTasteMap(userId: string): Promise<TasteMap> {
 
   // Compute profiles
   const genreProfile = computeGenreProfile(watchListItems);
+  const genreCounts = computeGenreCounts(watchListItems);
   const personProfiles = computePersonProfile(watchListItems);
   const typeProfile = computeTypeProfile(watchListItems);
   const ratingDistribution = computeRatingDistribution(watchListItems);
@@ -381,6 +418,7 @@ export async function computeTasteMap(userId: string): Promise<TasteMap> {
   const tasteMap: TasteMap = {
     userId,
     genreProfile,
+    genreCounts,
     ratingDistribution,
     averageRating,
     personProfiles,

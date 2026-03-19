@@ -408,7 +408,7 @@ export const fetchMediaDetails = async (
   try {
     const url = new URL(`${BASE_URL}/${mediaType}/${tmdbId}`);
     url.searchParams.append('api_key', TMDB_API_KEY || '');
-    url.searchParams.append('language', 'ru-RU');
+    url.searchParams.append('language', 'en-US');
     url.searchParams.append('append_to_response', 'credits');
 
     const controller = new AbortController();

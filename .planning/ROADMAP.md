@@ -331,4 +331,28 @@ Plans:
 
 ---
 
+### Phase 26: Genre Profile Diversity Fix — PLANNED
+
+**Goal:** Correct the "Diversity" metric in TasteMap profile metrics to show percentage of unique TMDB genres (out of 19) that the user has watched, instead of incorrectly filtering by rating threshold.
+**Depends on:** Phase 25
+
+**Requirements:** [DIV-01]
+
+Plans:
+- [ ] 26-01-PLAN.md — Fix diversity calculation in computeMetrics and update tests
+
+---
+
+### Phase 27: Genre Stats Display — PLANNED
+
+**Goal:** Add "Ваши жанры" block to TasteMap page showing horizontal bars for each TMDB genre with movie count and average rating.
+**Depends on:** Phase 26
+
+**Requirements:** [UI-02]
+
+Plans:
+- [ ] 27-01-PLAN.md — Add genreCounts computation and UI display
+
+---
+
 _For current project status, see .planning/PROJECT.md_
