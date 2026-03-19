@@ -7,7 +7,7 @@ import { rateLimit } from '@/middleware/rateLimit';
 import { computeAndStoreSimilarityScore, getCandidateUsersForSimilarity } from '@/lib/taste-map/similarity-storage';
 import { computeSimilarity, isSimilar } from '@/lib/taste-map/similarity';
 
-const MIN_USER_HISTORY = 5;
+const MIN_USER_HISTORY = 3;
 // No longer limiting candidate search - check ALL users with shared movies
 // Previously limited to 200 active users, now finds all potential matches
 

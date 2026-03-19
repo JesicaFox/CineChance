@@ -373,11 +373,11 @@ export function computeOverallMatch(result: SimilarityResult): number {
 
 /**
  * Check if two users are similar based on similarity threshold
- * Returns true if overallMatch > 0.5 (combining all three metrics)
+ * Returns true if overallMatch > 0.1 (combining all three metrics)
  * Previously only checked tasteSimilarity which was too restrictive
  */
 export function isSimilar(result: SimilarityResult): boolean {
-  return result.overallMatch > 0.5;
+  return result.overallMatch > 0.1;
 }
 
 // Redis key patterns for similarity data
