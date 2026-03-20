@@ -11,7 +11,8 @@ import { calculateWeightedRating } from "@/lib/calculateWeightedRating";
 import { invalidateUserCache } from "@/lib/redis";
 import { recomputeTasteMap } from '@/lib/taste-map/compute';
 import { invalidateTasteMap } from '@/lib/taste-map/redis';
-import { deleteSimilarityScoresByUser } from '@/lib/taste-map/similarity-storage';
+import { deleteSimilarityScoresByUser, computeSimilarityForUser } from '@/lib/taste-map/similarity-storage';
+import { MOVIE_STATUS_IDS } from '@/lib/movieStatusConstants';
 import { trackOutcome } from '@/lib/recommendation-outcome-tracking';
 import { incrementallyUpdatePersonProfile, ensureMoviePersonCacheExists } from '@/lib/taste-map/person-profile-v2';
 import { randomUUID } from 'crypto';
@@ -224,12 +225,24 @@ export async function POST(req: Request) {
         });
        }
 
-       // Trigger background taste map recomputation and similarity invalidation
+       // Trigger background taste map recomputation and similarity computation
        after(async () => {
          try {
            await recomputeTasteMap(session.user.id);
            await invalidateTasteMap(session.user.id);
            await deleteSimilarityScoresByUser(session.user.id);
+           
+           // Trigger similarity computation to make user visible to others
+           const watchCount = await prisma.watchList.count({
+             where: {
+               userId: session.user.id,
+               statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED] },
+             },
+           });
+           
+           if (watchCount >= 3) {
+             await computeSimilarityForUser(session.user.id, { maxCandidates: 30 });
+           }
          } catch (error) {
            logger.error('Background invalidation failed', {
              error: error instanceof Error ? error.message : String(error),
@@ -350,12 +363,24 @@ export async function POST(req: Request) {
         });
        }
 
-       // Trigger background taste map recomputation and similarity invalidation
+       // Trigger background taste map recomputation and similarity computation
        after(async () => {
          try {
            await recomputeTasteMap(session.user.id);
            await invalidateTasteMap(session.user.id);
            await deleteSimilarityScoresByUser(session.user.id);
+           
+           // Trigger similarity computation to make user visible to others
+           const watchCount = await prisma.watchList.count({
+             where: {
+               userId: session.user.id,
+               statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED] },
+             },
+           });
+           
+           if (watchCount >= 3) {
+             await computeSimilarityForUser(session.user.id, { maxCandidates: 30 });
+           }
          } catch (error) {
            logger.error('Background invalidation failed', {
              error: error instanceof Error ? error.message : String(error),
@@ -543,12 +568,30 @@ export async function POST(req: Request) {
       }
      }
 
-     // Trigger background taste map recomputation and similarity invalidation
+     // Trigger background taste map recomputation and similarity computation
      after(async () => {
        try {
          await recomputeTasteMap(session.user.id);
          await invalidateTasteMap(session.user.id);
          await deleteSimilarityScoresByUser(session.user.id);
+         
+         // Trigger similarity computation to make user visible to others
+         // Only if user has 3+ completed watches
+         const watchCount = await prisma.watchList.count({
+           where: {
+             userId: session.user.id,
+             statusId: { in: [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED] },
+           },
+         });
+         
+         if (watchCount >= 3) {
+           logger.debug('User has sufficient history, computing similarity', {
+             userId: session.user.id,
+             watchCount,
+             context: 'SimilarityTrigger',
+           });
+           await computeSimilarityForUser(session.user.id, { maxCandidates: 30 });
+         }
        } catch (error) {
          logger.error('Background invalidation failed', {
            error: error instanceof Error ? error.message : String(error),

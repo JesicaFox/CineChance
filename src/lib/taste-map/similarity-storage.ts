@@ -252,6 +252,66 @@ export async function getCandidateUsersForSimilarity(
 }
 
 /**
+ * Compute and store similarity scores for a user with their candidates.
+ * This makes the user visible to others as a potential twin.
+ * Used by trigger-based invalidation when user adds new movies.
+ */
+export async function computeSimilarityForUser(
+  userId: string,
+  options: {
+    maxCandidates?: number;
+    onProgress?: (processed: number, total: number) => void;
+  } = {}
+): Promise<{ computed: number; errors: number }> {
+  const { maxCandidates = 50, onProgress } = options;
+
+  const candidateIds = await getCandidateUsersForSimilarity(userId, maxCandidates);
+  
+  if (candidateIds.length === 0) {
+    return { computed: 0, errors: 0 };
+  }
+
+  let computed = 0;
+  let errors = 0;
+
+  logger.info('Computing similarity for user with candidates', {
+    userId,
+    candidatesCount: candidateIds.length,
+    context: 'SimilarityTrigger',
+  });
+
+  for (let i = 0; i < candidateIds.length; i++) {
+    const candidateId = candidateIds[i];
+    
+    if (onProgress && i % 10 === 0) {
+      onProgress(i, candidateIds.length);
+    }
+
+    try {
+      await computeAndStoreSimilarityScore(userId, candidateId, 'on-demand');
+      computed++;
+    } catch (error) {
+      errors++;
+      logger.debug('Failed to compute similarity for candidate', {
+        userId,
+        candidateId,
+        error: error instanceof Error ? error.message : String(error),
+        context: 'SimilarityTrigger',
+      });
+    }
+  }
+
+  logger.info('Completed similarity computation for user', {
+    userId,
+    computed,
+    errors,
+    context: 'SimilarityTrigger',
+  });
+
+  return { computed, errors };
+}
+
+/**
  * Generate a snapshot of taste map for reproducibility
  * Only stores essential data: genre profile (persons removed for simplification)
  */
@@ -425,11 +485,8 @@ export async function getUserCompletedWatchCount(
 
   const countMap = new Map<string, number>();
   for (const item of results) {
-    const itemUnknown = item as unknown;
-    const count = ('count' in itemUnknown)
-      ? (itemUnknown as { count: number }).count
-      : (itemUnknown as { _count: { _all: number } })._count._all;
-    countMap.set(item.userId, count);
+    // In Prisma 7, _count returns a number directly
+    countMap.set(item.userId, item._count);
   }
   return countMap;
 }
