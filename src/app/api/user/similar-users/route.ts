@@ -100,15 +100,14 @@ export async function GET(request: NextRequest) {
 
       const userInfoById = new Map(userInfoMap.map(u => [u.id, u] as [string, { id: string; createdAt: Date }]));
 
-      const enrichedResults = cachedTwins
-        .filter(u => u.overallMatch >= MIN_MATCH_THRESHOLD && (completedCountsMap.get(u.userId) ?? 0) >= MIN_COMPLETED_WATCH_COUNT)
-        .map(u => ({
-          userId: u.userId,
-          overallMatch: Number((u.overallMatch * 100).toFixed(1)),
-          watchCount: completedCountsMap.get(u.userId) ?? 0,
-          memberSince: userInfoById.get(u.userId)?.createdAt,
-          source: 'cache' as const,
-        }));
+      // Enrich cached results (no additional filtering - isSimilar() was already applied before storing to cache)
+      const enrichedResults = cachedTwins.map(u => ({
+        userId: u.userId,
+        overallMatch: Number((u.overallMatch * 100).toFixed(1)),
+        watchCount: completedCountsMap.get(u.userId) ?? 0,
+        memberSince: userInfoById.get(u.userId)?.createdAt,
+        source: 'cache' as const,
+      }));
 
       return NextResponse.json({
         similarUsers: enrichedResults,
@@ -314,17 +313,8 @@ export async function GET(request: NextRequest) {
     // Get completed watch counts for candidate users
     const completedCountsMap = await getUserCompletedWatchCount(userIds);
 
-    /**
-     * Filter similar users by match threshold and minimum completed watch count.
-     * - overallMatch >= MIN_MATCH_THRESHOLD (0.4) ensures meaningful taste similarity
-     * - completedCount >= MIN_COMPLETED_WATCH_COUNT (3) ensures sufficient viewing history
-     */
-    const filteredSimilarUsers = similarUsers.filter(u =>
-      u.overallMatch >= MIN_MATCH_THRESHOLD && (completedCountsMap.get(u.userId) ?? 0) >= MIN_COMPLETED_WATCH_COUNT
-    );
-
-    // Enrich filtered results
-    const enrichedResults = filteredSimilarUsers.map(u => ({
+    // Enrich all results (no additional filtering needed - isSimilar() was already applied before storing to DB)
+    const enrichedResults = similarUsers.map(u => ({
       userId: u.userId,
       overallMatch: Number((u.overallMatch * 100).toFixed(1)), // Convert to percentage
       watchCount: completedCountsMap.get(u.userId) ?? 0,
