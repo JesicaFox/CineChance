@@ -665,11 +665,15 @@ model SimilarityScore {
   updatedAt  DateTime @updatedAt
   computedBy String // "scheduler" | "manual" | "on-demand"
 
+  // Expiration for staleness awareness (TTL: 7 days)
+  expiresAt DateTime?
+
   @@unique([userIdA, userIdB])
   @@index([userIdA])
   @@index([userIdB])
   @@index([computedAt])
   @@index([updatedAt])
+  @@index([expiresAt])
 }
 
 /**
