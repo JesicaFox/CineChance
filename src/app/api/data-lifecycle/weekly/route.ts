@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
 import { computeAllSimilarityScores } from '@/lib/tasks/computeSimilarityScores';
+import { cleanupOrphanedScores } from '@/lib/taste-map/similarity-storage';
 
 /**
  * Weekly cron endpoint for data lifecycle cleanup and similarity computation
@@ -65,7 +66,18 @@ export async function GET(request: NextRequest) {
     }
     results.cleanup = cleanupResults;
 
-    // 3. Similarity computation
+    // 3. Cleanup orphaned similarity scores (deleted users)
+    const orphanResult = await cleanupOrphanedScores();
+    results.orphans = orphanResult;
+    if (orphanResult.deleted > 0) {
+      logger.info('Cleaned up orphaned similarity scores', {
+        deleted: orphanResult.deleted,
+        orphans: orphanResult.orphans,
+        context: 'DataLifecycle',
+      });
+    }
+
+    // 5. Similarity computation
     const similarityResult = await computeAllSimilarityScores({
       limit: 100,
       offset: 0,
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
       context: 'DataLifecycle',
     });
 
-    // 4. Возвращаем результат
+    // 6. Return result
     return NextResponse.json({
       success: true,
       type: 'weekly',
