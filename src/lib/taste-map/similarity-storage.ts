@@ -516,13 +516,13 @@ export async function getSimilarityScoreStats(): Promise<{
     SELECT AVG(CAST("overallMatch" as FLOAT)) as avg FROM "SimilarityScore"
   `;
 
-  const users = await prisma.similarityScore.findMany({
+  // Get all user IDs from similarity scores (both userIdA and userIdB)
+  const allScoreRecords = await prisma.similarityScore.findMany({
     select: { userIdA: true, userIdB: true },
-    distinct: ['userIdA', 'userIdB'],
   });
 
   const uniqueUserIds = new Set<string>();
-  for (const score of users) {
+  for (const score of allScoreRecords) {
     uniqueUserIds.add(score.userIdA);
     uniqueUserIds.add(score.userIdB);
   }
