@@ -11,6 +11,34 @@ const TMDB_GENRES = [
   'TV Movie', 'Thriller', 'War', 'Western'
 ] as const;
 
+/** Genre name translations (English → Russian) */
+const GENRE_TRANSLATIONS: Record<string, string> = {
+  'Action': 'Боевик',
+  'Adventure': 'Приключения',
+  'Animation': 'Анимация',
+  'Comedy': 'Комедия',
+  'Crime': 'Криминал',
+  'Documentary': 'Документальный',
+  'Drama': 'Драма',
+  'Family': 'Семейный',
+  'Fantasy': 'Фэнтези',
+  'History': 'Исторический',
+  'Horror': 'Ужасы',
+  'Music': 'Музыка',
+  'Mystery': 'Мистика',
+  'Romance': 'Мелодрама',
+  'Science Fiction': 'Научная фантастика',
+  'TV Movie': 'Телефильм',
+  'Thriller': 'Триллер',
+  'War': 'Военный',
+  'Western': 'Вестерн',
+};
+
+/** Translate genre name to Russian */
+function translateGenre(genre: string): string {
+  return GENRE_TRANSLATIONS[genre] || genre;
+}
+
 /** Props for TasteMapClient component */
 interface TasteMapClientProps {
   /** Taste map data from server (null when loading or no data) */
