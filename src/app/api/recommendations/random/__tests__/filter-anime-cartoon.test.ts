@@ -115,8 +115,9 @@ describe('GET /api/recommendations/random - Anime/Cartoon Filter Bug', () => {
     };
 
     mockFetchMediaDetails
-      .mockResolvedValueOnce(animeDetails) // First call for anime item
-      .mockResolvedValueOnce(regularMovieDetails); // Second call for regular movie
+      .mockResolvedValueOnce(animeDetails) // First batch call
+      .mockResolvedValueOnce(regularMovieDetails) // Second batch call
+      .mockResolvedValueOnce(animeDetails); // Third call for tmdbData
 
     // Mock rating history count
     mockPrisma.ratingHistory.count.mockResolvedValue(0);
@@ -190,8 +191,9 @@ describe('GET /api/recommendations/random - Anime/Cartoon Filter Bug', () => {
     };
 
     mockFetchMediaDetails
-      .mockResolvedValueOnce(cartoonDetails) // Cartoon (non-Japanese)
-      .mockResolvedValueOnce(regularMovieDetails);
+      .mockResolvedValueOnce(cartoonDetails) // First batch call
+      .mockResolvedValueOnce(regularMovieDetails) // Second batch call
+      .mockResolvedValueOnce(cartoonDetails); // Third call for tmdbData
 
     mockPrisma.ratingHistory.count.mockResolvedValue(0);
     mockPrisma.recommendationLog.create.mockResolvedValue({ id: 'log-1' });
@@ -282,7 +284,8 @@ describe('GET /api/recommendations/random - Anime/Cartoon Filter Bug', () => {
     mockFetchMediaDetails
       .mockResolvedValueOnce(animeDetails)
       .mockResolvedValueOnce(cartoonDetails)
-      .mockResolvedValueOnce(regularMovieDetails);
+      .mockResolvedValueOnce(regularMovieDetails)
+      .mockResolvedValueOnce(animeDetails); // Fourth call for tmdbData
 
     mockPrisma.ratingHistory.count.mockResolvedValue(0);
     mockPrisma.recommendationLog.create.mockResolvedValue({ id: 'log-1' });

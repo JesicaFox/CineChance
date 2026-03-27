@@ -136,9 +136,14 @@ function parseFilterParams(url: URL): FilterParams {
 function isAnime(tmdbData: unknown): boolean {
   if (typeof tmdbData !== 'object' || tmdbData === null) return false;
   const data = tmdbData as Record<string, unknown>;
-  const isAnimation = (data.genre_ids as number[] | undefined)?.includes(16) ?? false;
+  let hasAnimationGenre = false;
+  if (Array.isArray(data.genre_ids)) {
+    hasAnimationGenre = (data.genre_ids as number[]).includes(16);
+  } else if (Array.isArray(data.genres)) {
+    hasAnimationGenre = (data.genres as Array<{ id: number }>).some(g => g.id === 16);
+  }
   const isJapanese = data.original_language === 'ja';
-  return isAnimation && isJapanese;
+  return hasAnimationGenre && isJapanese;
 }
 
 /**
@@ -148,14 +153,12 @@ function isAnime(tmdbData: unknown): boolean {
 function isCartoon(tmdbData: unknown): boolean {
   if (typeof tmdbData !== 'object' || tmdbData === null) return false;
   const data = tmdbData as Record<string, unknown>;
-  
   let hasAnimationGenre = false;
-  
   if (Array.isArray(data.genre_ids)) {
-    hasAnimationGenre = data.genre_ids.includes(16);
+    hasAnimationGenre = (data.genre_ids as number[]).includes(16);
+  } else if (Array.isArray(data.genres)) {
+    hasAnimationGenre = (data.genres as Array<{ id: number }>).some(g => g.id === 16);
   }
-  
-  // Мультфильмы: есть жанр анимации (16) И НЕ японский язык
   return hasAnimationGenre && data.original_language !== 'ja';
 }
 
@@ -571,6 +574,8 @@ export async function GET(req: Request) {
       const isCartoonItem = details.isCartoon;
       const isMovie = item.mediaType === 'movie';
       const isTv = item.mediaType === 'tv';
+      const isAnimeType = item.mediaType === 'anime';
+      const isCartoonType = item.mediaType === 'cartoon';
 
       // Если типы не указаны, включаем все
       if (types.length === 0) {
@@ -583,11 +588,11 @@ export async function GET(req: Request) {
       // - Если выбрано movie, включаем не-аниме и не-мульт фильмы
       // - Если выбрано tv, включаем не-аниме и не-мульт сериалы
 
-      if (types.includes('anime') && isAnimeItem) {
+      if (types.includes('anime') && (isAnimeType || isAnimeItem)) {
         return true;
       }
 
-      if (types.includes('cartoon') && isCartoonItem) {
+      if (types.includes('cartoon') && (isCartoonType || isCartoonItem)) {
         return true;
       }
 
@@ -858,7 +863,14 @@ export async function GET(req: Request) {
 
     // Определяем реальный тип для отображения
     const isAnimeResult = tmdbData ? isAnime(tmdbData) : false;
-    const displayMediaType = isAnimeResult ? 'anime' : (selected.mediaType === 'movie' ? 'movie' : 'tv');
+    const isCartoonResult = tmdbData ? isCartoon(tmdbData) : false;
+    const displayMediaType = selected.mediaType === 'anime' || isAnimeResult
+      ? 'anime'
+      : selected.mediaType === 'cartoon' || isCartoonResult
+        ? 'cartoon'
+        : selected.mediaType === 'movie'
+          ? 'movie'
+          : 'tv';
 
     // Определяем пользовательский статус
     const userStatusMap: Record<string, string> = {

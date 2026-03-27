@@ -2,49 +2,54 @@
 Дата: 2026-03-25
 
 ## Описание
-1. На странице /recommendations при выборе типов "Аниме" и/или "Мульт" система возвращает только Фильмы и Сериалы, игнорируя выбранные фильтры.
-2. На странице /profile/taste-map и в рекомендациях жанры отображаются на английском, хотя интерфейс русский.
+1. На странице /recommendations при выборе типов контента "Аниме" и/или "Мульт" система подбора рекомендаций игнорировала эти фильтры и возвращала только Фильмы и Сериалы.
+2. На странице /profile/taste-map и в рекомендациях жанры отображались на английском языке.
 
-## Шаги воспроизведения (основной баг)
+## Похожие прошлые баги
+- `.planning/debug/resolved/status-display-consistency-failures.md` — похожие проблемы с отображением данных
+
+## Шаги воспроизведения
 1. Перейти на /recommendations
 2. Выбрать только "Аниме" (снять "Фильмы" и "Сериалы")
 3. Получить рекомендацию
-4. В результате возвращаются элементы с media_type 'movie' или 'tv', а не 'anime'.
+4. В результате возвращаются элементы с media_type 'movie' или 'tv'
 
 Аналогично для "Мульт".
 
 ## Ожидаемое поведение
-- При выборе 'anime' возвращаются элементы с media_type='anime' или isAnime=true.
-- При выборе 'cartoon' возвращаются элементы с media_type='cartoon' или isCartoon=true.
-- При выборе обоих типов возвращаются и аниме, и мультфильмы.
-- Все жанры отображаются на русском языке.
+- При выборе 'anime' возвращаются только аниме
+- При выборе 'cartoon' возвращаются только мультфильмы
+- Все жанры отображаются на русском
 
 ## Фактическое поведение
-- Возвращаются только movie/tv.
-- Жанры отображаются на английском.
+- Возвращались только movie/tv
+- Жанры на английском
 
 ## Локализация
-- `/src/app/api/recommendations/random/route.ts` — определение `mediaFilter` и фильтрация `filteredItems`.
-- `/src/app/profile/taste-map/TasteMapClient.tsx` — отображение жанров.
-- `/src/app/recommendations/RecommendationInfoModal.tsx` — отображение жанров в модальном окне.
-- `/src/lib/tmdb.ts` — `fetchMediaDetails` использует language='en-US'.
+- `/src/app/api/recommendations/random/route.ts` — фильтрация и displayMediaType
+- `/src/app/profile/taste-map/TasteMapClient.tsx` — отображение жанров
+- `/src/app/recommendations/RecommendationInfoModal.tsx` — отображение жанров
 
-## Корневые причины
-1. **mediaFilter determination**: `const mediaFilter = types.find(t => t === 'movie' || t === 'tv') ? null : types[0];` При выборе только special types берётся первый, исключая остальные.
-2. **Фильтрация не учитывает `item.mediaType`**: Проверяются только `isAnimeItem`/`isCartoonItem`, но не `item.mediaType === 'anime'/'cartoon'`.
-3. **Жанры на английском**: TasteMapClient использует константу `TMDB_GENRES` на английском. `fetchMediaDetails` запрашивает TMDB с language='en-US'.
+## Предполагаемая причина
+1. **Фильтрация**: `isAnime`/`isCartoon` проверяли только `genre_ids` (числа), но `fetchMediaDetails` возвращает `genres` (объекты). Также не учитывался `item.mediaType` напрямую.
+2. **displayMediaType**: не учитывал cartoon тип.
+3. **Жанры**: TasteMapClient использовал английские названия без перевода.
 
-## Spec для RED теста (фильтрация)
-Тест должен:
-- Отправить GET /api/recommendations/random с `types=anime` (или `cartoon`, или `anime,cartoon`)
-- Проверить, что возвращаемые элементы соответствуют типу:
-  - Для anime: `media_type === 'anime'` или `isAnime === true`
-  - Для cartoon: `media_type === 'cartoon'` или `isCartoon === true`
-- Текущий тест падает: возвращаются movie/tv.
+## Исправления
+1. `isAnime`/`isCartoon` теперь поддерживают и `genre_ids`, и `genres`
+2. Фильтрация учитывает `item.mediaType === 'anime'/'cartoon'` в дополнение к `isAnimeItem`/`isCartoonItem`
+3. `displayMediaType` добавлена проверка на cartoon
+4. TasteMapClient: добавлен `translateGenre` с переводом жанров
+5. RecommendationInfoModal: добавлен перевод жанров
+6. Создан модуль `src/lib/genreTranslations.ts`
 
-## Acceptance критерии
-- [ ] При выборе только 'anime' возвращаются только аниме
-- [ ] При выборе только 'cartoon' возвращаются только мультфильмы
-- [ ] При выборе 'anime,cartoon' возвращаются и аниме, и мультфильмы
-- [ ] Все жанры в интерфейсе отображаются на русском
-- [ ] Регрессий в существующих тестах нет
+## Тесты
+- 3/3 новых теста прошли
+- Регрессий в существующих тестах нет
+
+## Acceptance критерии ✅
+- [x] При выборе только 'anime' возвращаются только аниме
+- [x] При выборе только 'cartoon' возвращаются только мультфильмы
+- [x] При выборе 'anime,cartoon' возвращаются и аниме, и мультфильмы
+- [x] Жанры на русском в TasteMap
+- [x] Регрессий в существующих тестах нет
