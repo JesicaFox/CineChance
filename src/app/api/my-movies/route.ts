@@ -248,8 +248,20 @@ export async function GET(request: NextRequest) {
       // Fetch TMDB data
       const moviesWithDetails = await Promise.all(
         blacklistRecords.map(async (record) => {
-          // ИСПРАВЛЕНИЕ 1: Добавлено "as 'movie' | 'tv'"
-          const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+          // If mediaType is anime/cartoon, assume it was originally TV (most anime is TV)
+          // Otherwise use the mediaType directly (movie/tv)
+          const fetchType = (record.mediaType === 'anime' || record.mediaType === 'cartoon') ? 'tv' : record.mediaType;
+          
+          console.log(`[FETCH MEDIA] id=${record.tmdbId} dbType=${record.mediaType} fetchType=${fetchType}`);
+          
+          const tmdbData = await fetchMediaDetails(record.tmdbId, fetchType as 'movie' | 'tv');
+          
+          if (!tmdbData) {
+            console.warn(`[NO TMDB DATA] id=${record.tmdbId} type=${fetchType}`);
+          } else {
+            console.log(`[TMDB DATA OK] id=${record.tmdbId} poster=${Boolean(tmdbData.poster_path)}`);
+          }
+          
           const cineChanceData = ratingsMap.get(record.tmdbId);
 
           return {
@@ -310,9 +322,17 @@ export async function GET(request: NextRequest) {
           cineChanceVotes,
         });
 
+        // Debug anime/cartoon in hidden tab
+        if (record.mediaType === 'anime' || record.mediaType === 'cartoon') {
+          console.log(`[HIDDEN OUTPUT] ID ${record.tmdbId} (${record.mediaType}):`, {
+            genre_ids: tmdbData?.genre_ids,
+            original_language: tmdbData?.original_language,
+          });
+        }
+
         return {
           id: record.tmdbId,
-          media_type: record.mediaType as 'movie' | 'tv',
+          media_type: record.mediaType,
           title: tmdbData?.title || tmdbData?.name || 'Без названия',
           name: tmdbData?.title || tmdbData?.name || 'Без названия',
           poster_path: tmdbData?.poster_path || null,
@@ -460,9 +480,28 @@ export async function GET(request: NextRequest) {
     // Fetch TMDB data
     const moviesWithDetails = await Promise.all(
       watchListRecords.map(async (record) => {
-        const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+        // If mediaType is anime/cartoon, assume it was originally TV (most anime is TV)
+        // Otherwise use the mediaType directly (movie/tv)
+        const fetchType = (record.mediaType === 'anime' || record.mediaType === 'cartoon') ? 'tv' : record.mediaType;
+        
+        console.log(`[FETCH MEDIA] id=${record.tmdbId} dbType=${record.mediaType} fetchType=${fetchType}`);
+        
+        const tmdbData = await fetchMediaDetails(record.tmdbId, fetchType as 'movie' | 'tv');
+        
+        if (!tmdbData) {
+          console.warn(`[NO TMDB DATA] id=${record.tmdbId} type=${fetchType}`);
+        } else {
+          console.log(`[TMDB DATA OK] id=${record.tmdbId} poster=${Boolean(tmdbData.poster_path)}`);
+        }
+        
         const cineChanceData = ratingsMap.get(record.tmdbId);
 
+        // Log poster_path specifically for debugging
+        if (tmdbData && tmdbData.poster_path) {
+          console.log(`[POSTER FOUND] id=${record.tmdbId} poster=${tmdbData.poster_path}`);
+        } else if (tmdbData) {
+          console.warn(`[NO POSTER] id=${record.tmdbId} type=${record.mediaType}`);
+        }
         return {
           record,
           tmdbData,
@@ -472,6 +511,21 @@ export async function GET(request: NextRequest) {
         };
       })
     );
+
+    // Log for debugging poster issues
+    const moviesWithPosters = moviesWithDetails.filter(m => m.tmdbData?.poster_path).length;
+    const moviesWithoutPosters = moviesWithDetails.filter(m => !m.tmdbData?.poster_path).length;
+    const moviesWithGenres = moviesWithDetails.filter(m => m.tmdbData?.genre_ids && m.tmdbData.genre_ids.length > 0).length;
+    const moviesWithoutGenres = moviesWithDetails.filter(m => !m.tmdbData?.genre_ids || m.tmdbData.genre_ids.length === 0).length;
+    
+    console.log(`[MOVIE CARD DEBUG] Posters: ${moviesWithPosters}/${moviesWithDetails.length}, Genres: ${moviesWithGenres}/${moviesWithDetails.length}`);
+    
+    // Log anime specifically
+    const animeMovies = moviesWithDetails.filter(m => m.record.mediaType === 'anime');
+    console.log(`[ANIME DEBUG] Total anime in batch: ${animeMovies.length}`);
+    animeMovies.slice(0, 3).forEach(m => {
+      console.log(`  • ID ${m.record.tmdbId}: genres=${m.tmdbData?.genre_ids}, lang=${m.tmdbData?.original_language}, isAnime=${m.isAnime}`);
+    });
 
     // Filter movies
     logger.debug('Before filter', { context: 'my-movies', count: moviesWithDetails.length });
@@ -530,20 +584,12 @@ export async function GET(request: NextRequest) {
       const cineChanceRating = cineChanceData?.averageRating || null;
       const cineChanceVotes = cineChanceData?.count || 0;
 
-      // DEBUG: Log if tmdbData is null
-      if (!tmdbData) {
-        logger.warn('tmdbData is null!', {
-          context: 'my-movies',
-          tmdbId: record.tmdbId,
-          mediaType: record.mediaType,
-        });
-      } else {
-        logger.debug('tmdbData received', {
-          context: 'my-movies',
-          tmdbId: record.tmdbId,
-          hasGenreIds: Boolean(tmdbData.genre_ids && tmdbData.genre_ids.length > 0),
-          genre_ids: tmdbData.genre_ids,
-          original_language: tmdbData.original_language,
+      // Debug anime/cartoon specifically
+      if (record.mediaType === 'anime' || record.mediaType === 'cartoon') {
+        console.log(`[WATCHED OUTPUT] ID ${record.tmdbId} (${record.mediaType}):`, {
+          hasGenreIds: Boolean(tmdbData?.genre_ids && tmdbData.genre_ids.length > 0),
+          genre_ids: tmdbData?.genre_ids,
+          original_language: tmdbData?.original_language,
         });
       }
 
@@ -556,7 +602,7 @@ export async function GET(request: NextRequest) {
 
       return {
         id: record.tmdbId,
-        media_type: record.mediaType as 'movie' | 'tv',
+        media_type: record.mediaType,
         title: record.title,
         name: record.title,
         poster_path: tmdbData?.poster_path || null,

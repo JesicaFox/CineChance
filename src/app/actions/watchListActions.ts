@@ -23,7 +23,17 @@ export async function toggleMediaStatus(movie: Media, newStatus: StatusType) {
 
   const userId = session.user.id as string;
   const tmdbId = movie.id;
-  const mediaType = movie.media_type;
+  // Определяем корректный mediaType (anime/cartoon/movie/tv)
+  // Для совместимости: если нет genre_ids/original_language, fallback на movie.media_type
+  let mediaType: 'movie' | 'tv' | 'anime' | 'cartoon' = movie.media_type;
+  if (Array.isArray(movie.genre_ids) && typeof movie.original_language === 'string') {
+    const { detectMediaType } = await import('@/lib/detectMediaType');
+    mediaType = detectMediaType({
+      genre_ids: movie.genre_ids,
+      original_language: movie.original_language,
+      media_type: movie.media_type,
+    });
+  }
 
   if (newStatus === null) {
     await prisma.watchList.deleteMany({

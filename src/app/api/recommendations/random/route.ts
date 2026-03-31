@@ -457,14 +457,16 @@ export async function GET(req: Request) {
             }
             
             // Сначала проверяем кэш
-             let details: MovieDetails | null = getCachedMediaDetails(item.tmdbId, item.mediaType);
+            // Приводим mediaType к допустимому для TMDB ('movie' | 'tv')
+            let tmdbMediaType: 'movie' | 'tv' = item.mediaType === 'anime' ? 'tv' : item.mediaType === 'cartoon' ? 'movie' : (item.mediaType as 'movie' | 'tv');
+            let details: MovieDetails | null = getCachedMediaDetails(item.tmdbId, tmdbMediaType);
             
             if (!details) {
               // Если в кэше нет, запрашиваем из TMDB
-              details = await fetchMediaDetails(item.tmdbId, item.mediaType as 'movie' | 'tv');
+              details = await fetchMediaDetails(item.tmdbId, tmdbMediaType);
               // Сохраняем в кэш
               if (details) {
-                setCachedMediaDetails(item.tmdbId, item.mediaType, details);
+                setCachedMediaDetails(item.tmdbId, tmdbMediaType, details);
               }
             }
             
@@ -815,7 +817,9 @@ export async function GET(req: Request) {
     let cineChanceVoteCount = ratingHistoryCount;
 
     // 8. Получаем актуальные данные о фильме из TMDB
-    let tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+    // Приводим mediaType к допустимому для TMDB ('movie' | 'tv')
+    let tmdbMediaType: 'movie' | 'tv' = selected.mediaType === 'anime' ? 'tv' : selected.mediaType === 'cartoon' ? 'movie' : (selected.mediaType as 'movie' | 'tv');
+    let tmdbData = await fetchMediaDetails(selected.tmdbId, tmdbMediaType);
 
     // Проверяем взрослый контент
     if (filterAdult && tmdbData?.adult) {
@@ -853,7 +857,8 @@ export async function GET(req: Request) {
           },
         });
         
-        tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+        let tmdbMediaType: 'movie' | 'tv' = selected.mediaType === 'anime' ? 'tv' : selected.mediaType === 'cartoon' ? 'movie' : (selected.mediaType as 'movie' | 'tv');
+        tmdbData = await fetchMediaDetails(selected.tmdbId, tmdbMediaType);
         
         // Обновляем переменные
         cineChanceRating = watchListData?.userRating || null;
@@ -864,13 +869,28 @@ export async function GET(req: Request) {
     // Определяем реальный тип для отображения
     const isAnimeResult = tmdbData ? isAnime(tmdbData) : false;
     const isCartoonResult = tmdbData ? isCartoon(tmdbData) : false;
-    const displayMediaType = selected.mediaType === 'anime' || isAnimeResult
-      ? 'anime'
-      : selected.mediaType === 'cartoon' || isCartoonResult
-        ? 'cartoon'
-        : selected.mediaType === 'movie'
-          ? 'movie'
-          : 'tv';
+    
+    // DEBUG: Log genre_ids for anime detection
+    if (selected.mediaType === 'anime' || selected.mediaType === 'cartoon') {
+      console.log(`[REC DEBUG] ID ${selected.tmdbId} (${selected.mediaType}):`, {
+        isAnimeResult,
+        isCartoonResult,
+        genre_ids: tmdbData?.genre_ids,
+        original_language: tmdbData?.original_language,
+        genres_count: (tmdbData?.genres || []).length,
+      });
+    }
+    // Если определили аниме/мульт — всегда выставляем соответствующий тип
+    let displayMediaType: 'anime' | 'cartoon' | 'movie' | 'tv';
+    if (isAnimeResult) {
+      displayMediaType = 'anime';
+    } else if (isCartoonResult) {
+      displayMediaType = 'cartoon';
+    } else if (selected.mediaType === 'movie') {
+      displayMediaType = 'movie';
+    } else {
+      displayMediaType = 'tv';
+    }
 
     // Определяем пользовательский статус
     const userStatusMap: Record<string, string> = {
@@ -950,7 +970,7 @@ export async function GET(req: Request) {
 
     const movie = {
       id: selected.tmdbId,
-      media_type: displayMediaType,
+      media_type: isAnimeResult ? 'anime' : isCartoonResult ? 'cartoon' : displayMediaType,
       title: tmdbData?.title || selected.title,
       name: tmdbData?.name || selected.title,
       poster_path: tmdbData?.poster_path || null,
@@ -961,7 +981,8 @@ export async function GET(req: Request) {
       overview: tmdbData?.overview || '',
       runtime: tmdbData?.runtime || 0,
       genres: tmdbData?.genres || [],
-      original_language: tmdbData?.original_language,
+      genre_ids: tmdbData?.genre_ids || [],
+      original_language: tmdbData?.original_language || '',
     };
 
     sendProgress('complete', 100, { 

@@ -27,7 +27,10 @@ export async function GET(req: Request) {
   const imageUrl = searchParams.get('url');
   const fallbackUrl = searchParams.get('fallback');
   const tmdbId = searchParams.get('tmdbId') ? parseInt(searchParams.get('tmdbId')!, 10) : null;
-  const mediaType = (searchParams.get('mediaType') as 'movie' | 'tv') || 'movie';
+  let mediaType = searchParams.get('mediaType') || 'movie';
+  // Приводим к допустимым значениям для FANART_TV и TMDB
+  if (mediaType === 'anime') mediaType = 'tv';
+  if (mediaType === 'cartoon') mediaType = 'movie';
 
   if (!imageUrl) {
     return NextResponse.json({ error: 'Missing URL parameter' }, { status: 400 });

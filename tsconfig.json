@@ -30,6 +30,13 @@
       "@/app/api/auth/[...nextauth]/*": ["./src/app/api/auth/[...nextauth]/*"]
     }
   },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    },
+    "transpileOnly": true,
+    "resolveJsonModule": true
+  },
   "include": [
     "next-env.d.ts",
     "**/*.ts",

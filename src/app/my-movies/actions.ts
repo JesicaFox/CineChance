@@ -42,7 +42,7 @@ async function fetchCineChanceRatings(tmdbIds: number[]) {
 
 export interface MovieWithStatus {
   id: number;
-  media_type: 'movie' | 'tv';
+  media_type: 'movie' | 'tv' | 'anime' | 'cartoon';
   title: string;
   name: string;
   poster_path: string | null;
@@ -152,7 +152,9 @@ export async function fetchMoviesByStatus(
 
      const moviesWithStatus = await Promise.all(
        watchListRecords.map(async (record) => {
-         const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+         // If mediaType is anime/cartoon, assume it was originally TV (most anime is TV)
+         const fetchType = (record.mediaType === 'anime' || record.mediaType === 'cartoon') ? 'tv' : record.mediaType;
+         const tmdbData = await fetchMediaDetails(record.tmdbId, fetchType as 'movie' | 'tv');
          const cineChanceData = cineChanceRatings.get(record.tmdbId);
          const cineChanceRating = cineChanceData?.averageRating || null;
          const cineChanceVotes = cineChanceData?.count || 0;
@@ -167,7 +169,7 @@ export async function fetchMoviesByStatus(
          const statusName = getStatusNameById(record.statusId);
          return {
            id: record.tmdbId,
-           media_type: record.mediaType as 'movie' | 'tv',
+           media_type: record.mediaType,
            title: tmdbData?.title || tmdbData?.name || record.title,
            name: tmdbData?.title || tmdbData?.name || record.title,
            poster_path: tmdbData?.poster_path || null,
@@ -215,7 +217,9 @@ export async function fetchMoviesByStatus(
 
      hiddenMovies = await Promise.all(
        blacklistRecords.map(async (record) => {
-         const tmdbData = await fetchMediaDetails(record.tmdbId, record.mediaType as 'movie' | 'tv');
+         // If mediaType is anime/cartoon, assume it was originally TV
+         const fetchType = (record.mediaType === 'anime' || record.mediaType === 'cartoon') ? 'tv' : record.mediaType;
+         const tmdbData = await fetchMediaDetails(record.tmdbId, fetchType as 'movie' | 'tv');
          const cineChanceData = blacklistRatings.get(record.tmdbId);
          const cineChanceRating = cineChanceData?.averageRating || null;
          const cineChanceVotes = cineChanceData?.count || 0;
@@ -229,7 +233,7 @@ export async function fetchMoviesByStatus(
 
          return {
            id: record.tmdbId,
-           media_type: record.mediaType as 'movie' | 'tv',
+           media_type: record.mediaType,
            title: tmdbData?.title || tmdbData?.name || 'Без названия',
            name: tmdbData?.title || tmdbData?.name || 'Без названия',
            poster_path: tmdbData?.poster_path || null,

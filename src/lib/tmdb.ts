@@ -6,7 +6,7 @@ import { TMDbCast, TMDBCrew, TMDbPerson } from './types/tmdb';
 
 export interface Media {
   id: number;
-  media_type: 'movie' | 'tv';
+  media_type: 'movie' | 'tv' | 'anime' | 'cartoon';
   title: string;
   name?: string;
   poster_path: string | null;
@@ -388,6 +388,7 @@ export interface MovieDetails {
   runtime?: number;
   episode_run_time?: number[];
   genres?: { id: number; name: string }[];
+  genre_ids?: number[];
   original_language?: string;
   adult?: boolean;
 }
@@ -441,6 +442,7 @@ export const fetchMediaDetails = async (
       runtime: data.runtime,
       episode_run_time: data.episode_run_time,
       genres: data.genres || [],
+      genre_ids: (data.genres || []).map((g: any) => g.id),
       original_language: data.original_language,
       adult: data.adult || false,
     };

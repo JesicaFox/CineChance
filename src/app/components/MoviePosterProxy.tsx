@@ -125,12 +125,12 @@ const MoviePosterProxy = memo(({
     const timestamp = retryCount > 0 ? `&t=${Date.now()}` : '';
     
     // Передаем tmdbId и mediaType для использования FANART_TV как fallback
+    // mediaType теперь может быть 'anime', 'animated', 'movie', 'tv'
     const params = new URLSearchParams({
       url: tmdbUrl,
       tmdbId: String(movie.id),
       mediaType: movie.media_type || 'movie',
     });
-    
     return `/api/image-proxy?${params}${timestamp}`;
   };
 

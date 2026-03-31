@@ -137,6 +137,12 @@ export default function MovieCard({
   initialRatingCount,
   index
 }: MovieCardProps) {
+  // DEBUG: Выводим media_type для отладки
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log('[MovieCard] media_type:', movie.media_type, movie);
+  }
+  
   const [showOverlay, setShowOverlay] = useState(false);
   const [status, setStatus] = useState<MediaStatus>(initialStatus ?? null);
   const [isBlacklisted, setIsBlacklisted] = useState<boolean>(initialIsBlacklisted ?? false);
@@ -198,14 +204,22 @@ export default function MovieCard({
     });
   }
   
+  // Вычисляем тип контента (аниме/мульт/фильм/сериал) для корректной плашки и передачи в постер
   const mediaTypeConfig = useMemo(() => {
     const config = getMediaTypeDisplay(movie);
-    // DEBUG: Log result
     if (process.env.NODE_ENV === 'development') {
       console.log('[MovieCard] getMediaTypeDisplay result:', config);
     }
     return config;
   }, [movie]);
+
+  // Формируем расширенный объект для передачи в MoviePosterProxy
+  const movieWithDisplayType = useMemo(() => {
+    return {
+      ...movie,
+      media_type: mediaTypeConfig.displayType, // 'anime', 'cartoon', 'movie', 'tv'
+    };
+  }, [movie, mediaTypeConfig.displayType]);
 
   const combinedRating = useMemo(() => {
     return calculateCineChanceScore({
@@ -732,7 +746,7 @@ export default function MovieCard({
 
             <MoviePosterProxy
               key={movie.id}
-              movie={movie}
+              movie={movieWithDisplayType}
               priority={priority}
               isBlacklisted={isBlacklisted}
               restoreView={restoreView}

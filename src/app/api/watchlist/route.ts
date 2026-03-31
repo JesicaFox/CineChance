@@ -143,7 +143,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { tmdbId, mediaType, status, title, voteAverage, userRating, watchedDate, isRewatch, isRatingOnly, recommendationLogId } = body;
+    let { tmdbId, mediaType, status, title, voteAverage, userRating, watchedDate, isRewatch, isRatingOnly, recommendationLogId, genre_ids, original_language } = body;
+
+    // Определяем корректный mediaType (anime/cartoon/movie/tv) если есть данные
+    if (Array.isArray(genre_ids) && typeof original_language === 'string') {
+      const { detectMediaType } = await import('@/lib/detectMediaType');
+      mediaType = detectMediaType({
+        genre_ids,
+        original_language,
+        media_type: mediaType,
+      });
+    }
     
     logger.debug(formatWatchlistLog(requestId, endpoint, session.user.id, 'request', tmdbId, `status: ${status}, isRewatch: ${isRewatch}, isRatingOnly: ${isRatingOnly}`));
 

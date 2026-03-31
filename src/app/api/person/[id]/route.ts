@@ -6,7 +6,7 @@ import { rateLimit } from '@/middleware/rateLimit';
 
 interface CreditRaw {
   id: number;
-  media_type: 'movie' | 'tv';
+  media_type: 'movie' | 'tv' | 'anime' | 'cartoon';
   title?: string;
   name?: string;
   poster_path: string | null;
