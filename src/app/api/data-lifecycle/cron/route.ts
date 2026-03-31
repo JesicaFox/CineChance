@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { rateLimit } from '@/middleware/rateLimit';
+import { computeAllSimilarityScores } from '@/lib/tasks/computeSimilarityScores';
 
 /**
- * Cron endpoint for daily data lifecycle cleanup
+ * Cron endpoint for daily data lifecycle cleanup + similarity computation
  * Runs at 4:00 AM UTC daily
- * 
- * Vercel automatically adds CRON_SECRET header to cron requests
- * This endpoint acts as a proxy to the main cleanup API with proper authentication
  */
 
 // Поля дат для разных таблиц
@@ -48,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results: Record<string, { deleted: number; error?: string }> = {};
+    const results: Record<string, unknown> = {};
     const cutoffDate = new Date();
 
     // 2. Очищаем каждую таблицу согласно политике хранения
@@ -69,7 +67,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. Возвращаем результат
+    // 3. Similarity computation (every day)
+    const similarityResult = await computeAllSimilarityScores({ limit: 50 });
+    results.similarity = {
+      computed: similarityResult.computed,
+      processed: similarityResult.processed,
+      errors: similarityResult.errors,
+    };
+    logger.info('Daily similarity computation completed', {
+      computed: similarityResult.computed,
+      processed: similarityResult.processed,
+      errors: similarityResult.errors,
+      context: 'Cron',
+    });
+
+    // 4. Возвращаем результат
     return NextResponse.json({
       success: true,
       executedAt: new Date().toISOString(),

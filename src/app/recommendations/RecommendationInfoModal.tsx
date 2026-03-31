@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/tagsActions';
 import { logger } from '@/lib/logger';
 import { getMediaTypeDisplay } from '@/lib/mediaType';
+import { translateGenre } from '@/lib/genreTranslations';
 
 type MediaStatus = 'want' | 'watched' | 'dropped' | 'rewatched' | null;
 
@@ -23,7 +24,7 @@ interface CastMember {
 
 interface MovieData {
   id: number;
-  media_type: 'movie' | 'tv' | 'anime';
+  media_type: 'movie' | 'tv' | 'anime' | 'cartoon';
   title: string;
   name: string;
   poster_path: string | null;
@@ -508,7 +509,7 @@ export default function RecommendationInfoModal({
                           key={index}
                           className="text-xs sm:text-sm text-white bg-blue-500/10 px-2 py-1 rounded-md"
                         >
-                          {genre}
+                          {translateGenre(genre)}
                         </span>
                       ))}
                     </div>

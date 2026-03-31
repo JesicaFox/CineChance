@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 
 interface MovieData {
   id: number;
-  media_type: 'movie' | 'tv' | 'anime';
+  media_type: 'movie' | 'tv' | 'anime' | 'cartoon';
   title: string;
   name: string;
   poster_path: string | null;

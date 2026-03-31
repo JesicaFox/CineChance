@@ -14,7 +14,7 @@ export interface MediaTypeConfig {
   /** Whether this is Western animation */
   isAnimated: boolean;
   /** Internal display type for logic */
-  displayType: 'movie' | 'tv' | 'anime' | 'animated';
+  displayType: 'movie' | 'tv' | 'anime' | 'cartoon';
 }
 
 const ANIME_COLOR = '#9C40FE';
@@ -37,31 +37,36 @@ export function getMediaTypeDisplay(movie: Media): MediaTypeConfig {
   const hasAnimationGenre = movie.genre_ids?.includes(16) ?? false;
   const isJapanese = movie.original_language === 'ja';
 
-  console.log('[getMediaTypeDisplay] Analyzing movie:', {
-    id: movie.id,
-    title: movie.title || movie.name,
-    genre_ids: movie.genre_ids,
-    hasAnimationGenre,
-    original_language: movie.original_language,
-    isJapanese,
-    media_type: movie.media_type,
-  });
+  // DEBUG логирование
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[getMediaTypeDisplay] Input:', {
+      media_type: movie.media_type,
+      genre_ids: movie.genre_ids,
+      original_language: movie.original_language,
+      hasAnimationGenre,
+      isJapanese,
+    });
+  }
+
+  // Приоритет: если media_type явно 'anime' или 'cartoon', всегда возвращаем соответствующую плашку
+  if (movie.media_type === 'anime') {
+    return { label: 'Аниме', backgroundColor: ANIME_COLOR, isAnime: true, isAnimated: false, displayType: 'anime' };
+  }
+  if (movie.media_type === 'cartoon') {
+    return { label: 'Мульт', backgroundColor: ANIMATED_COLOR, isAnime: false, isAnimated: true, displayType: 'cartoon' };
+  }
 
   if (hasAnimationGenre && isJapanese) {
-    console.log('[getMediaTypeDisplay] Result: АНИМЕ');
     return { label: 'Аниме', backgroundColor: ANIME_COLOR, isAnime: true, isAnimated: false, displayType: 'anime' };
   }
 
   if (hasAnimationGenre && !isJapanese) {
-    console.log('[getMediaTypeDisplay] Result: МУЛЬТ');
-    return { label: 'Мульт', backgroundColor: ANIMATED_COLOR, isAnime: false, isAnimated: true, displayType: 'animated' };
+    return { label: 'Мульт', backgroundColor: ANIMATED_COLOR, isAnime: false, isAnimated: true, displayType: 'cartoon' };
   }
 
   if (movie.media_type === 'movie') {
-    console.log('[getMediaTypeDisplay] Result: ФИЛЬМ');
     return { label: 'Фильм', backgroundColor: MOVIE_COLOR, isAnime: false, isAnimated: false, displayType: 'movie' };
   }
 
-  console.log('[getMediaTypeDisplay] Result: СЕРИАЛ');
   return { label: 'Сериал', backgroundColor: TV_COLOR, isAnime: false, isAnimated: false, displayType: 'tv' };
 }

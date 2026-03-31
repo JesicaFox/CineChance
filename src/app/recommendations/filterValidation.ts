@@ -145,7 +145,7 @@ export function normalizeFilters(
 } {
   // Нормализация типов
   const normalizedTypes = types.filter(type => 
-    ['movie', 'tv', 'anime'].includes(type)
+    ['movie', 'tv', 'anime', 'cartoon'].includes(type)
   );
 
   // Нормализация списков

@@ -17,11 +17,12 @@ describe('getUserCompletedWatchCount', () => {
   });
 
   it('returns Map with correct counts for multiple users using groupBy', async () => {
+    // Prisma 7 returns { userId: string, _count: number }
     const mockResult = [
-      { userId: 'u1', count: 5 },
-      { userId: 'u2', count: 2 },
+      { userId: 'u1', _count: 5 },
+      { userId: 'u2', _count: 2 },
     ];
-    vi.mocked(prisma.watchList.groupBy).mockResolvedValue(mockResult);
+    vi.mocked(prisma.watchList.groupBy).mockResolvedValue(mockResult as any);
 
     const result = await getUserCompletedWatchCount(['u1', 'u2', 'u3']);
 
@@ -55,10 +56,11 @@ describe('getUserCompletedWatchCount', () => {
   });
 
   it('only counts items with WATCHED status', async () => {
+    // Prisma 7 returns { userId: string, _count: number }
     const mockResult = [
-      { userId: 'u1', count: 3 },
+      { userId: 'u1', _count: 3 },
     ];
-    vi.mocked(prisma.watchList.groupBy).mockResolvedValue(mockResult);
+    vi.mocked(prisma.watchList.groupBy).mockResolvedValue(mockResult as any);
 
     const result = await getUserCompletedWatchCount(['u1']);
 
@@ -73,11 +75,12 @@ describe('getUserCompletedWatchCount', () => {
   });
 
   it('handles user with no completed items (missing from groupBy result)', async () => {
+    // Prisma 7 returns { userId: string, _count: number }
     const mockResult = [
-      { userId: 'u1', count: 5 },
+      { userId: 'u1', _count: 5 },
       // u2 has no completed items, so not in result
     ];
-    vi.mocked(prisma.watchList.groupBy).mockResolvedValue(mockResult);
+    vi.mocked(prisma.watchList.groupBy).mockResolvedValue(mockResult as any);
 
     const result = await getUserCompletedWatchCount(['u1', 'u2']);
 

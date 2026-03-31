@@ -136,9 +136,14 @@ function parseFilterParams(url: URL): FilterParams {
 function isAnime(tmdbData: unknown): boolean {
   if (typeof tmdbData !== 'object' || tmdbData === null) return false;
   const data = tmdbData as Record<string, unknown>;
-  const isAnimation = (data.genre_ids as number[] | undefined)?.includes(16) ?? false;
+  let hasAnimationGenre = false;
+  if (Array.isArray(data.genre_ids)) {
+    hasAnimationGenre = (data.genre_ids as number[]).includes(16);
+  } else if (Array.isArray(data.genres)) {
+    hasAnimationGenre = (data.genres as Array<{ id: number }>).some(g => g.id === 16);
+  }
   const isJapanese = data.original_language === 'ja';
-  return isAnimation && isJapanese;
+  return hasAnimationGenre && isJapanese;
 }
 
 /**
@@ -148,14 +153,12 @@ function isAnime(tmdbData: unknown): boolean {
 function isCartoon(tmdbData: unknown): boolean {
   if (typeof tmdbData !== 'object' || tmdbData === null) return false;
   const data = tmdbData as Record<string, unknown>;
-  
   let hasAnimationGenre = false;
-  
   if (Array.isArray(data.genre_ids)) {
-    hasAnimationGenre = data.genre_ids.includes(16);
+    hasAnimationGenre = (data.genre_ids as number[]).includes(16);
+  } else if (Array.isArray(data.genres)) {
+    hasAnimationGenre = (data.genres as Array<{ id: number }>).some(g => g.id === 16);
   }
-  
-  // Мультфильмы: есть жанр анимации (16) И НЕ японский язык
   return hasAnimationGenre && data.original_language !== 'ja';
 }
 
@@ -454,14 +457,16 @@ export async function GET(req: Request) {
             }
             
             // Сначала проверяем кэш
-             let details: MovieDetails | null = getCachedMediaDetails(item.tmdbId, item.mediaType);
+            // Приводим mediaType к допустимому для TMDB ('movie' | 'tv')
+            let tmdbMediaType: 'movie' | 'tv' = item.mediaType === 'anime' ? 'tv' : item.mediaType === 'cartoon' ? 'movie' : (item.mediaType as 'movie' | 'tv');
+            let details: MovieDetails | null = getCachedMediaDetails(item.tmdbId, tmdbMediaType);
             
             if (!details) {
               // Если в кэше нет, запрашиваем из TMDB
-              details = await fetchMediaDetails(item.tmdbId, item.mediaType as 'movie' | 'tv');
+              details = await fetchMediaDetails(item.tmdbId, tmdbMediaType);
               // Сохраняем в кэш
               if (details) {
-                setCachedMediaDetails(item.tmdbId, item.mediaType, details);
+                setCachedMediaDetails(item.tmdbId, tmdbMediaType, details);
               }
             }
             
@@ -571,6 +576,8 @@ export async function GET(req: Request) {
       const isCartoonItem = details.isCartoon;
       const isMovie = item.mediaType === 'movie';
       const isTv = item.mediaType === 'tv';
+      const isAnimeType = item.mediaType === 'anime';
+      const isCartoonType = item.mediaType === 'cartoon';
 
       // Если типы не указаны, включаем все
       if (types.length === 0) {
@@ -583,11 +590,11 @@ export async function GET(req: Request) {
       // - Если выбрано movie, включаем не-аниме и не-мульт фильмы
       // - Если выбрано tv, включаем не-аниме и не-мульт сериалы
 
-      if (types.includes('anime') && isAnimeItem) {
+      if (types.includes('anime') && (isAnimeType || isAnimeItem)) {
         return true;
       }
 
-      if (types.includes('cartoon') && isCartoonItem) {
+      if (types.includes('cartoon') && (isCartoonType || isCartoonItem)) {
         return true;
       }
 
@@ -810,7 +817,9 @@ export async function GET(req: Request) {
     let cineChanceVoteCount = ratingHistoryCount;
 
     // 8. Получаем актуальные данные о фильме из TMDB
-    let tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+    // Приводим mediaType к допустимому для TMDB ('movie' | 'tv')
+    let tmdbMediaType: 'movie' | 'tv' = selected.mediaType === 'anime' ? 'tv' : selected.mediaType === 'cartoon' ? 'movie' : (selected.mediaType as 'movie' | 'tv');
+    let tmdbData = await fetchMediaDetails(selected.tmdbId, tmdbMediaType);
 
     // Проверяем взрослый контент
     if (filterAdult && tmdbData?.adult) {
@@ -848,7 +857,8 @@ export async function GET(req: Request) {
           },
         });
         
-        tmdbData = await fetchMediaDetails(selected.tmdbId, selected.mediaType as 'movie' | 'tv');
+        let tmdbMediaType: 'movie' | 'tv' = selected.mediaType === 'anime' ? 'tv' : selected.mediaType === 'cartoon' ? 'movie' : (selected.mediaType as 'movie' | 'tv');
+        tmdbData = await fetchMediaDetails(selected.tmdbId, tmdbMediaType);
         
         // Обновляем переменные
         cineChanceRating = watchListData?.userRating || null;
@@ -858,7 +868,29 @@ export async function GET(req: Request) {
 
     // Определяем реальный тип для отображения
     const isAnimeResult = tmdbData ? isAnime(tmdbData) : false;
-    const displayMediaType = isAnimeResult ? 'anime' : (selected.mediaType === 'movie' ? 'movie' : 'tv');
+    const isCartoonResult = tmdbData ? isCartoon(tmdbData) : false;
+    
+    // DEBUG: Log genre_ids for anime detection
+    if (selected.mediaType === 'anime' || selected.mediaType === 'cartoon') {
+      console.log(`[REC DEBUG] ID ${selected.tmdbId} (${selected.mediaType}):`, {
+        isAnimeResult,
+        isCartoonResult,
+        genre_ids: tmdbData?.genre_ids,
+        original_language: tmdbData?.original_language,
+        genres_count: (tmdbData?.genres || []).length,
+      });
+    }
+    // Если определили аниме/мульт — всегда выставляем соответствующий тип
+    let displayMediaType: 'anime' | 'cartoon' | 'movie' | 'tv';
+    if (isAnimeResult) {
+      displayMediaType = 'anime';
+    } else if (isCartoonResult) {
+      displayMediaType = 'cartoon';
+    } else if (selected.mediaType === 'movie') {
+      displayMediaType = 'movie';
+    } else {
+      displayMediaType = 'tv';
+    }
 
     // Определяем пользовательский статус
     const userStatusMap: Record<string, string> = {
@@ -938,7 +970,7 @@ export async function GET(req: Request) {
 
     const movie = {
       id: selected.tmdbId,
-      media_type: displayMediaType,
+      media_type: isAnimeResult ? 'anime' : isCartoonResult ? 'cartoon' : displayMediaType,
       title: tmdbData?.title || selected.title,
       name: tmdbData?.name || selected.title,
       poster_path: tmdbData?.poster_path || null,
@@ -949,7 +981,8 @@ export async function GET(req: Request) {
       overview: tmdbData?.overview || '',
       runtime: tmdbData?.runtime || 0,
       genres: tmdbData?.genres || [],
-      original_language: tmdbData?.original_language,
+      genre_ids: tmdbData?.genre_ids || [],
+      original_language: tmdbData?.original_language || '',
     };
 
     sendProgress('complete', 100, { 

@@ -10,8 +10,10 @@ import { computeSimilarity } from './similarity';
 import { getTasteMap, computeTasteMap } from './index';
 import { MOVIE_STATUS_IDS } from '@/lib/movieStatusConstants';
 import type { TasteMap } from './types';
+import { invalidateCache } from '@/lib/redis';
 
 const COMPLETED_STATUS_IDS = [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCHED];
+export const SIMILARITY_TTL_HOURS = 168; // 7 days
 
 /**
  * Compute and store similarity score between two users
@@ -30,6 +32,9 @@ export async function computeAndStoreSimilarityScore(
   try {
     // Ensure consistent ordering (userIdA < userIdB)
     const [orderedA, orderedB] = userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
+
+    // Calculate expiration timestamp (TTL: 7 days)
+    const expiresAt = new Date(Date.now() + SIMILARITY_TTL_HOURS * 60 * 60 * 1000);
 
     // Load taste maps with caching
     const [tasteMapA, tasteMapB] = await Promise.all([
@@ -66,6 +71,7 @@ export async function computeAndStoreSimilarityScore(
         computedAt: new Date(),
         updatedAt: new Date(),
         computedBy,
+        expiresAt,
       },
       create: {
         userIdA: orderedA,
@@ -78,6 +84,7 @@ export async function computeAndStoreSimilarityScore(
         tasteMapBSnapshot,
         computedAt: new Date(),
         computedBy,
+        expiresAt,
       },
     });
 
@@ -245,6 +252,66 @@ export async function getCandidateUsersForSimilarity(
 }
 
 /**
+ * Compute and store similarity scores for a user with their candidates.
+ * This makes the user visible to others as a potential twin.
+ * Used by trigger-based invalidation when user adds new movies.
+ */
+export async function computeSimilarityForUser(
+  userId: string,
+  options: {
+    maxCandidates?: number;
+    onProgress?: (processed: number, total: number) => void;
+  } = {}
+): Promise<{ computed: number; errors: number }> {
+  const { maxCandidates = 50, onProgress } = options;
+
+  const candidateIds = await getCandidateUsersForSimilarity(userId, maxCandidates);
+  
+  if (candidateIds.length === 0) {
+    return { computed: 0, errors: 0 };
+  }
+
+  let computed = 0;
+  let errors = 0;
+
+  logger.info('Computing similarity for user with candidates', {
+    userId,
+    candidatesCount: candidateIds.length,
+    context: 'SimilarityTrigger',
+  });
+
+  for (let i = 0; i < candidateIds.length; i++) {
+    const candidateId = candidateIds[i];
+    
+    if (onProgress && i % 10 === 0) {
+      onProgress(i, candidateIds.length);
+    }
+
+    try {
+      await computeAndStoreSimilarityScore(userId, candidateId, 'on-demand');
+      computed++;
+    } catch (error) {
+      errors++;
+      logger.debug('Failed to compute similarity for candidate', {
+        userId,
+        candidateId,
+        error: error instanceof Error ? error.message : String(error),
+        context: 'SimilarityTrigger',
+      });
+    }
+  }
+
+  logger.info('Completed similarity computation for user', {
+    userId,
+    computed,
+    errors,
+    context: 'SimilarityTrigger',
+  });
+
+  return { computed, errors };
+}
+
+/**
  * Generate a snapshot of taste map for reproducibility
  * Only stores essential data: genre profile (persons removed for simplification)
  */
@@ -252,6 +319,38 @@ export function generateTasteMapSnapshot(tasteMap: TasteMap): object {
   return {
     genreProfile: tasteMap.genreProfile,
   };
+}
+
+/**
+ * Get similarity scores with freshness flag
+ * Used by staleness-aware API endpoints
+ * Returns scores sorted by overallMatch descending
+ */
+export async function getSimilarityScoresWithFreshness(
+  userId: string,
+  limit: number = 50
+): Promise<Array<{ score: any; isFresh: boolean }>> {
+  const now = new Date();
+  
+  const scores = await prisma.similarityScore.findMany({
+    where: {
+      OR: [
+        { userIdA: userId },
+        { userIdB: userId },
+      ],
+    },
+    take: limit,
+  });
+  
+  const result = scores.map(score => ({
+    score,
+    isFresh: !score.expiresAt || score.expiresAt > now,
+  }));
+  
+  // Sort by overallMatch descending (numeric comparison)
+  result.sort((a, b) => Number(b.score.overallMatch) - Number(a.score.overallMatch));
+  
+  return result;
 }
 
 /**
@@ -342,6 +441,32 @@ export async function cleanupOrphanedScores(): Promise<{
     orphans: orphanedIds,
   };
 }
+
+/**
+ * Delete all SimilarityScore entries for a given user.
+ * Called when user changes their ratings to invalidate stale scores.
+ */
+export async function deleteSimilarityScoresByUser(userId: string): Promise<number> {
+  const result = await prisma.similarityScore.deleteMany({
+    where: {
+      OR: [
+        { userIdA: userId },
+        { userIdB: userId },
+      ],
+    },
+  });
+
+  // Invalidate Redis cache to prevent serving stale data during race condition window
+  await invalidateCache(`similar-users:v2:${userId}`);
+
+  logger.info('Deleted similarity scores for user', {
+    userId,
+    deleted: result.count,
+    context: 'SimilarityStorage',
+  });
+
+  return result.count;
+}
 /**
  * Get completed watch count for multiple users in a single query.
  * Uses groupBy to avoid N+1. Returns Map where missing users are not included (caller should use ?? 0).
@@ -360,9 +485,8 @@ export async function getUserCompletedWatchCount(
 
   const countMap = new Map<string, number>();
   for (const item of results) {
-    // Support both test mock shape (count) and real Prisma shape (_count)
-    const count = (item as any).count ?? (item as any)._count;
-    countMap.set(item.userId, count);
+    // In Prisma 7, _count returns a number directly
+    countMap.set(item.userId, item._count);
   }
   return countMap;
 }
@@ -392,13 +516,13 @@ export async function getSimilarityScoreStats(): Promise<{
     SELECT AVG(CAST("overallMatch" as FLOAT)) as avg FROM "SimilarityScore"
   `;
 
-  const users = await prisma.similarityScore.findMany({
+  // Get all user IDs from similarity scores (both userIdA and userIdB)
+  const allScoreRecords = await prisma.similarityScore.findMany({
     select: { userIdA: true, userIdB: true },
-    distinct: ['userIdA', 'userIdB'],
   });
 
   const uniqueUserIds = new Set<string>();
-  for (const score of users) {
+  for (const score of allScoreRecords) {
     uniqueUserIds.add(score.userIdA);
     uniqueUserIds.add(score.userIdB);
   }
