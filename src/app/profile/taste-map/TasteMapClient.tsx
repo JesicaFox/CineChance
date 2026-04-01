@@ -2,37 +2,7 @@
 
 import type { TasteMap } from '@/lib/taste-map/types';
 import TwinTasters from './TwinTasters';
-
-/** TMDB movie genre names in alphabetical order */
-const TMDB_GENRES = [
-  'Action', 'Adventure', 'Animation', 'Comedy', 'Crime',
-  'Documentary', 'Drama', 'Family', 'Fantasy', 'History',
-  'Horror', 'Music', 'Mystery', 'Romance', 'Science Fiction',
-  'TV Movie', 'Thriller', 'War', 'Western'
-] as const;
-
-/** Genre name translations (English → Russian) */
-const GENRE_TRANSLATIONS: Record<string, string> = {
-  'Action': 'Боевик',
-  'Adventure': 'Приключения',
-  'Animation': 'Анимация',
-  'Comedy': 'Комедия',
-  'Crime': 'Криминал',
-  'Documentary': 'Документальный',
-  'Drama': 'Драма',
-  'Family': 'Семейный',
-  'Fantasy': 'Фэнтези',
-  'History': 'Исторический',
-  'Horror': 'Ужасы',
-  'Music': 'Музыка',
-  'Mystery': 'Мистика',
-  'Romance': 'Мелодрама',
-  'Science Fiction': 'Научная фантастика',
-  'TV Movie': 'Телефильм',
-  'Thriller': 'Триллер',
-  'War': 'Военный',
-  'Western': 'Вестерн',
-};
+import { TMDB_GENRES, GENRE_TRANSLATIONS } from '@/lib/genreData';
 
 /** Translate genre name to Russian */
 function translateGenre(genre: string): string {

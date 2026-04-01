@@ -7,6 +7,7 @@
 import { prisma } from '@/lib/prisma';
 import { fetchMediaDetails } from '@/lib/tmdb';
 import { MOVIE_STATUS_IDS } from '@/lib/movieStatusConstants';
+import { GENRE_REVERSE_TRANSLATIONS } from '@/lib/genreData';
 import type {
   TasteMap,
   GenreProfile,
@@ -31,6 +32,16 @@ const COMPLETED_STATUS_IDS = [MOVIE_STATUS_IDS.WATCHED, MOVIE_STATUS_IDS.REWATCH
 const TMDB_GENRE_COUNT = 19 as const;
 
 /**
+ * Normalize genre name to English using reverse translation
+ * TMDB returns Russian genre names when language=ru-RU is used.
+ * This function converts Russian names back to English to ensure
+ * consistent keys in TasteMap data structures.
+ */
+function normalizeGenreName(name: string): string {
+  return GENRE_REVERSE_TRANSLATIONS[name] || name;
+}
+
+/**
  * Compute genre counts from watched movies
  * Counts how many times each genre appears across all watched movies
  * Each movie contributes once per genre (deduplicates within the same movie)
@@ -44,7 +55,8 @@ export function computeGenreCounts(watchedMovies: WatchListItemFull[]): Record<s
     // Deduplicate genres within the same movie
     const uniqueGenres = new Set<string>();
     for (const genre of genres) {
-      uniqueGenres.add(genre.name);
+      const normalized = normalizeGenreName(genre.name);
+      uniqueGenres.add(normalized);
     }
     for (const name of uniqueGenres) {
       counts[name] = (counts[name] || 0) + 1;
@@ -65,10 +77,11 @@ export function computeGenreProfile(watchedMovies: WatchListItemFull[]): GenrePr
     const genres = movie.genres || [];
 
     for (const genre of genres) {
-      const existing = genreMap.get(genre.name) || { totalRating: 0, count: 0 };
+      const normalized = normalizeGenreName(genre.name);
+      const existing = genreMap.get(normalized) || { totalRating: 0, count: 0 };
       existing.totalRating += rating;
       existing.count += 1;
-      genreMap.set(genre.name, existing);
+      genreMap.set(normalized, existing);
     }
   }
 
