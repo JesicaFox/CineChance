@@ -354,18 +354,33 @@ async function fetchMovieCredits(
 }
 
 /**
+ * Normalize custom mediaType values from DB to TMDB-compatible types.
+ * DB may store 'cartoon' or 'anime', but TMDB only supports 'movie' and 'tv'.
+ */
+function normalizeMediaType(mediaType: string): 'movie' | 'tv' {
+  // Cartoons on TMDB are typically movies
+  if (mediaType === 'cartoon') return 'movie';
+  // Anime on TMDB is typically TV series
+  if (mediaType === 'anime') return 'tv';
+  // Fallback: if it's already a valid TMDB type, use it
+  if (mediaType === 'movie' || mediaType === 'tv') return mediaType;
+  // Default to movie for unknown types
+  return 'movie';
+}
+
+/**
  * Build complete watch list item with TMDB details
  */
 async function buildWatchListItem(
   item: { tmdbId: number; mediaType: string; userRating: number | null; voteAverage: number }
 ): Promise<WatchListItemFull> {
-  const mediaType = item.mediaType as 'movie' | 'tv';
+  const tmdbMediaType = normalizeMediaType(item.mediaType);
   
   // Fetch TMDB details (includes genres)
-  const details = await fetchMediaDetails(item.tmdbId, mediaType);
+  const details = await fetchMediaDetails(item.tmdbId, tmdbMediaType);
   
   // Fetch credits separately
-  const credits = await fetchMovieCredits(item.tmdbId, mediaType);
+  const credits = await fetchMovieCredits(item.tmdbId, tmdbMediaType);
   
   return {
     userId: '', // Not needed for computation
