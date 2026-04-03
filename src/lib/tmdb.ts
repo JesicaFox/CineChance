@@ -423,15 +423,6 @@ export const fetchMediaDetails = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // DEBUG: Detailed logging for TMDB failures
-      console.error('[TMDB DEBUG] Fetch failed', {
-        url: url.toString().replace(TMDB_API_KEY || '', '***'),
-        status: response.status,
-        statusText: response.statusText,
-        hasApiKey: !!TMDB_API_KEY,
-        mediaType,
-        tmdbId
-      });
       logger.error('Ошибка TMDB details', { status: response.status, context: 'TMDB' });
       return null;
     }
@@ -507,15 +498,6 @@ export const getMediaCredits = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // DEBUG: Detailed logging for TMDB failures
-      console.error('[TMDB DEBUG] Fetch failed', {
-        url: url.toString().replace(TMDB_API_KEY || '', '***'),
-        status: response.status,
-        statusText: response.statusText,
-        hasApiKey: !!TMDB_API_KEY,
-        mediaType,
-        tmdbId
-      });
       logger.error('Ошибка TMDB details', { status: response.status, context: 'TMDB' });
       return null;
     }

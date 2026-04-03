@@ -426,6 +426,12 @@ export async function getSimilarUsers(userId: string): Promise<SimilarUser[]> {
   try {
     const cached = await redis.get<string>(SIMILAR_KEYS.similarUsers(userId));
     if (cached) {
+      // Handle corrupted cache entries like "[object Object]"
+      if (cached === '[object Object]' || cached.startsWith('[object ')) {
+        logger.warn('Corrupted cache detected, cleaning up', { userId, context: 'SimilarityRedis' });
+        await redis.del(SIMILAR_KEYS.similarUsers(userId));
+        return [];
+      }
       return JSON.parse(cached) as SimilarUser[];
     }
   } catch (error) {

@@ -459,36 +459,6 @@ export async function computeTasteMap(userId: string): Promise<TasteMap> {
   // Compute profiles
   const genreProfile = computeGenreProfile(watchListItems);
   const genreCounts = computeGenreCounts(watchListItems);
-  
-  // DEBUG: Log genre computation details
-  console.error('[TASTEMAP DEBUG] Genre computation', {
-    totalWatched: watchedItems.length,
-    itemsFetched: itemsToFetch.length,
-    itemsWithGenres: watchListItems.filter(i => i.genres && i.genres.length > 0).length,
-    genreCountsKeys: Object.keys(genreCounts),
-    genreCountsValues: genreCounts,
-    genreProfileKeys: Object.keys(genreProfile),
-    sampleGenres: watchListItems.filter(i => i.genres && i.genres.length > 0).slice(0, 3).map(i => ({
-      tmdbId: i.tmdbId,
-      mediaType: i.mediaType,
-      genres: i.genres
-    }))
-  });
-  
-  // DEBUG: Log genre computation details
-  console.error('[TASTEMAP DEBUG] Genre computation', {
-    totalWatched: watchedItems.length,
-    itemsFetched: itemsToFetch.length,
-    itemsWithGenres: watchListItems.filter(i => i.genres && i.genres.length > 0).length,
-    genreCountsKeys: Object.keys(genreCounts),
-    genreCountsValues: genreCounts,
-    genreProfileKeys: Object.keys(genreProfile),
-    sampleGenres: watchListItems.filter(i => i.genres && i.genres.length > 0).slice(0, 3).map(i => ({
-      tmdbId: i.tmdbId,
-      mediaType: i.mediaType,
-      genres: i.genres
-    }))
-  });
   const personProfiles = computePersonProfile(watchListItems);
   const typeProfile = computeTypeProfile(watchListItems);
   const ratingDistribution = computeRatingDistribution(watchListItems);
