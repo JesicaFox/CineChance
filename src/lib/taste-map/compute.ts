@@ -391,6 +391,12 @@ function normalizeMediaType(mediaType: string): 'movie' | 'tv' {
   return 'movie';
 }
 
+/** Max TMDB requests to send in parallel to avoid rate limiting */
+const TMDB_BATCH_SIZE = 5 as const;
+
+/** Delay between TMDB request batches (ms) to respect rate limits */
+const TMDB_BATCH_DELAY_MS = 200 as const;
+
 /**
  * Build complete watch list item with TMDB details
  */
@@ -414,6 +420,31 @@ async function buildWatchListItem(
     genres: details?.genres || [],
     credits: credits || undefined,
   };
+}
+
+/**
+ * Process items in batches with delays to avoid TMDB rate limiting
+ */
+async function processInBatches<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  batchSize: number = TMDB_BATCH_SIZE,
+  delayMs: number = TMDB_BATCH_DELAY_MS
+): Promise<R[]> {
+  const results: R[] = [];
+  
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+    
+    // Delay between batches (but not after the last one)
+    if (i + batchSize < items.length) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  return results;
 }
 
 /**
@@ -450,9 +481,10 @@ export async function computeTasteMap(userId: string): Promise<TasteMap> {
     };
   }
 
-  // Build full items with TMDB data
-  const watchListItems = await Promise.all(
-    watchedItems.map(buildWatchListItem)
+  // Build full items with TMDB data (batched to avoid rate limiting)
+  const watchListItems = await processInBatches(
+    watchedItems,
+    buildWatchListItem
   );
 
   // Compute profiles
