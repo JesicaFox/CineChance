@@ -172,6 +172,7 @@ model WatchList {
   lastRecommendedAt         DateTime?
   recommendationCount       Int             @default(0)
   weightedRating            Float?
+  genres                    Json?           // [{id: number, name: string}]
   ratingHistory             RatingHistory[]
   rewatchLogs               RewatchLog[]
   status                    MovieStatus     @relation(fields: [statusId], references: [id])

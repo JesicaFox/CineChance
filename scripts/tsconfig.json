@@ -6,7 +6,8 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "moduleResolution": "bundler"
   },
   "ts-node": {
     "transpileOnly": true,
