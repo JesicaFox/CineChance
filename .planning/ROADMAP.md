@@ -371,6 +371,20 @@ Plans:
 
 ---
 
+### Phase 30: TDD Refactoring — PLANNED
+
+**Goal:** Рефакторинг критичных файлов через TDD цикл (RED → GREEN → REFACTOR)
+**Depends on:** Phase 28
+
+**Requirements:** None (internal quality improvement)
+
+Plans:
+- [x] 30-01-PLAN.md — Этап 1: Критичные файлы (5 файлов)
+- [x] 30-02-PLAN.md — Этап 2: Средние файлы (5 файлов)
+- [x] 30-03-PLAN.md — Этап 3: Верификация (тесты, TypeScript, lint)
+
+---
+
 ## Future Backlog
 
 - Performance optimization (query caching, ISR tuning)
