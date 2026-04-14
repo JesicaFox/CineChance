@@ -16,6 +16,7 @@ import type {
   CandidateMovie,
 } from './interface';
 import { normalizeScores, DEFAULT_COOLDOWN } from './interface';
+import { ALGORITHM_CONFIG, SCORE_WEIGHTS } from './constants';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getSimilarUsers, computeSimilarity } from '@/lib/taste-map/similarity';
@@ -24,18 +25,14 @@ import { subDays } from 'date-fns';
 
 // Algorithm configuration
 const ALGORITHM_NAME = 'taste_match_v1';
-const MIN_USER_HISTORY = 10;
-const SIMILARITY_THRESHOLD = 0.7;
-const MAX_SIMILAR_USERS = 20;
-const TOP_MOVIES_PER_USER = 10;
-const MAX_RECOMMENDATIONS = 12;
+const MIN_USER_HISTORY = ALGORITHM_CONFIG.DEFAULT_MIN_USER_HISTORY * 2; // 10 - need more history for taste match
+const SIMILARITY_THRESHOLD = ALGORITHM_CONFIG.DEFAULT_SIMILARITY_THRESHOLD;
+const MAX_SIMILAR_USERS = ALGORITHM_CONFIG.DEFAULT_MAX_SIMILAR_USERS;
+const TOP_MOVIES_PER_USER = ALGORITHM_CONFIG.DEFAULT_TOP_MOVIES_PER_USER;
+const MAX_RECOMMENDATIONS = ALGORITHM_CONFIG.DEFAULT_MAX_RECOMMENDATIONS;
 
-// Score weights
-const WEIGHTS = {
-  similarity: 0.5,
-  rating: 0.3,
-  cooccurrence: 0.2,
-};
+// Score weights - using centralized constants
+const WEIGHTS = SCORE_WEIGHTS.TASTE_MATCH;
 
 /**
  * Taste Match recommendation algorithm

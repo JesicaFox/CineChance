@@ -38,7 +38,7 @@ const TMDB_GENRE_COUNT = 19 as const;
  * Returns null for composite/unknown genres (e.g. "Боевик и Приключения").
  * Only the 19 official TMDB genres are counted.
  */
-function normalizeGenreName(name: string): string | null {
+export function normalizeGenreName(name: string): string | null {
   // Already an English TMDB genre — pass through as-is
   if ((TMDB_GENRES as readonly string[]).includes(name)) {
     return name;

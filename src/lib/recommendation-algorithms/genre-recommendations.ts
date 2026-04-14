@@ -15,27 +15,24 @@ import type {
   RecommendationItem,
 } from './interface';
 import { normalizeScores, DEFAULT_COOLDOWN } from './interface';
+import { ALGORITHM_CONFIG, SCORE_WEIGHTS } from './constants';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getSimilarUsers } from '@/lib/taste-map/similarity';
 import { getGenreProfile } from '@/lib/taste-map/redis';
 import { subDays } from 'date-fns';
 
-// Algorithm configuration
+// Algorithm configuration - using shared constants
 const ALGORITHM_NAME = 'genre_recommendations_v1';
-const MIN_USER_HISTORY = 5;
-const DOMINANT_GENRE_THRESHOLD = 50; // Genres with score >= 50 are dominant
-const TOP_DOMINANT_GENRES = 3;
-const MAX_SIMILAR_USERS = 10;
+const MIN_USER_HISTORY = ALGORITHM_CONFIG.DEFAULT_MIN_USER_HISTORY;
+const DOMINANT_GENRE_THRESHOLD = ALGORITHM_CONFIG.DEFAULT_DOMINANT_GENRE_THRESHOLD;
+const TOP_DOMINANT_GENRES = ALGORITHM_CONFIG.DEFAULT_TOP_DOMINANT_GENRES;
+const MAX_SIMILAR_USERS = ALGORITHM_CONFIG.DEFAULT_MAX_SIMILAR_USERS / 2; // 10
 const TOP_MOVIES_PER_USER = 15;
-const MAX_RECOMMENDATIONS = 12;
+const MAX_RECOMMENDATIONS = ALGORITHM_CONFIG.DEFAULT_MAX_RECOMMENDATIONS;
 
-// Score weights
-const WEIGHTS = {
-  genreMatchScore: 0.4,
-  rating: 0.4,
-  userSimilarity: 0.2,
-};
+// Score weights - using centralized constants (same as person recommendations)
+const WEIGHTS = SCORE_WEIGHTS.GENRE_RECOMMENDATIONS;
 
 /**
  * Genre match information for a movie

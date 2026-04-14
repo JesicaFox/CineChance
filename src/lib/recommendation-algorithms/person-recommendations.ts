@@ -17,6 +17,7 @@ import type {
   RecommendationItem,
 } from './interface';
 import { normalizeScores, DEFAULT_COOLDOWN } from './interface';
+import { ALGORITHM_CONFIG, SCORE_WEIGHTS } from './constants';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getPersonProfile } from '@/lib/taste-map/redis';
@@ -25,18 +26,14 @@ import { subDays } from 'date-fns';
 
 // Algorithm configuration
 const ALGORITHM_NAME = 'person_recommendations_v1';
-const MIN_USER_HISTORY = 5; // Lower threshold - works with small history
-const PERSON_SCORE_THRESHOLD = 60; // Minimum score to be considered favorite
-const MAX_SIMILAR_USERS = 10;
+const MIN_USER_HISTORY = ALGORITHM_CONFIG.DEFAULT_MIN_USER_HISTORY;
+const PERSON_SCORE_THRESHOLD = ALGORITHM_CONFIG.DEFAULT_PERSON_SCORE_THRESHOLD;
+const MAX_SIMILAR_USERS = ALGORITHM_CONFIG.DEFAULT_MAX_SIMILAR_USERS / 2; // 10 - fewer users needed for person matching
 const MAX_CANDIDATES_PER_USER = 15;
-const MAX_RECOMMENDATIONS = 12;
+const MAX_RECOMMENDATIONS = ALGORITHM_CONFIG.DEFAULT_MAX_RECOMMENDATIONS;
 
-// Score weights
-const WEIGHTS = {
-  personMatch: 0.4,
-  rating: 0.4,
-  userSimilarity: 0.2,
-};
+// Score weights - using centralized constants (shared with genre recommendations)
+const WEIGHTS = SCORE_WEIGHTS.PERSON_RECOMMENDATIONS;
 
 /**
  * Candidate with person matching information
